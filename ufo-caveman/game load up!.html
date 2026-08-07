@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Ugg &amp; the Undersaucer</title>
+<link rel="stylesheet" href="style.css?v=3" />
+</head>
+<body>
+<div id="wrap">
+  <!-- Everything, including all text and menus, is drawn into this canvas with
+       the game's own pixel font, so the UI matches the art at every scale. -->
+  <canvas id="c" width="960" height="540"></canvas>
+
+  <div id="touch" class="hidden">
+    <div class="tgroup left">
+      <button class="tb" data-key="left" aria-label="Walk left">&#9664;</button>
+      <button class="tb" data-key="right" aria-label="Walk right">&#9654;</button>
+    </div>
+    <div class="tgroup right">
+      <button class="tb big" data-key="thrust" aria-label="Saucer thrust">UFO</button>
+      <button class="tb big" data-key="jump" aria-label="Jump or select">JUMP</button>
+    </div>
+  </div>
+</div>
+
+<script src="game.js?v=3"></script>
+</body>
+</html>

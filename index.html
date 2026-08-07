@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The 13 Dynasties.net</title>
+<!-- GAME_VERSION: bump this number after every change so players get the new
+     files instead of an old cached copy. Run bump-version.ps1 to do it for you. -->
+<link rel="stylesheet" href="style.css?v=14" />
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="game" width="960" height="600"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="stat">
+        <span class="label">Health</span>
+        <div id="hearts-row" class="hearts">
+          <span class="heart-pip" data-i="0"></span>
+          <span class="heart-pip" data-i="1"></span>
+          <span class="heart-pip" data-i="2"></span>
+          <span class="heart-pip" data-i="3"></span>
+          <span class="heart-pip" data-i="4"></span>
+          <span class="heart-pip" data-i="5"></span>
+          <span class="heart-pip" data-i="6"></span>
+          <span class="heart-pip" data-i="7"></span>
+          <span class="heart-pip" data-i="8"></span>
+          <span class="heart-pip" data-i="9"></span>
+        </div>
+      </div>
+      <div class="stat">
+        <span class="label">Hunger</span>
+        <div class="bar"><div id="bar-hunger" class="fill hunger"></div></div>
+      </div>
+      <div class="stat">
+        <span class="label" id="level-label">Lv 1</span>
+        <div class="bar"><div id="bar-xp" class="fill xp"></div></div>
+      </div>
+      <div id="time-readout">
+        <div id="day-label">Day 1</div>
+        <div id="clock-label">6:00 AM</div>
+        <div id="area-label">The Surface</div>
+        <div id="seal-label" class="hidden">Seals 0/3</div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div id="action-hint"></div>
+
+    <div id="craft-panel" class="hidden">
+      <h2>Crafting</h2>
+      <div id="craft-list"></div>
+      <div id="craft-close-hint">Press Esc or C to close</div>
+    </div>
+
+    <div id="upgrade-panel" class="hidden">
+      <h2>Upgrade Bench</h2>
+      <div id="upgrade-list"></div>
+      <div id="upgrade-close-hint">Press Esc or E to close</div>
+    </div>
+
+    <div id="inventory-panel" class="hidden">
+      <h2>Inventory</h2>
+      <div id="inventory-grid"></div>
+      <h2 class="inv-subheading">Tools</h2>
+      <div id="tools-grid"></div>
+      <div id="inventory-close-hint">Press Esc or I to close</div>
+    </div>
+
+    <div id="instructions" class="hidden">
+      WASD: move &nbsp;•&nbsp; Space: gather/attack &nbsp;•&nbsp; F: eat &nbsp;•&nbsp; B: heal &nbsp;•&nbsp; E: interact &nbsp;•&nbsp; C: craft &nbsp;•&nbsp; I: inventory &nbsp;•&nbsp; J: play together &nbsp;•&nbsp; K: skins &nbsp;•&nbsp; 1-6: place &nbsp;•&nbsp; P: save
+    </div>
+
+
+    <div id="gameover" class="hidden end-screen">
+      <h1>You collapsed</h1>
+      <p id="gameover-reason"></p>
+      <p id="gameover-days"></p>
+      <p id="gameover-cost" class="gameover-cost"></p>
+      <div class="end-buttons">
+        <button id="continue-btn">Get Back Up</button>
+        <button id="restart-btn" class="secondary">Start Over</button>
+      </div>
+    </div>
+
+    <div id="victory-screen" class="hidden end-screen">
+      <h1 class="victory-title">You brought your family home</h1>
+      <p id="victory-days"></p>
+      <button id="victory-restart-btn">Play Again</button>
+    </div>
+
+    <div id="cutscene-ui" class="hidden">
+      <div id="cutscene-skip">Press X to skip &nbsp;•&nbsp; Space to continue</div>
+      <div id="cutscene-caption"></div>
+    </div>
+
+    <div id="studio-splash">
+      <canvas id="studio-logo" width="192" height="192"></canvas>
+      <div id="studio-produced">produced by</div>
+      <h1 id="studio-name">THIRSTY BEAR STUDIOS</h1>
+      <div id="studio-claude">built with Claude</div>
+      <div id="studio-also">also makers of <span>UGG</span> and <span>THE UNDERSAUCER</span></div>
+      <div id="studio-skip">click or press any key to continue</div>
+    </div>
+
+    <div id="main-menu" class="hidden">
+      <h1 id="menu-title">THE 13 DYNASTIES<span class="dotnet">.net</span></h1>
+      <p id="menu-tagline">a survival story</p>
+
+      <div id="menu-character">
+        <div class="menu-label">Your character</div>
+        <div id="menu-skin-grid"></div>
+        <input id="menu-name" maxlength="14" placeholder="Name your hero" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div id="menu-actions">
+        <button id="menu-play">Play Alone</button>
+        <button id="menu-host">Host a World</button>
+      </div>
+
+      <div id="menu-join-row">
+        <input id="menu-code" maxlength="12" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" />
+        <button id="menu-join" class="secondary">Join</button>
+        <button id="menu-local" class="secondary">Same PC</button>
+      </div>
+
+      <div id="menu-message"></div>
+      <div id="menu-foot">Everything is free — every skin is unlocked from the start.</div>
+    </div>
+
+    <div id="skin-panel" class="hidden">
+      <h2>Choose Your Look</h2>
+      <div id="skin-grid"></div>
+      <div id="skin-close-hint">Press Esc or K to close</div>
+    </div>
+
+    <div id="net-status" class="hidden"></div>
+
+    <div id="mp-panel" class="hidden">
+      <h2>Play Together</h2>
+      <div id="mp-body">
+        <p class="mp-note">One player hosts. The other joins with the code.</p>
+        <div class="mp-row">
+          <button id="mp-host-btn">Host a World</button>
+          <button id="mp-local-btn" class="secondary">Same Computer</button>
+        </div>
+        <div class="mp-row">
+          <input id="mp-code-input" maxlength="12" placeholder="ENTER CODE" autocomplete="off" spellcheck="false" />
+          <button id="mp-join-btn">Join</button>
+        </div>
+        <div id="mp-code-display" class="hidden">
+          <div class="mp-note">Give this code to your friend:</div>
+          <div id="mp-code"></div>
+        </div>
+        <div id="mp-message"></div>
+      </div>
+      <div id="mp-close-hint">Press Esc or J to close</div>
+    </div>
+  </div>
+
+  <!-- Outside #game-wrap on purpose: the game box gets scaled down on small
+       screens, and these buttons must stay finger-sized regardless. -->
+  <div id="touch-controls" class="hidden">
+    <div id="touch-dpad">
+      <button class="tbtn dpad-up"    data-key="w" aria-label="Move up">▲</button>
+      <button class="tbtn dpad-left"  data-key="a" aria-label="Move left">◀</button>
+      <button class="tbtn dpad-right" data-key="d" aria-label="Move right">▶</button>
+      <button class="tbtn dpad-down"  data-key="s" aria-label="Move down">▼</button>
+    </div>
+    <div id="touch-actions">
+      <button class="tbtn act primary" data-key=" " aria-label="Gather or attack">HIT</button>
+      <button class="tbtn act" data-key="e" aria-label="Interact">E</button>
+      <button class="tbtn act" data-key="f" aria-label="Eat">EAT</button>
+      <button class="tbtn act" data-key="c" aria-label="Crafting">CRAFT</button>
+      <button class="tbtn act" data-key="i" aria-label="Inventory">BAG</button>
+      <button class="tbtn act small" data-key="shift" data-hold="1" aria-label="Sprint">RUN</button>
+    </div>
+  </div>
+
+  <script src="game.js?v=14"></script>
+</body>
+</html>

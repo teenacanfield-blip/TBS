@@ -1,0 +1,2923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scaly Roam — Island</title>
+<style>
+  :root{
+    --ui-bg:#23321f;
+    --ui-text:#eef3e6;
+    --accent:#e8b13f;
+    --accent-dim:#8a6a2c;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:#0d1410;
+    font-family:'Trebuchet MS','Segoe UI',sans-serif;
+  }
+  #wrap{ position:relative; width:100vw; height:100vh; }
+  canvas{ display:block; width:100%; height:100%; }
+
+  #hud{
+    position:absolute; top:14px; left:14px;
+    background:rgba(35,50,31,0.85);
+    color:var(--ui-text);
+    padding:8px 14px;
+    border-radius:10px;
+    font-size:13px;
+    line-height:1.5;
+    pointer-events:none;
+    user-select:none;
+  }
+  #hud b{ color:var(--accent); }
+
+  #hideBanner{
+    position:absolute; top:14px; left:50%; transform:translate(-50%,0);
+    background:var(--accent); color:#332100;
+    padding:6px 16px; border-radius:20px;
+    font-weight:bold; font-size:14px;
+    opacity:0; transition:opacity .2s;
+    pointer-events:none; user-select:none;
+  }
+  #hideBanner.show{ opacity:1; }
+
+  #drownBanner{
+    position:absolute; top:54px; left:50%; transform:translate(-50%,0);
+    background:#2f6fa0; color:#eaf4ff;
+    padding:6px 16px; border-radius:20px;
+    font-weight:bold; font-size:14px;
+    opacity:0; transition:opacity .2s;
+    pointer-events:none; user-select:none;
+  }
+  #drownBanner.show{ opacity:1; }
+
+  #heartsHud{
+    position:absolute; bottom:14px; left:14px;
+    background:rgba(35,50,31,0.85);
+    padding:8px 12px;
+    border-radius:10px;
+    font-size:22px;
+    line-height:1;
+    user-select:none;
+    pointer-events:none;
+  }
+  .meterRow{ letter-spacing:2px; }
+  .meterRow + .meterRow{ margin-top:4px; font-size:18px; }
+  .heart{ display:inline-block; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+  .hunger{ display:inline-block; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+
+  #sleepPrompt{
+    position:absolute; top:94px; left:50%; transform:translate(-50%,0);
+    background:#3a2a18; color:#f0d8a8;
+    padding:6px 16px; border-radius:20px;
+    font-weight:bold; font-size:14px;
+    opacity:0; transition:opacity .2s;
+    pointer-events:none; user-select:none;
+  }
+  #sleepPrompt.show{ opacity:1; }
+
+  #tradePrompt{
+    position:absolute; top:130px; left:50%; transform:translate(-50%,0);
+    background:#4a3a18; color:#f0d8a8;
+    padding:6px 16px; border-radius:20px;
+    font-weight:bold; font-size:14px;
+    opacity:0; transition:opacity .2s;
+    pointer-events:none; user-select:none;
+  }
+  #tradePrompt.show{ opacity:1; }
+
+  #pickupToast{
+    position:absolute; bottom:60px; left:50%; transform:translate(-50%,8px);
+    background:rgba(35,50,31,0.9); color:var(--accent);
+    padding:6px 14px; border-radius:16px;
+    font-weight:bold; font-size:13px;
+    opacity:0; transition:opacity .15s, transform .15s;
+    pointer-events:none; user-select:none;
+  }
+  #pickupToast.show{ opacity:1; transform:translate(-50%,0); }
+
+  #inventoryOverlay{
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    background:rgba(10,15,9,0.55);
+    z-index:30;
+  }
+  #inventoryOverlay.show{ display:flex; }
+  #inventoryPanel{
+    background:rgba(35,50,31,0.96);
+    border:2px solid rgba(232,177,63,0.4);
+    border-radius:18px;
+    padding:20px 26px 24px;
+    color:var(--ui-text);
+    box-shadow:0 12px 40px rgba(0,0,0,0.5);
+    width:340px; max-width:90vw;
+  }
+  #inventoryHeader{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:14px;
+  }
+  #inventoryHeader h2{ margin:0; font-size:19px; color:var(--accent); }
+  #closeInventoryBtn{
+    background:none; border:1px solid rgba(255,255,255,0.3);
+    color:var(--ui-text); border-radius:8px;
+    width:28px; height:28px; cursor:pointer; font-size:14px;
+  }
+  #closeInventoryBtn:hover{ background:rgba(255,255,255,0.1); }
+  #inventoryGrid{
+    display:grid; grid-template-columns:repeat(3, 1fr);
+    gap:10px; margin-bottom:18px;
+  }
+  .invSlot{
+    background:rgba(0,0,0,0.25);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:10px;
+    padding:10px 6px;
+    text-align:center;
+  }
+  .invIcon{ font-size:24px; }
+  .invLabel{ font-size:11px; opacity:0.75; margin-top:2px; }
+  .invCount{ font-size:16px; font-weight:bold; color:var(--accent); margin-top:2px; }
+
+  #craftingSection h3, #toolsSection h3{
+    margin:0 0 8px; font-size:14px; opacity:0.85;
+    border-top:1px solid rgba(255,255,255,0.12); padding-top:14px;
+  }
+  #craftRecipeRow, #craftFireRow{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(0,0,0,0.2);
+    border-radius:10px; padding:8px 10px;
+  }
+  #craftFireRow{ margin-top:8px; }
+  .recipeIcon{ font-size:26px; }
+  .recipeInfo{ flex:1; text-align:left; }
+  .recipeName{ font-size:13px; font-weight:bold; }
+  .recipeCost{ font-size:11px; opacity:0.75; margin-top:2px; }
+  #craftTentBtn, #craftFireBtn{
+    background:var(--accent); color:#332100; border:none;
+    padding:8px 14px; border-radius:14px;
+    font-weight:bold; font-size:12px; cursor:pointer;
+  }
+  #craftTentBtn:disabled, #craftFireBtn:disabled{
+    background:#5a5a4a; color:#9a9a8a; cursor:not-allowed;
+  }
+  #craftTentBtn:not(:disabled):hover, #craftFireBtn:not(:disabled):hover{ filter:brightness(1.08); }
+  .invHint{
+    margin:14px 0 0; font-size:10.5px; opacity:0.6; text-align:center;
+  }
+
+  #toolsGrid{
+    display:grid; grid-template-columns:repeat(3, 1fr);
+    gap:8px; margin-bottom:6px;
+  }
+  .toolBadge{
+    background:rgba(0,0,0,0.25);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:10px;
+    padding:8px 4px;
+    text-align:center;
+    opacity:0.4;
+    filter:grayscale(1);
+  }
+  .toolBadge.owned{
+    opacity:1; filter:none;
+    border-color:rgba(232,177,63,0.5);
+    background:rgba(232,177,63,0.1);
+  }
+  .toolIcon{ font-size:22px; }
+  .toolLabel{ font-size:10px; opacity:0.8; margin-top:2px; }
+
+  #tradeOverlay{
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    background:rgba(10,15,9,0.55);
+    z-index:30;
+  }
+  #tradeOverlay.show{ display:flex; }
+  #tradePanel{
+    background:rgba(40,32,18,0.96);
+    border:2px solid rgba(232,177,63,0.4);
+    border-radius:18px;
+    padding:20px 26px 24px;
+    color:var(--ui-text);
+    box-shadow:0 12px 40px rgba(0,0,0,0.5);
+    width:340px; max-width:90vw;
+    max-height:80vh;
+    overflow-y:auto;
+  }
+  .tradeGoldLine{
+    margin:0 0 12px; font-size:13px; color:var(--accent); font-weight:bold;
+  }
+  #tradePanel h3{
+    margin:14px 0 8px; font-size:13px; opacity:0.85;
+    border-top:1px solid rgba(255,255,255,0.12); padding-top:12px;
+  }
+  #tradePanel h3:first-of-type{ margin-top:0; border-top:none; padding-top:0; }
+  .tradeRow{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(0,0,0,0.2);
+    border-radius:10px; padding:8px 10px;
+    margin-bottom:6px;
+  }
+  .tradeIcon{ font-size:22px; }
+  .tradeInfo{ flex:1; text-align:left; }
+  .tradeName{ font-size:12.5px; font-weight:bold; }
+  .tradeSub{ font-size:10.5px; opacity:0.7; margin-top:1px; }
+  .sellBtn, .buyBtn{
+    border:none; border-radius:14px;
+    padding:7px 12px; font-weight:bold; font-size:11px; cursor:pointer;
+    white-space:nowrap;
+  }
+  .sellBtn{ background:#4a8a5a; color:#eafff0; }
+  .buyBtn{ background:var(--accent); color:#332100; }
+  .sellBtn:disabled, .buyBtn:disabled{
+    background:#5a5a4a; color:#9a9a8a; cursor:not-allowed;
+  }
+  .sellBtn:not(:disabled):hover, .buyBtn:not(:disabled):hover{ filter:brightness(1.08); }
+
+  #gameOverOverlay{
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    background:rgba(20,5,5,0.7);
+    z-index:40;
+  }
+  #gameOverOverlay.show{ display:flex; }
+  #gameOverPanel{
+    background:rgba(40,18,18,0.95);
+    border:2px solid rgba(220,60,60,0.5);
+    border-radius:18px;
+    padding:30px 40px 34px;
+    text-align:center;
+    color:#f5e6e6;
+    box-shadow:0 12px 40px rgba(0,0,0,0.6);
+    max-width:90vw;
+  }
+  #gameOverPanel h1{
+    margin:0 0 10px; font-size:30px; color:#ff6a6a;
+  }
+  #gameOverPanel p{
+    margin:0 0 20px; font-size:13px; opacity:0.85;
+  }
+  #restartBtn{
+    background:#d64545; color:#fff0f0; border:none;
+    padding:11px 26px; border-radius:22px;
+    font-weight:bold; font-size:14px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+  }
+  #restartBtn:hover{ filter:brightness(1.1); }
+  #restartBtn:active{ transform:translateY(1px); }
+
+  #regenBtn{
+    position:absolute; top:14px; right:14px;
+    background:var(--accent); color:#332100; border:none;
+    padding:8px 14px; border-radius:10px;
+    font-weight:bold; font-size:13px; cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+  }
+  #regenBtn:hover{ filter:brightness(1.08); }
+  #regenBtn:active{ transform:translateY(1px); }
+
+  #controls{
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    background:rgba(35,50,31,0.85);
+    color:var(--ui-text);
+    padding:7px 16px;
+    border-radius:10px;
+    font-size:12px;
+    text-align:center;
+    user-select:none;
+    pointer-events:none;
+    max-width:90vw;
+  }
+
+  #gamepadDot{
+    display:inline-block;
+    width:8px; height:8px; border-radius:50%;
+    background:#555; margin-right:6px;
+    vertical-align:middle;
+  }
+  #gamepadDot.on{ background:#4fd673; }
+
+  #loading{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ui-text);
+    font-size:16px;
+    background:#0d1410;
+    z-index:10;
+  }
+
+  #startScreen{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 30%, #2e4a2a, #0d1410 75%);
+    z-index:20;
+  }
+  #startScreen.hidden{ display:none; }
+  #startPanel{
+    background:rgba(35,50,31,0.92);
+    border:2px solid rgba(232,177,63,0.4);
+    border-radius:18px;
+    padding:28px 36px 32px;
+    text-align:center;
+    color:var(--ui-text);
+    box-shadow:0 12px 40px rgba(0,0,0,0.5);
+    max-width:90vw;
+  }
+  #startPanel h1{
+    margin:0 0 4px; font-size:26px;
+    color:var(--accent);
+    letter-spacing:0.5px;
+  }
+  #startPanel .subtitle{
+    margin:0 0 14px; font-size:13px; opacity:0.85;
+  }
+  #startPanel .hint{
+    margin:8px 0 18px; font-size:11px; opacity:0.65;
+  }
+  #colorPreview{
+    width:54px; height:54px;
+    border-radius:50%;
+    margin:0 auto 12px;
+    border:3px solid rgba(255,255,255,0.5);
+    box-shadow:0 3px 10px rgba(0,0,0,0.4);
+    transition:background-color 0.1s;
+  }
+  #hueWheel{
+    border-radius:50%;
+    cursor:pointer;
+    touch-action:none;
+    box-shadow:0 4px 14px rgba(0,0,0,0.4);
+  }
+  #startBtn{
+    display:block;
+    margin:18px auto 0;
+    background:var(--accent); color:#332100; border:none;
+    padding:12px 28px; border-radius:24px;
+    font-weight:bold; font-size:15px; cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.35);
+  }
+  #startBtn:hover{ filter:brightness(1.08); }
+  #startBtn:active{ transform:translateY(1px); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="loading">🦎 loading the island…</div>
+
+  <div id="startScreen">
+    <div id="startPanel">
+      <h1>🦎 Scaly Roam</h1>
+      <p class="subtitle">Pick your lizard's color</p>
+      <div id="colorPreview"></div>
+      <canvas id="hueWheel" width="220" height="220"></canvas>
+      <p class="hint">Tap or drag anywhere on the wheel</p>
+      <button id="startBtn">Start Adventure</button>
+    </div>
+  </div>
+
+  <canvas id="game"></canvas>
+  <div id="hud">🦎 <b>Scaly Roam</b><br><span id="clockIcon">☀️</span> <span id="clockLabel">--:-- AM</span><br>🐸 Frogs licked: <span id="frogKills">0</span> · remaining: <span id="frogsLeft">0</span><br>🪵 <span id="invSticks">0</span> &nbsp; 🧵 <span id="invCloth">0</span> &nbsp; 🪙 <span id="invGold">0</span><br><span id="gamepadDot"></span><span id="gamepadLabel">Keyboard</span></div>
+  <div id="heartsHud">
+    <div class="meterRow">
+      <span class="heart" id="heart1">❤️</span><span class="heart" id="heart2">❤️</span><span class="heart" id="heart3">❤️</span>
+    </div>
+    <div class="meterRow">
+      <span class="hunger" id="hunger1">🍗</span><span class="hunger" id="hunger2">🍗</span>
+    </div>
+  </div>
+  <div id="hideBanner">🌿 Hidden in the bush!</div>
+  <div id="drownBanner">🌊 Drowning! Respawning...</div>
+  <div id="sleepPrompt">🏕️ Press <b>E</b> to sleep in the tent</div>
+  <div id="tradePrompt">🪙 Press <b>T</b> to trade</div>
+  <div id="pickupToast"></div>
+  <button id="regenBtn">🔄 New Island</button>
+  <div id="controls">
+    Walk: <b>W/S</b> or <b>↑/↓</b> &nbsp;·&nbsp; Turn: <b>A/D</b> or <b>←/→</b> &nbsp;·&nbsp; <b>left stick</b> &nbsp;·&nbsp;
+    Jump: <b>Space</b> / <b>A button</b> &nbsp;·&nbsp;
+    Hide: <b>Ctrl</b> / <b>B button</b> &nbsp;·&nbsp;
+    Lick: <b>Q</b> / <b>Y button</b> &nbsp;·&nbsp;
+    Chop (axe): <b>C C</b> &nbsp;·&nbsp;
+    Farm (hoe): <b>V</b> &nbsp;·&nbsp;
+    Eat: <b>F</b> &nbsp;·&nbsp;
+    Inventory: <b>I</b> &nbsp;·&nbsp;
+    Sleep: <b>E</b> &nbsp;·&nbsp;
+    Trade: <b>T</b> &nbsp;·&nbsp;
+    Press <b>G</b> for controller debug info
+  </div>
+
+  <div id="inventoryOverlay">
+    <div id="inventoryPanel">
+      <div id="inventoryHeader">
+        <h2>🎒 Inventory</h2>
+        <button id="closeInventoryBtn">✕</button>
+      </div>
+      <div id="inventoryGrid">
+        <div class="invSlot">
+          <div class="invIcon">🪵</div>
+          <div class="invLabel">Sticks</div>
+          <div class="invCount" id="invSlotSticks">0</div>
+        </div>
+        <div class="invSlot">
+          <div class="invIcon">🧵</div>
+          <div class="invLabel">Cloth</div>
+          <div class="invCount" id="invSlotCloth">0</div>
+        </div>
+        <div class="invSlot">
+          <div class="invIcon">🪙</div>
+          <div class="invLabel">Gold</div>
+          <div class="invCount" id="invSlotGold">0</div>
+        </div>
+        <div class="invSlot">
+          <div class="invIcon">🍗</div>
+          <div class="invLabel">Food</div>
+          <div class="invCount" id="invSlotFood">0</div>
+        </div>
+        <div class="invSlot">
+          <div class="invIcon">⛺</div>
+          <div class="invLabel">Tents</div>
+          <div class="invCount" id="invSlotTents">0</div>
+        </div>
+      </div>
+
+      <div id="toolsSection">
+        <h3>Tools</h3>
+        <div id="toolsGrid">
+          <div class="toolBadge" id="tool_axe"><div class="toolIcon">🪓</div><div class="toolLabel">Axe</div></div>
+          <div class="toolBadge" id="tool_hoe"><div class="toolIcon">⛏️</div><div class="toolLabel">Hoe</div></div>
+          <div class="toolBadge" id="tool_scuba"><div class="toolIcon">🤿</div><div class="toolLabel">Scuba</div></div>
+        </div>
+        <p class="invHint">Buy tools from the trader with gold</p>
+      </div>
+
+      <div id="craftingSection">
+        <h3>Crafting</h3>
+        <div id="craftRecipeRow">
+          <div class="recipeIcon">⛺</div>
+          <div class="recipeInfo">
+            <div class="recipeName">Tent</div>
+            <div class="recipeCost">🪵 ×3 &nbsp; 🧵 ×2</div>
+          </div>
+          <button id="craftTentBtn">Craft</button>
+        </div>
+        <div id="craftFireRow" style="display:none;">
+          <div class="recipeIcon">🔥</div>
+          <div class="recipeInfo">
+            <div class="recipeName">Campfire</div>
+            <div class="recipeCost">🪵 ×4</div>
+          </div>
+          <button id="craftFireBtn">Craft</button>
+        </div>
+      </div>
+      <p class="invHint">Lick bushes for cloth · walk over sticks to collect them · chop trees with the axe (CC) · farm near water with the hoe (V)</p>
+    </div>
+  </div>
+
+  <div id="tradeOverlay">
+    <div id="tradePanel">
+      <div id="inventoryHeader">
+        <h2>🪙 Trader</h2>
+        <button id="closeTradeBtn">✕</button>
+      </div>
+      <p class="tradeGoldLine">Your gold: <span id="tradeGold">0</span> 🪙</p>
+
+      <h3>Sell resources</h3>
+      <div class="tradeRow">
+        <div class="tradeIcon">🪵</div>
+        <div class="tradeInfo"><div class="tradeName">Sticks</div><div class="tradeSub">You have: <span id="sell_sticks_count">0</span></div></div>
+        <button id="sell_sticks_btn" class="sellBtn">Sell (1🪙)</button>
+      </div>
+      <div class="tradeRow">
+        <div class="tradeIcon">🧵</div>
+        <div class="tradeInfo"><div class="tradeName">Cloth</div><div class="tradeSub">You have: <span id="sell_cloth_count">0</span></div></div>
+        <button id="sell_cloth_btn" class="sellBtn">Sell (2🪙)</button>
+      </div>
+      <div class="tradeRow">
+        <div class="tradeIcon">🍗</div>
+        <div class="tradeInfo"><div class="tradeName">Food</div><div class="tradeSub">You have: <span id="sell_food_count">0</span></div></div>
+        <button id="sell_food_btn" class="sellBtn">Sell (2🪙)</button>
+      </div>
+
+      <h3>Buy tools</h3>
+      <div class="tradeRow">
+        <div class="tradeIcon">🪓</div>
+        <div class="tradeInfo"><div class="tradeName">Axe</div><div class="tradeSub">Chop trees for sticks</div></div>
+        <button id="buy_axe_btn" class="buyBtn">Buy (12🪙)</button>
+      </div>
+      <div class="tradeRow">
+        <div class="tradeIcon">⛏️</div>
+        <div class="tradeInfo"><div class="tradeName">Hoe</div><div class="tradeSub">Farm near water</div></div>
+        <button id="buy_hoe_btn" class="buyBtn">Buy (10🪙)</button>
+      </div>
+      <div class="tradeRow">
+        <div class="tradeIcon">🤿</div>
+        <div class="tradeInfo"><div class="tradeName">Scuba Mask</div><div class="tradeSub">Swim safely, dive for gold</div></div>
+        <button id="buy_scuba_btn" class="buyBtn">Buy (15🪙)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameOverOverlay">
+    <div id="gameOverPanel">
+      <h1>💀 Game Over</h1>
+      <p>The zombie frogs got you in the night...</p>
+      <button id="restartBtn">Restart</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  // ---------------------------------------------------------------------
+  // Setup
+  // ---------------------------------------------------------------------
+  const canvas = document.getElementById('game');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.BasicShadowMap;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9fd8c8);
+  scene.fog = new THREE.Fog(0x9fd8c8, 22, 60);
+
+  const ISLAND_RADIUS = 26;
+  const GROUND_SURFACE_Y = 1.0; // height of the island's top surface in world space
+
+  // Third-person perspective camera, follows behind the lizard
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
+  const camFollowDistance = 3.4;   // how far behind the lizard
+  const camFollowHeight = 2.0;     // how high above the lizard
+  const camLookAhead = 1.0;        // look slightly ahead of the lizard
+  const camLerpSpeed = 6;          // how snappily the camera catches up
+
+  function resize(){
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------------------------------------------------------------------
+  // Lighting
+  // ---------------------------------------------------------------------
+  const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x3a4a2e, 0.8);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff3d6, 1.0);
+  sun.position.set(14, 22, 10);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -ISLAND_RADIUS - 4;
+  sun.shadow.camera.right = ISLAND_RADIUS + 4;
+  sun.shadow.camera.top = ISLAND_RADIUS + 4;
+  sun.shadow.camera.bottom = -ISLAND_RADIUS - 4;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 60;
+  sun.shadow.bias = -0.0015;
+  sun.shadow.camera.updateProjectionMatrix();
+  const sunTarget = new THREE.Object3D();
+  scene.add(sunTarget);
+  sun.target = sunTarget;
+
+  // A second, dim, cool light stands in for moonlight at night so the
+  // island is never pitch black and the lizard stays visible.
+  const moon = new THREE.DirectionalLight(0x8fb0e8, 0);
+  moon.position.set(-12, 18, -8);
+  const moonTarget = new THREE.Object3D();
+  scene.add(moonTarget);
+  moon.target = moonTarget;
+  scene.add(moon);
+
+  const sunDirection = new THREE.Vector3(0.6, 0.8, 0.45);
+  const moonDirection = new THREE.Vector3(-0.6, 0.6, -0.3);
+
+  // -----------------------------------------------------------------
+  // Day / night cycle
+  // -----------------------------------------------------------------
+  // A full day/night cycle takes 24 in-game minutes (12 minutes of day,
+  // 12 minutes of night), matching real-world minutes 1:1 to in-game hours.
+  const DAY_NIGHT_CYCLE_SECONDS = 24 * 60; // 1440 real seconds = 24 in-game hours
+  let gameClock = DAY_NIGHT_CYCLE_SECONDS * 0.27; // start a bit into morning, not at midnight
+  let dayCounter = 1; // in-game day number, starts at Day 1
+
+  // Keyframes across one full cycle (0 = midnight, 0.5 = noon, 1 = next midnight).
+  // Each stop defines sky color, fog color, hemisphere sky/ground tint,
+  // sun/moon color + intensity, so the whole look interpolates smoothly.
+  const dayNightStops = [
+    { t:0.00, sky:0x0a1530, fog:0x0a1530, hemiSky:0x16224a, hemiGround:0x0b1410, sunColor:0x33508f, sunI:0.0, moonI:0.35, ambient:0.18 },
+    { t:0.20, sky:0x16224f, fog:0x16224f, hemiSky:0x223266, hemiGround:0x10180f, sunColor:0x4a6aa8, sunI:0.0, moonI:0.3,  ambient:0.2  },
+    { t:0.27, sky:0xe8a567, fog:0xe8a567, hemiSky:0xf0b878, hemiGround:0x3a3320, sunColor:0xffb866, sunI:0.55, moonI:0.0, ambient:0.55 }, // sunrise
+    { t:0.5,  sky:0x9fd8c8, fog:0x9fd8c8, hemiSky:0xbfe3ff, hemiGround:0x3a4a2e, sunColor:0xfff3d6, sunI:1.0, moonI:0.0, ambient:0.8  }, // noon
+    { t:0.73, sky:0xe8835a, fog:0xe8835a, hemiSky:0xf09a6a, hemiGround:0x3a2a20, sunColor:0xff9a5a, sunI:0.5, moonI:0.0, ambient:0.5  }, // sunset
+    { t:0.80, sky:0x16224f, fog:0x16224f, hemiSky:0x223266, hemiGround:0x10180f, sunColor:0x4a6aa8, sunI:0.0, moonI:0.3,  ambient:0.2  },
+    { t:1.00, sky:0x0a1530, fog:0x0a1530, hemiSky:0x16224a, hemiGround:0x0b1410, sunColor:0x33508f, sunI:0.0, moonI:0.35, ambient:0.18 },
+  ];
+
+  const _c1 = new THREE.Color(), _c2 = new THREE.Color(), _cOut = new THREE.Color();
+  let isNight = false;
+  const NIGHT_START_T = 0.78; // matches the moon-icon threshold in updateClockHud
+  const NIGHT_END_T = 0.23;
+
+  function lerpStops(getField, t){
+    for (let i=0;i<dayNightStops.length-1;i++){
+      const a = dayNightStops[i], b = dayNightStops[i+1];
+      if (t >= a.t && t <= b.t){
+        const localT = (t - a.t) / (b.t - a.t || 1);
+        return { a, b, localT };
+      }
+    }
+    return { a: dayNightStops[0], b: dayNightStops[0], localT: 0 };
+  }
+
+  function updateDayNightCycle(dt){
+    const prevClock = gameClock;
+    gameClock = (gameClock + dt) % DAY_NIGHT_CYCLE_SECONDS;
+    if (gameClock < prevClock){
+      // wrapped past midnight — a new in-game day has begun
+      dayCounter++;
+    }
+    const t = gameClock / DAY_NIGHT_CYCLE_SECONDS; // 0..1 across the full cycle
+
+    const { a, b, localT } = lerpStops(null, t);
+
+    _c1.set(a.sky); _c2.set(b.sky); _cOut.copy(_c1).lerp(_c2, localT);
+    scene.background.copy(_cOut);
+    scene.fog.color.copy(_cOut);
+
+    _c1.set(a.hemiSky); _c2.set(b.hemiSky); _cOut.copy(_c1).lerp(_c2, localT);
+    hemi.color.copy(_cOut);
+    _c1.set(a.hemiGround); _c2.set(b.hemiGround); _cOut.copy(_c1).lerp(_c2, localT);
+    hemi.groundColor.copy(_cOut);
+    hemi.intensity = THREE.MathUtils.lerp(a.ambient, b.ambient, localT);
+
+    _c1.set(a.sunColor); _c2.set(b.sunColor); _cOut.copy(_c1).lerp(_c2, localT);
+    sun.color.copy(_cOut);
+    sun.intensity = THREE.MathUtils.lerp(a.sunI, b.sunI, localT);
+    moon.intensity = THREE.MathUtils.lerp(a.moonI, b.moonI, localT);
+
+    // sweep the sun and moon across the sky on a simple arc tied to time of
+    // day; stored as direction vectors so the per-frame player-follow code
+    // can offset them from the lizard's position for sharp nearby shadows
+    const sunAngle = (t - 0.25) * Math.PI * 2; // sun rises ~0.25 (6am), peaks at 0.5 (noon)
+    sunDirection.set(Math.cos(sunAngle), Math.max(0.05, Math.sin(sunAngle)), 0.45).normalize();
+    const moonAngle = sunAngle + Math.PI;
+    moonDirection.set(Math.cos(moonAngle), Math.max(0.05, Math.sin(moonAngle)), -0.3).normalize();
+
+    updateClockHud(t);
+
+    const wasNight = isNight;
+    isNight = (t < NIGHT_END_T || t > NIGHT_START_T);
+    if (isNight !== wasNight){
+      onDayNightTransition(isNight);
+    }
+  }
+
+  function updateClockHud(t){
+    const totalHours = t * 24;
+    let hour = Math.floor(totalHours);
+    const minute = Math.floor((totalHours - hour) * 60);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    let hour12 = hour % 12; if (hour12 === 0) hour12 = 12;
+    const label = `${hour12}:${String(minute).padStart(2,'0')} ${ampm}`;
+    const el = document.getElementById('clockLabel');
+    if (el) el.textContent = `Day ${dayCounter} · ${label}`;
+    const icon = document.getElementById('clockIcon');
+    if (icon) icon.textContent = (t < 0.23 || t > 0.78) ? '🌙' : (t < 0.3 || t > 0.7) ? '🌅' : '☀️';
+  }
+  scene.add(sun);
+
+  // ---------------------------------------------------------------------
+  // Water + Island
+  // ---------------------------------------------------------------------
+  const waterGeo = new THREE.PlaneGeometry(200, 200, 1, 1);
+  const waterMat = new THREE.MeshLambertMaterial({ color:0x3f8db0, roughness:0.35, metalness:0.05 });
+  const water = new THREE.Mesh(waterGeo, waterMat);
+  water.rotation.x = -Math.PI/2;
+  water.position.y = -0.6;
+  water.receiveShadow = true;
+  scene.add(water);
+
+  const islandGroup = new THREE.Group();
+  scene.add(islandGroup);
+
+  function buildIsland(){
+    // sandy beach ring (slightly larger, lower)
+    const sandGeo = new THREE.CylinderGeometry(ISLAND_RADIUS+1.6, ISLAND_RADIUS+2.2, 1.0, 12);
+    const sandMat = new THREE.MeshLambertMaterial({ color:0xe8d6a0, roughness:0.95 });
+    const sand = new THREE.Mesh(sandGeo, sandMat);
+    sand.position.y = -0.35;
+    sand.receiveShadow = true;
+    islandGroup.add(sand);
+
+    // grassy top — slightly irregular edge via lathe-ish bumpy cylinder
+    const segs = 14;
+    const grassGeo = new THREE.CylinderGeometry(ISLAND_RADIUS, ISLAND_RADIUS+0.6, 1.4, segs, 1, false);
+    const pos = grassGeo.attributes.position;
+    for (let i=0;i<pos.count;i++){
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      if (y > 0){
+        const ang = Math.atan2(z, x);
+        const bump = Math.sin(ang*5)*0.4 + Math.sin(ang*9)*0.2;
+        const r = Math.sqrt(x*x+z*z);
+        const scale = (r + bump) / (r || 1);
+        pos.setX(i, x*scale);
+        pos.setZ(i, z*scale);
+      }
+    }
+    grassGeo.computeVertexNormals();
+    const grassMat = new THREE.MeshLambertMaterial({ color:0x7ba858 });
+    const grass = new THREE.Mesh(grassGeo, grassMat);
+    grass.position.y = 0.3;
+    grass.receiveShadow = true;
+    grass.castShadow = false;
+    islandGroup.add(grass);
+
+    return grassGeo; // for edge sampling later
+  }
+  buildIsland();
+
+  function islandEdgeFalloff(x, z){
+    // matches the bump function above approx, used to keep objects inside
+    const ang = Math.atan2(z, x);
+    const bump = Math.sin(ang*5)*0.4 + Math.sin(ang*9)*0.2;
+    return ISLAND_RADIUS + bump - 1.0; // margin so nothing pokes off edge
+  }
+
+  function randomPointOnIsland(minR, maxR){
+    let ang, r, edge;
+    do {
+      ang = Math.random()*Math.PI*2;
+      r = Math.sqrt(Math.random()) * maxR;
+      edge = islandEdgeFalloff(Math.cos(ang)*r, Math.sin(ang)*r);
+    } while (r < minR || r > edge);
+    return { x: Math.cos(ang)*r, z: Math.sin(ang)*r };
+  }
+
+  // ---------------------------------------------------------------------
+  // Trees & Bushes (random generation)
+  // ---------------------------------------------------------------------
+  const obstacles = []; // {x,z,radius,type,mesh,bushTop?}
+  let propsGroup = new THREE.Group();
+  scene.add(propsGroup);
+
+  function makeTree(scaleFactor){
+    const g = new THREE.Group();
+    const trunkH = THREE.MathUtils.randFloat(1.6, 2.6) * scaleFactor;
+    const trunkR = THREE.MathUtils.randFloat(0.16, 0.24) * scaleFactor;
+    const trunkMat = new THREE.MeshLambertMaterial({ color:0x8a6238, roughness:0.95 });
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(trunkR*0.8, trunkR, trunkH, 6), trunkMat);
+    trunk.position.y = trunkH/2;
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    g.add(trunk);
+
+    const leafColors = [0x4a9a4f, 0x3f8a47, 0x57a85a];
+    const leafMat = new THREE.MeshLambertMaterial({ color: leafColors[Math.floor(Math.random()*leafColors.length)], roughness:0.85 });
+    const canopyR = THREE.MathUtils.randFloat(0.9, 1.4) * scaleFactor;
+    const blobs = 3;
+    for (let i=0;i<blobs;i++){
+      const r = canopyR * THREE.MathUtils.randFloat(0.65, 1);
+      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leafMat);
+      blob.position.set(
+        THREE.MathUtils.randFloatSpread(canopyR*0.8),
+        trunkH + canopyR*0.5 + THREE.MathUtils.randFloatSpread(canopyR*0.4),
+        THREE.MathUtils.randFloatSpread(canopyR*0.8)
+      );
+      blob.castShadow = true;
+      blob.receiveShadow = true;
+      g.add(blob);
+    }
+    g.userData.collisionRadius = trunkR + 0.12;
+    g.userData.type = 'tree';
+    return g;
+  }
+
+  function makeBush(scaleFactor){
+    const g = new THREE.Group();
+    const bushColors = [0x4f9e58, 0x468f4d, 0x59ab5f];
+    const mat = new THREE.MeshLambertMaterial({ color: bushColors[Math.floor(Math.random()*bushColors.length)], roughness:0.9 });
+    const lobes = Math.floor(THREE.MathUtils.randFloat(3,5));
+    const baseR = THREE.MathUtils.randFloat(0.55, 0.85) * scaleFactor;
+    for (let i=0;i<lobes;i++){
+      const ang = (i/lobes) * Math.PI*2;
+      const r = baseR * THREE.MathUtils.randFloat(0.6, 0.9);
+      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), mat);
+      blob.position.set(
+        Math.cos(ang)*baseR*0.45,
+        r*0.7,
+        Math.sin(ang)*baseR*0.45
+      );
+      blob.castShadow = true;
+      blob.receiveShadow = true;
+      g.add(blob);
+    }
+    g.userData.collisionRadius = baseR * 0.9;
+    g.userData.type = 'bush';
+    g.userData.hideRadius = baseR * 1.1;
+    return g;
+  }
+
+  function makePond(radius){
+    const g = new THREE.Group();
+    // a low-poly flat disc with a slightly darker rim ring, blocky N64-style
+    const waterColor = 0x2f7aa0;
+    const rimColor = 0xc9b176; // muddy sand rim
+    const pondMat = new THREE.MeshLambertMaterial({ color: waterColor, transparent:true, opacity:0.92 });
+    const rimMat = new THREE.MeshLambertMaterial({ color: rimColor });
+
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius*1.18, radius*1.18, 0.08, 10), rimMat);
+    rim.position.y = -0.02;
+    rim.receiveShadow = true;
+    g.add(rim);
+
+    const surface = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.06, 10), pondMat);
+    surface.position.y = 0.02;
+    surface.receiveShadow = true;
+    g.add(surface);
+
+    g.userData.type = 'pond';
+    g.userData.waterMat = pondMat;
+    return g;
+  }
+
+  function clearProps(){
+    scene.remove(propsGroup);
+    propsGroup = new THREE.Group();
+    scene.add(propsGroup);
+    obstacles.length = 0;
+  }
+
+  function tooClose(x, z, minDist){
+    return obstacles.some(o => {
+      const dx = o.x-x, dz = o.z-z;
+      return Math.sqrt(dx*dx+dz*dz) < minDist;
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // Frogs — hopping enemies, defeated by licking
+  // -----------------------------------------------------------------
+  const frogs = [];
+  let frogsGroup = new THREE.Group();
+  scene.add(frogsGroup);
+
+  function makeFrog(size){
+    // size: 'small' or 'big'
+    const g = new THREE.Group();
+    const scale = size === 'big' ? THREE.MathUtils.randFloat(1.3, 1.5) : THREE.MathUtils.randFloat(0.75, 0.95);
+    const bodyColor = size === 'big' ? 0x4a8a3a : 0x6fb84f;
+    const bellyColor = size === 'big' ? 0xb8d68a : 0xd6f0b0;
+    const mat = new THREE.MeshLambertMaterial({ color:bodyColor });
+    const bellyMat = new THREE.MeshLambertMaterial({ color:bellyColor });
+    const eyeMat = new THREE.MeshLambertMaterial({ color:0x1c1c1c });
+
+    // Zombie variants — used at night. Darker, sickly body, glowing red eyes.
+    const zombieBodyColor = size === 'big' ? 0x2e3a26 : 0x3a4a2e;
+    const zombieBellyColor = size === 'big' ? 0x4a5a3a : 0x566842;
+    const zombieMat = new THREE.MeshLambertMaterial({ color:zombieBodyColor });
+    const zombieBellyMat = new THREE.MeshLambertMaterial({ color:zombieBellyColor });
+    const zombieEyeMat = new THREE.MeshLambertMaterial({ color:0xd61f1f, emissive:0xaa1010, emissiveIntensity:0.6 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5*scale, 0.34*scale, 0.4*scale), mat);
+    body.position.y = 0.22*scale;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    g.add(body);
+
+    const belly = new THREE.Mesh(new THREE.BoxGeometry(0.36*scale, 0.14*scale, 0.3*scale), bellyMat);
+    belly.position.set(0, 0.1*scale, 0.04*scale);
+    g.add(belly);
+
+    const pupils = [];
+    const eyeBumps = [];
+    [ -1, 1 ].forEach(side=>{
+      const eyeBump = new THREE.Mesh(new THREE.BoxGeometry(0.16*scale, 0.16*scale, 0.16*scale), mat);
+      eyeBump.position.set(0.1*scale, 0.4*scale, 0.16*scale*side);
+      g.add(eyeBump);
+      eyeBumps.push(eyeBump);
+      const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.07*scale, 0.07*scale, 0.07*scale), eyeMat);
+      pupil.position.set(0.17*scale, 0.42*scale, 0.16*scale*side);
+      g.add(pupil);
+      pupils.push(pupil);
+    });
+
+    // legs — blocky stumps (simple shapes, will be animated)
+    const legMat = mat;
+    const legs = [];
+    [ -1, 1 ].forEach(side=>{
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1*scale, 0.3*scale, 0.12*scale), legMat);
+      leg.position.set(-0.2*scale, 0.1*scale, 0.22*scale*side);
+      leg.rotation.z = 0.5*side;
+      leg.castShadow = true;
+      g.add(leg);
+      legs.push(leg);
+    });
+
+    g.userData.legs = legs;
+    g.userData.scale = scale;
+    g.userData.bodyMesh = body;
+    g.userData.bellyMesh = belly;
+    g.userData.pupils = pupils;
+    g.userData.eyeBumps = eyeBumps;
+    g.userData.normalMats = { body:mat, belly:bellyMat, eye:eyeMat };
+    g.userData.zombieMats = { body:zombieMat, belly:zombieBellyMat, eye:zombieEyeMat };
+    return g;
+  }
+
+  // Swap a frog's materials between its normal daytime look and its
+  // zombie nighttime look. Reuses the same geometry, so this is cheap
+  // and instant — no rebuild needed.
+  function setFrogZombie(f, zombie){
+    const mesh = f.mesh;
+    const mats = zombie ? mesh.userData.zombieMats : mesh.userData.normalMats;
+    mesh.userData.bodyMesh.material = mats.body;
+    mesh.userData.bellyMesh.material = mats.belly;
+    mesh.userData.pupils.forEach(p=>{ p.material = mats.eye; });
+    mesh.userData.legs.forEach(leg=>{ leg.material = mats.body; });
+    mesh.userData.eyeBumps.forEach(b=>{ b.material = mats.body; });
+    f.zombie = zombie;
+  }
+
+  function randomFrogSize(){
+    return Math.random() < 0.35 ? 'big' : 'small';
+  }
+
+  function spawnFrog(){
+    const p = randomPointOnIsland(2, ISLAND_RADIUS - 2);
+    const size = randomFrogSize();
+    const mesh = makeFrog(size);
+    mesh.position.set(p.x, GROUND_SURFACE_Y, p.z);
+    frogsGroup.add(mesh);
+
+    const maxHealth = size === 'big' ? 4 : (Math.random() < 0.5 ? 2 : 3);
+    const f = {
+      mesh,
+      x: p.x, z: p.z,
+      size,
+      health: maxHealth,
+      maxHealth,
+      hopPhase: Math.random()*Math.PI*2,
+      hopTimer: THREE.MathUtils.randFloat(0.5, 2.5),
+      facingAngle: Math.random()*Math.PI*2,
+      targetAngle: Math.random()*Math.PI*2,
+      hopping: false,
+      hopProgress: 0,
+      hopFrom: {x:p.x, z:p.z},
+      hopTo: {x:p.x, z:p.z},
+      fleeing: false,
+      defeated: false,
+      defeatTimer: 0,
+      hitFlash: 0,
+      zombie: false,
+      attackCooldown: 0
+    };
+    frogs.push(f);
+    if (isNight) setFrogZombie(f, true);
+  }
+
+  // Called whenever the day/night state flips. Zombie frogs are simply
+  // existing frogs with swapped materials + hostile AI flags — turning
+  // back to day reverts them with no other state lost (health, position,
+  // hop timers all carry over untouched).
+  function onDayNightTransition(nowNight){
+    frogs.forEach(f=>{
+      if (f.defeated) return;
+      setFrogZombie(f, nowNight);
+    });
+  }
+
+  function clearFrogs(){
+    scene.remove(frogsGroup);
+    frogsGroup = new THREE.Group();
+    scene.add(frogsGroup);
+    frogs.length = 0;
+  }
+
+  function generateFrogs(){
+    clearFrogs();
+    const numFrogs = Math.floor(THREE.MathUtils.randFloat(10, 16));
+    let attempts = 0;
+    let placed = 0;
+    while (placed < numFrogs && attempts < 300){
+      attempts++;
+      spawnFrog();
+      placed++;
+    }
+  }
+
+  const FROG_HOP_DISTANCE = 1.2;
+  const FROG_HOP_DURATION = 0.45;
+  const FROG_FLEE_RANGE = 3.2; // start hopping away when the lizard gets this close
+  const ZOMBIE_AGGRO_RANGE = 6.0;     // zombies start hunting from this far away
+  const ZOMBIE_ATTACK_RANGE = 0.85;   // bite range once close enough
+  const ZOMBIE_ATTACK_COOLDOWN = 1.1; // seconds between bites from the same zombie
+
+  function updateFrogs(dt){
+    for (let i = frogs.length - 1; i >= 0; i--){
+      const f = frogs[i];
+
+      if (f.defeated){
+        f.defeatTimer -= dt;
+        // little squash-and-fade as it "vanishes" after being licked
+        const t = Math.max(0, f.defeatTimer / 0.5);
+        f.mesh.scale.set(t, t*t, t); // squish vertically faster than width
+        f.mesh.position.y = GROUND_SURFACE_Y + 0.05 * (1 - t);
+        if (f.defeatTimer <= 0){
+          frogsGroup.remove(f.mesh);
+          frogs.splice(i, 1);
+          updateFrogHud();
+        }
+        continue;
+      }
+
+      if (f.hitFlash > 0){
+        f.hitFlash -= dt;
+        const flashOn = Math.floor(f.hitFlash * 20) % 2 === 0;
+        f.mesh.userData.bodyMesh.material.emissive = flashOn
+          ? new THREE.Color(0xffffff) : new THREE.Color(0x000000);
+        f.mesh.userData.bodyMesh.material.emissiveIntensity = flashOn ? 0.6 : 0;
+      }
+
+      const dx = lizardState.x - f.x, dz = lizardState.z - f.z;
+      const distToLizard = Math.sqrt(dx*dx + dz*dz);
+
+      if (f.zombie){
+        // Zombies hunt the player instead of fleeing, and bite on contact.
+        f.fleeing = false;
+        const aggro = distToLizard < ZOMBIE_AGGRO_RANGE && !lizardState.hidden;
+        f.attackCooldown = Math.max(0, f.attackCooldown - dt);
+        if (aggro && distToLizard < ZOMBIE_ATTACK_RANGE && f.attackCooldown <= 0 && !lizardState.drowning){
+          damagePlayer(1);
+          f.attackCooldown = ZOMBIE_ATTACK_COOLDOWN;
+        }
+        f.huntingPlayer = aggro;
+      } else {
+        f.fleeing = distToLizard < FROG_FLEE_RANGE && !lizardState.hidden;
+      }
+
+      if (f.hopping){
+        f.hopProgress += dt / FROG_HOP_DURATION;
+        if (f.hopProgress >= 1){
+          f.hopProgress = 1;
+          f.hopping = false;
+          f.x = f.hopTo.x;
+          f.z = f.hopTo.z;
+          const huntingFast = f.zombie && f.huntingPlayer;
+          f.hopTimer = THREE.MathUtils.randFloat(0.6, (f.fleeing || huntingFast) ? 0.5 : 2.5);
+        } else {
+          f.x = THREE.MathUtils.lerp(f.hopFrom.x, f.hopTo.x, f.hopProgress);
+          f.z = THREE.MathUtils.lerp(f.hopFrom.z, f.hopTo.z, f.hopProgress);
+        }
+        // arc height during hop
+        const arc = Math.sin(f.hopProgress * Math.PI) * 0.35 * f.mesh.userData.scale;
+        f.mesh.position.set(f.x, GROUND_SURFACE_Y + arc, f.z);
+
+        // leg kick-back during hop
+        f.mesh.userData.legs.forEach(leg=>{ leg.rotation.x = -arc*1.5; });
+      } else {
+        f.hopTimer -= dt;
+        f.mesh.position.set(f.x, GROUND_SURFACE_Y, f.z);
+        f.mesh.userData.legs.forEach(leg=>{ leg.rotation.x = 0; });
+
+        if (f.hopTimer <= 0){
+          let angle;
+          if (f.zombie && f.huntingPlayer && distToLizard > 0.001){
+            // hop straight toward the player, with slight aim noise
+            angle = Math.atan2(dz, dx) + THREE.MathUtils.randFloatSpread(0.3);
+          } else if (f.fleeing && distToLizard > 0.001){
+            // hop away from the lizard, with some randomness so it's not robotic
+            angle = Math.atan2(-dz, -dx) + THREE.MathUtils.randFloatSpread(0.8);
+          } else {
+            angle = Math.random() * Math.PI * 2;
+          }
+          const huntingFast = f.zombie && f.huntingPlayer;
+          const hopLen = FROG_HOP_DISTANCE * (f.fleeing || huntingFast ? 1.3 : 1) * f.mesh.userData.scale;
+          let tx = f.x + Math.cos(angle) * hopLen;
+          let tz = f.z + Math.sin(angle) * hopLen;
+
+          // keep hops inside the island
+          const edge = islandEdgeFalloff(tx, tz);
+          const r = Math.sqrt(tx*tx + tz*tz);
+          if (r > edge){
+            const scale = edge / r;
+            tx *= scale; tz *= scale;
+          }
+
+          f.hopFrom = { x: f.x, z: f.z };
+          f.hopTo = { x: tx, z: tz };
+          f.hopping = true;
+          f.hopProgress = 0;
+          f.targetAngle = angle;
+        }
+      }
+
+      // face hop direction
+      let da = f.targetAngle - f.facingAngle;
+      while (da > Math.PI) da -= Math.PI*2;
+      while (da < -Math.PI) da += Math.PI*2;
+      f.facingAngle += da * Math.min(1, dt*6);
+      f.mesh.rotation.y = -f.facingAngle;
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Inventory & crafting
+  // -----------------------------------------------------------------
+  // Cloth comes from licking bushes/grass patches (4 licks = 2 cloth, i.e.
+  // every 2 licks yields 1 cloth). Sticks are picked up by walking over
+  // randomly scattered stick pickups on the ground. 3 sticks + 2 cloth
+  // crafts a tent. Crafting a tent unlocks the trader and fire-building;
+  // the axe/hoe/scuba mask are bought from the trader using gold, which
+  // comes from selling resources to him.
+  const inventory = {
+    sticks: 0, cloth: 0, tents: 0, fires: 0, gold: 0, food: 0,
+    tools: { axe:false, hoe:false, scuba:false }
+  };
+  const CRAFT_RECIPES = [
+    { id:'tent', name:'Tent', icon:'⛺', costs:{ sticks:3, cloth:2 },
+      describe:'A cozy little shelter. Unlocks the trader and fire-building.' },
+    { id:'fire', name:'Campfire', icon:'🔥', costs:{ sticks:4 },
+      describe:'Keeps you warm enough to sleep, and cooks food.', requiresTent:true },
+  ];
+
+  let outpostUnlocked = false; // true after the first tent is crafted
+
+  function updateInventoryHud(){
+    const sticksEl = document.getElementById('invSticks');
+    const clothEl = document.getElementById('invCloth');
+    const goldEl = document.getElementById('invGold');
+    if (sticksEl) sticksEl.textContent = inventory.sticks;
+    if (clothEl) clothEl.textContent = inventory.cloth;
+    if (goldEl) goldEl.textContent = inventory.gold;
+  }
+
+  function refreshInventoryPanel(){
+    const slotSticks = document.getElementById('invSlotSticks');
+    const slotCloth = document.getElementById('invSlotCloth');
+    const slotTents = document.getElementById('invSlotTents');
+    const slotGold = document.getElementById('invSlotGold');
+    const slotFood = document.getElementById('invSlotFood');
+    if (slotSticks) slotSticks.textContent = inventory.sticks;
+    if (slotCloth) slotCloth.textContent = inventory.cloth;
+    if (slotTents) slotTents.textContent = inventory.tents;
+    if (slotGold) slotGold.textContent = inventory.gold;
+    if (slotFood) slotFood.textContent = inventory.food;
+
+    const craftTentBtn = document.getElementById('craftTentBtn');
+    if (craftTentBtn){
+      const recipe = CRAFT_RECIPES[0];
+      craftTentBtn.disabled = inventory.sticks < recipe.costs.sticks || inventory.cloth < recipe.costs.cloth;
+    }
+    const fireRow = document.getElementById('craftFireRow');
+    const craftFireBtn = document.getElementById('craftFireBtn');
+    if (fireRow) fireRow.style.display = outpostUnlocked ? 'flex' : 'none';
+    if (craftFireBtn){
+      const recipe = CRAFT_RECIPES[1];
+      craftFireBtn.disabled = inventory.sticks < recipe.costs.sticks;
+    }
+
+    // tool ownership badges
+    ['axe','hoe','scuba'].forEach(tool=>{
+      const badge = document.getElementById('tool_'+tool);
+      if (badge) badge.classList.toggle('owned', inventory.tools[tool]);
+    });
+  }
+
+  let inventoryOpen = false;
+  function toggleInventory(){
+    if (!gameStarted || lizardState.drowning) return;
+    inventoryOpen = !inventoryOpen;
+    const overlay = document.getElementById('inventoryOverlay');
+    if (overlay) overlay.classList.toggle('show', inventoryOpen);
+    if (inventoryOpen) refreshInventoryPanel();
+  }
+  function closeInventory(){
+    inventoryOpen = false;
+    const overlay = document.getElementById('inventoryOverlay');
+    if (overlay) overlay.classList.remove('show');
+  }
+
+  function craftTent(){
+    const recipe = CRAFT_RECIPES[0];
+    if (inventory.sticks < recipe.costs.sticks || inventory.cloth < recipe.costs.cloth) return;
+    inventory.sticks -= recipe.costs.sticks;
+    inventory.cloth -= recipe.costs.cloth;
+    inventory.tents++;
+    const firstTent = !outpostUnlocked;
+    outpostUnlocked = true;
+    updateInventoryHud();
+    refreshInventoryPanel();
+    placeTent();
+    if (firstTent){
+      showPickupToast('⛺ Tent crafted! 🪙 The trader has arrived nearby!');
+      spawnTrader();
+    } else {
+      showPickupToast('⛺ Tent crafted!');
+    }
+  }
+
+  function craftFire(){
+    const recipe = CRAFT_RECIPES[1];
+    if (!outpostUnlocked || inventory.sticks < recipe.costs.sticks) return;
+    inventory.sticks -= recipe.costs.sticks;
+    inventory.fires++;
+    updateInventoryHud();
+    refreshInventoryPanel();
+    placeFire();
+    showPickupToast('🔥 Campfire built!');
+  }
+
+  // Crafted tents are placed just in front of where the lizard is standing
+  // when crafted — a simple placeholder shape, not yet enterable.
+  let tentsGroup = new THREE.Group();
+  scene.add(tentsGroup);
+
+  function makeTentMesh(){
+    const g = new THREE.Group();
+    const canvasMat = new THREE.MeshLambertMaterial({ color:0xd9c08a });
+    const trimMat = new THREE.MeshLambertMaterial({ color:0x8a5a3a });
+
+    // simple triangular-prism tent body, built from two angled box "flaps"
+    const flapGeo = new THREE.BoxGeometry(0.9, 0.05, 1.1);
+    const flapL = new THREE.Mesh(flapGeo, canvasMat);
+    flapL.position.set(-0.32, 0.45, 0);
+    flapL.rotation.z = Math.PI/4;
+    flapL.castShadow = true;
+    flapL.receiveShadow = true;
+    g.add(flapL);
+    const flapR = new THREE.Mesh(flapGeo, canvasMat);
+    flapR.position.set(0.32, 0.45, 0);
+    flapR.rotation.z = -Math.PI/4;
+    flapR.castShadow = true;
+    flapR.receiveShadow = true;
+    g.add(flapR);
+
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.1), trimMat);
+    ridge.position.set(0, 0.86, 0);
+    g.add(ridge);
+
+    [ -1, 1 ].forEach(side=>{
+      const stake = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.06), trimMat);
+      stake.position.set(side*0.5, 0.2, 0.5);
+      g.add(stake);
+      const stake2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.06), trimMat);
+      stake2.position.set(side*0.5, 0.2, -0.5);
+      g.add(stake2);
+    });
+
+    return g;
+  }
+
+  function placeTent(){
+    const fx = Math.cos(-lizardState.facingAngle);
+    const fz = Math.sin(-lizardState.facingAngle);
+    let tx = lizardState.x + fx * 1.6;
+    let tz = lizardState.z + fz * 1.6;
+    const edge = islandEdgeFalloff(tx, tz);
+    const r = Math.sqrt(tx*tx + tz*tz);
+    if (r > edge){ const s = edge/r; tx *= s; tz *= s; }
+
+    const tent = makeTentMesh();
+    tent.position.set(tx, GROUND_SURFACE_Y, tz);
+    tent.rotation.y = lizardState.facingAngle;
+    tentsGroup.add(tent);
+
+    obstacles.push({ x:tx, z:tz, radius: 0.55, type:'tent', mesh:tent });
+  }
+
+  // -----------------------------------------------------------------
+  // Campfire — keeps the player warm enough to sleep; cooking comes later
+  // -----------------------------------------------------------------
+  let firesGroup = new THREE.Group();
+  scene.add(firesGroup);
+  const FIRE_WARMTH_RADIUS = 4.5;
+
+  function makeFireMesh(){
+    const g = new THREE.Group();
+    const logMat = new THREE.MeshLambertMaterial({ color:0x6a4a2e });
+    const flameMat = new THREE.MeshLambertMaterial({ color:0xff8a2a, emissive:0xff5a10, emissiveIntensity:0.7 });
+    const flameMat2 = new THREE.MeshLambertMaterial({ color:0xffc24a, emissive:0xff9a20, emissiveIntensity:0.8 });
+
+    // crossed logs
+    [0, 1].forEach(i=>{
+      const log = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.1), logMat);
+      log.rotation.y = i === 0 ? Math.PI/5 : -Math.PI/5;
+      log.position.y = 0.05;
+      log.castShadow = true;
+      g.add(log);
+    });
+
+    const flame1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.3, 0.16), flameMat);
+    flame1.position.y = 0.22;
+    g.add(flame1);
+    const flame2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), flameMat2);
+    flame2.position.y = 0.34;
+    g.add(flame2);
+
+    const light = new THREE.PointLight(0xff9a40, 1.1, 6, 2);
+    light.position.y = 0.4;
+    g.add(light);
+
+    g.userData.flame1 = flame1;
+    g.userData.flame2 = flame2;
+    g.userData.light = light;
+    g.userData.flicker = Math.random()*Math.PI*2;
+    return g;
+  }
+
+  const activeFires = []; // { mesh, x, z } for flicker animation + warmth checks
+
+  function placeFire(){
+    const fx = Math.cos(-lizardState.facingAngle);
+    const fz = Math.sin(-lizardState.facingAngle);
+    let tx = lizardState.x + fx * 1.4;
+    let tz = lizardState.z + fz * 1.4;
+    const edge = islandEdgeFalloff(tx, tz);
+    const r = Math.sqrt(tx*tx + tz*tz);
+    if (r > edge){ const s = edge/r; tx *= s; tz *= s; }
+
+    const fire = makeFireMesh();
+    fire.position.set(tx, GROUND_SURFACE_Y, tz);
+    firesGroup.add(fire);
+
+    const fireData = { mesh:fire, x:tx, z:tz };
+    activeFires.push(fireData);
+    obstacles.push({ x:tx, z:tz, radius: 0.4, type:'fire', mesh:fire });
+  }
+
+  function updateFires(dt){
+    activeFires.forEach(f=>{
+      f.mesh.userData.flicker += dt * 8;
+      const flick = 0.85 + Math.sin(f.mesh.userData.flicker) * 0.15 + Math.random()*0.05;
+      f.mesh.userData.flame1.scale.y = flick;
+      f.mesh.userData.flame2.scale.y = flick * 1.1;
+      f.mesh.userData.light.intensity = 0.9 + Math.sin(f.mesh.userData.flicker*1.3) * 0.25;
+    });
+  }
+
+  function isNearFire(range){
+    return activeFires.some(f=>{
+      const dx = f.x - lizardState.x, dz = f.z - lizardState.z;
+      return Math.sqrt(dx*dx + dz*dz) < range;
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // Farming with the hoe — plant near a pond (water source), crops grow
+  // over time, harvest for food. Press V to plant/harvest.
+  // -----------------------------------------------------------------
+  const FARM_WATER_RANGE = 3.2;   // must be planted within this distance of a pond
+  const FARM_PLANT_RANGE = 1.4;   // range to interact with an existing plot
+  const CROP_GROW_SECONDS = 60;   // time for a planted crop to become harvestable
+  const FOOD_PER_HARVEST = 2;
+
+  const farmPlots = [];
+  let farmGroup = new THREE.Group();
+  scene.add(farmGroup);
+
+  function isNearPond(range){
+    return obstacles.some(o=>{
+      if (o.type !== 'pond') return false;
+      const dx = o.x - lizardState.x, dz = o.z - lizardState.z;
+      return Math.sqrt(dx*dx + dz*dz) < range;
+    });
+  }
+
+  function makeFarmPlotMesh(){
+    const g = new THREE.Group();
+    const soilMat = new THREE.MeshLambertMaterial({ color:0x5a4028 });
+    const soil = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.9), soilMat);
+    soil.position.y = 0.04;
+    soil.receiveShadow = true;
+    g.add(soil);
+
+    const sproutMat = new THREE.MeshLambertMaterial({ color:0x6abf4a });
+    const sprouts = [];
+    for (let i=0;i<4;i++){
+      const sprout = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.08), sproutMat);
+      sprout.position.set(THREE.MathUtils.randFloatSpread(0.5), 0.08, THREE.MathUtils.randFloatSpread(0.5));
+      sprout.visible = false;
+      g.add(sprout);
+      sprouts.push(sprout);
+    }
+    g.userData.sprouts = sprouts;
+    return g;
+  }
+
+  function nearestFarmPlot(range){
+    let best = null, bestD = Infinity;
+    farmPlots.forEach(p=>{
+      const dx = p.x - lizardState.x, dz = p.z - lizardState.z;
+      const d = Math.sqrt(dx*dx + dz*dz);
+      if (d < range && d < bestD){ bestD = d; best = p; }
+    });
+    return best;
+  }
+
+  function tryFarm(){
+    if (!inventory.tools.hoe || lizardState.hidden) return;
+
+    const existing = nearestFarmPlot(FARM_PLANT_RANGE);
+    if (existing){
+      if (existing.grown){
+        inventory.food += FOOD_PER_HARVEST;
+        updateInventoryHud();
+        if (inventoryOpen) refreshInventoryPanel();
+        showPickupToast(`+${FOOD_PER_HARVEST} 🍗 Harvested!`);
+        farmGroup.remove(existing.mesh);
+        const idx = farmPlots.indexOf(existing);
+        if (idx >= 0) farmPlots.splice(idx, 1);
+      } else {
+        const pct = Math.floor((existing.growTimer / CROP_GROW_SECONDS) * 100);
+        showPickupToast(`🌱 Still growing... (${pct}%)`);
+      }
+      return;
+    }
+
+    if (!isNearPond(FARM_WATER_RANGE)){
+      showPickupToast('💧 Must plant near water');
+      return;
+    }
+
+    const fx = Math.cos(-lizardState.facingAngle);
+    const fz = Math.sin(-lizardState.facingAngle);
+    const px = lizardState.x + fx * 1.0;
+    const pz = lizardState.z + fz * 1.0;
+
+    const mesh = makeFarmPlotMesh();
+    mesh.position.set(px, GROUND_SURFACE_Y, pz);
+    farmGroup.add(mesh);
+    farmPlots.push({ mesh, x:px, z:pz, growTimer:0, grown:false });
+    showPickupToast('🌱 Planted! Check back later.');
+  }
+
+  function updateFarmPlots(dt){
+    farmPlots.forEach(p=>{
+      if (p.grown) return;
+      p.growTimer += dt;
+      if (p.growTimer >= CROP_GROW_SECONDS){
+        p.grown = true;
+        p.mesh.userData.sprouts.forEach(s=>{ s.visible = true; });
+      }
+    });
+  }
+
+  function clearFarmPlots(){
+    scene.remove(farmGroup);
+    farmGroup = new THREE.Group();
+    scene.add(farmGroup);
+    farmPlots.length = 0;
+  }
+
+  // -----------------------------------------------------------------
+  // Trader — appears once the first tent is built. Sells tools for gold;
+  // gold is earned by selling resources (sticks/cloth/food) to him.
+  // -----------------------------------------------------------------
+  const TOOL_SHOP = [
+    { id:'axe',   name:'Axe',         icon:'🪓', cost:12, describe:'Chop trees for extra sticks.' },
+    { id:'hoe',   name:'Hoe',         icon:'⛏️', cost:10, describe:'Farm crops near water for food.' },
+    { id:'scuba', name:'Scuba Mask',  icon:'🤿', cost:15, describe:'Swim safely and dive for treasure.' },
+  ];
+  const SELL_PRICES = { sticks:1, cloth:2, food:2 };
+
+  let trader = null; // { mesh, x, z }
+  const TRADE_RANGE = 1.6;
+
+  function makeTraderMesh(){
+    const g = new THREE.Group();
+    const robeMat = new THREE.MeshLambertMaterial({ color:0x6a4a8a });
+    const skinMat = new THREE.MeshLambertMaterial({ color:0xd9a878 });
+    const hatMat = new THREE.MeshLambertMaterial({ color:0x4a3a6a });
+    const satchelMat = new THREE.MeshLambertMaterial({ color:0x8a6238 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.7, 0.28), robeMat);
+    body.position.y = 0.55;
+    body.castShadow = true;
+    g.add(body);
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.26), skinMat);
+    head.position.y = 1.0;
+    head.castShadow = true;
+    g.add(head);
+
+    const hatBrim = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.4), hatMat);
+    hatBrim.position.y = 1.16;
+    g.add(hatBrim);
+    const hatTop = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 0.2), hatMat);
+    hatTop.position.y = 1.28;
+    g.add(hatTop);
+
+    const satchel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.1), satchelMat);
+    satchel.position.set(0.26, 0.5, 0);
+    satchel.rotation.z = 0.2;
+    g.add(satchel);
+
+    [ -1, 1 ].forEach(side=>{
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.1), robeMat);
+      arm.position.set(side*0.25, 0.5, 0);
+      g.add(arm);
+    });
+
+    g.userData.bobPhase = Math.random()*Math.PI*2;
+    return g;
+  }
+
+  function spawnTrader(){
+    if (trader) return; // only one trader
+    // place him a short distance from the lizard's current spot (near the
+    // first tent, since this is only called right after craftTent)
+    const fx = Math.cos(-lizardState.facingAngle - 0.6);
+    const fz = Math.sin(-lizardState.facingAngle - 0.6);
+    let tx = lizardState.x + fx * 2.4;
+    let tz = lizardState.z + fz * 2.4;
+    const edge = islandEdgeFalloff(tx, tz);
+    const r = Math.sqrt(tx*tx + tz*tz);
+    if (r > edge){ const s = edge/r; tx *= s; tz *= s; }
+
+    const mesh = makeTraderMesh();
+    mesh.position.set(tx, GROUND_SURFACE_Y, tz);
+    mesh.rotation.y = Math.atan2(lizardState.x - tx, lizardState.z - tz);
+    scene.add(mesh);
+
+    trader = { mesh, x:tx, z:tz };
+    obstacles.push({ x:tx, z:tz, radius: 0.4, type:'trader', mesh });
+  }
+
+  function removeTrader(){
+    if (!trader) return;
+    scene.remove(trader.mesh);
+    const idx = obstacles.findIndex(o=>o.type==='trader');
+    if (idx >= 0) obstacles.splice(idx, 1);
+    trader = null;
+  }
+
+  function updateTrader(dt){
+    if (!trader) return;
+    trader.mesh.userData.bobPhase += dt * 1.5;
+    trader.mesh.position.y = GROUND_SURFACE_Y + Math.sin(trader.mesh.userData.bobPhase) * 0.03;
+
+    const el = document.getElementById('tradePrompt');
+    if (!el) return;
+    const dx = trader.x - lizardState.x, dz = trader.z - lizardState.z;
+    const inRange = Math.sqrt(dx*dx+dz*dz) < TRADE_RANGE && !lizardState.hidden;
+    el.classList.toggle('show', inRange);
+  }
+
+  let tradeOpen = false;
+  function toggleTrade(){
+    if (!trader || !gameStarted || lizardState.drowning || lizardState.gameOver) return;
+    const dx = trader.x - lizardState.x, dz = trader.z - lizardState.z;
+    if (Math.sqrt(dx*dx+dz*dz) > TRADE_RANGE) return;
+    tradeOpen = !tradeOpen;
+    const overlay = document.getElementById('tradeOverlay');
+    if (overlay) overlay.classList.toggle('show', tradeOpen);
+    if (tradeOpen) refreshTradePanel();
+  }
+  function closeTrade(){
+    tradeOpen = false;
+    const overlay = document.getElementById('tradeOverlay');
+    if (overlay) overlay.classList.remove('show');
+  }
+
+  function sellResource(kind){
+    if (inventory[kind] <= 0) return;
+    inventory[kind]--;
+    inventory.gold += SELL_PRICES[kind];
+    updateInventoryHud();
+    refreshTradePanel();
+    showPickupToast(`+${SELL_PRICES[kind]} 🪙 Gold`);
+  }
+
+  function buyTool(toolId){
+    const item = TOOL_SHOP.find(t=>t.id===toolId);
+    if (!item || inventory.tools[toolId] || inventory.gold < item.cost) return;
+    inventory.gold -= item.cost;
+    inventory.tools[toolId] = true;
+    updateInventoryHud();
+    refreshTradePanel();
+    refreshInventoryPanel();
+    showPickupToast(`${item.icon} ${item.name} acquired!`);
+  }
+
+  function refreshTradePanel(){
+    const goldEl = document.getElementById('tradeGold');
+    if (goldEl) goldEl.textContent = inventory.gold;
+
+    ['sticks','cloth','food'].forEach(kind=>{
+      const countEl = document.getElementById('sell_'+kind+'_count');
+      const btn = document.getElementById('sell_'+kind+'_btn');
+      if (countEl) countEl.textContent = inventory[kind];
+      if (btn) btn.disabled = inventory[kind] <= 0;
+    });
+
+    TOOL_SHOP.forEach(item=>{
+      const btn = document.getElementById('buy_'+item.id+'_btn');
+      if (!btn) return;
+      if (inventory.tools[item.id]){
+        btn.textContent = 'Owned';
+        btn.disabled = true;
+      } else {
+        btn.textContent = `Buy (${item.cost}🪙)`;
+        btn.disabled = inventory.gold < item.cost;
+      }
+    });
+  }
+
+  document.getElementById('closeInventoryBtn').addEventListener('click', closeInventory);
+  document.getElementById('craftTentBtn').addEventListener('click', craftTent);
+  document.getElementById('restartBtn').addEventListener('click', resetGameState);
+  document.getElementById('craftFireBtn').addEventListener('click', craftFire);
+  document.getElementById('closeTradeBtn').addEventListener('click', closeTrade);
+  document.getElementById('sell_sticks_btn').addEventListener('click', ()=>sellResource('sticks'));
+  document.getElementById('sell_cloth_btn').addEventListener('click', ()=>sellResource('cloth'));
+  document.getElementById('sell_food_btn').addEventListener('click', ()=>sellResource('food'));
+  document.getElementById('buy_axe_btn').addEventListener('click', ()=>buyTool('axe'));
+  document.getElementById('buy_hoe_btn').addEventListener('click', ()=>buyTool('hoe'));
+  document.getElementById('buy_scuba_btn').addEventListener('click', ()=>buyTool('scuba'));
+
+  // -----------------------------------------------------------------
+  // Sticks — pickups scattered on the ground, collected by walking over
+  // -----------------------------------------------------------------
+  const sticks = [];
+  let sticksGroup = new THREE.Group();
+  scene.add(sticksGroup);
+
+  function makeStickPickup(){
+    const g = new THREE.Group();
+    const stickMat = new THREE.MeshLambertMaterial({ color:0x8a6238 });
+    const stick = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.06), stickMat);
+    stick.rotation.y = Math.random()*Math.PI;
+    stick.rotation.z = THREE.MathUtils.randFloatSpread(0.3);
+    stick.castShadow = true;
+    stick.receiveShadow = true;
+    g.add(stick);
+    const stick2 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.05, 0.05), stickMat);
+    stick2.rotation.y = stick.rotation.y + Math.PI/3;
+    stick2.position.set(0.04, 0.02, 0.04);
+    stick2.castShadow = true;
+    g.add(stick2);
+    return g;
+  }
+
+  function clearSticks(){
+    scene.remove(sticksGroup);
+    sticksGroup = new THREE.Group();
+    scene.add(sticksGroup);
+    sticks.length = 0;
+  }
+
+  function generateSticks(){
+    clearSticks();
+    const numSticks = Math.floor(THREE.MathUtils.randFloat(10, 18));
+    let attempts = 0, placed = 0;
+    while (placed < numSticks && attempts < 300){
+      attempts++;
+      const p = randomPointOnIsland(1, ISLAND_RADIUS - 1.5);
+      if (tooClose(p.x, p.z, 0.8)) continue; // avoid spawning inside trees/bushes/ponds
+      const mesh = makeStickPickup();
+      mesh.position.set(p.x, GROUND_SURFACE_Y + 0.04, p.z);
+      sticksGroup.add(mesh);
+      sticks.push({ mesh, x:p.x, z:p.z, collected:false, bobPhase: Math.random()*Math.PI*2 });
+      placed++;
+    }
+  }
+
+  const STICK_PICKUP_RANGE = 0.7;
+
+  function updateSticks(dt){
+    for (let i = sticks.length - 1; i >= 0; i--){
+      const s = sticks[i];
+      s.bobPhase += dt * 2;
+      s.mesh.position.y = GROUND_SURFACE_Y + 0.04 + Math.sin(s.bobPhase) * 0.03;
+      s.mesh.rotation.y += dt * 0.6;
+
+      if (lizardState.hidden) continue;
+      const dx = lizardState.x - s.x, dz = lizardState.z - s.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist < STICK_PICKUP_RANGE){
+        sticksGroup.remove(s.mesh);
+        sticks.splice(i, 1);
+        inventory.sticks++;
+        updateInventoryHud();
+        showPickupToast('+1 🪵 Stick');
+      }
+    }
+  }
+
+  let pickupToastTimer = null;
+  function showPickupToast(text){
+    const el = document.getElementById('pickupToast');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.add('show');
+    if (pickupToastTimer) clearTimeout(pickupToastTimer);
+    pickupToastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 900);
+  }
+
+  function generateWorld(){
+    clearProps();
+
+    // Ponds — placed first so trees/bushes naturally avoid overlapping them
+    const numPonds = Math.floor(THREE.MathUtils.randFloat(2, 5));
+    let attempts = 0;
+    while (obstacles.filter(o=>o.type==='pond').length < numPonds && attempts < 300){
+      attempts++;
+      const p = randomPointOnIsland(4, ISLAND_RADIUS-4);
+      const pondRadius = THREE.MathUtils.randFloat(1.6, 3.2);
+      if (tooClose(p.x, p.z, pondRadius + 3)) continue;
+      const pond = makePond(pondRadius);
+      pond.position.set(p.x, GROUND_SURFACE_Y + 0.01, p.z);
+      propsGroup.add(pond);
+      obstacles.push({ x:p.x, z:p.z, radius: pondRadius, type:'pond', mesh:pond });
+    }
+
+    const numTrees = Math.floor(THREE.MathUtils.randFloat(26, 38));
+    const numBushes = Math.floor(THREE.MathUtils.randFloat(20, 30));
+
+    attempts = 0;
+    while (obstacles.filter(o=>o.type==='tree').length < numTrees && attempts < 900){
+      attempts++;
+      const p = randomPointOnIsland(2.5, ISLAND_RADIUS-1.5);
+      if (tooClose(p.x, p.z, 2.2)) continue;
+      const scaleFactor = THREE.MathUtils.randFloat(0.8, 1.3);
+      const tree = makeTree(scaleFactor);
+      tree.position.set(p.x, 0.3, p.z);
+      tree.rotation.y = Math.random()*Math.PI*2;
+      propsGroup.add(tree);
+      obstacles.push({ x:p.x, z:p.z, radius: tree.userData.collisionRadius, type:'tree', mesh:tree, chopHealth:3, maxChopHealth:3 });
+    }
+
+    attempts = 0;
+    while (obstacles.filter(o=>o.type==='bush').length < numBushes && attempts < 900){
+      attempts++;
+      const p = randomPointOnIsland(1.5, ISLAND_RADIUS-1);
+      if (tooClose(p.x, p.z, 1.7)) continue;
+      const scaleFactor = THREE.MathUtils.randFloat(0.85, 1.35);
+      const bush = makeBush(scaleFactor);
+      bush.position.set(p.x, 0.3, p.z);
+      bush.rotation.y = Math.random()*Math.PI*2;
+      propsGroup.add(bush);
+      obstacles.push({ x:p.x, z:p.z, radius: bush.userData.collisionRadius, type:'bush', mesh:bush, hideRadius: bush.userData.hideRadius, lickCount:0 });
+    }
+
+    generateFrogs();
+    generateSticks();
+  }
+
+  generateWorld();
+
+  // ---------------------------------------------------------------------
+  // Lizard
+  // ---------------------------------------------------------------------
+  const lizardGroup = new THREE.Group();
+  const lizardBody = new THREE.Group();
+  lizardGroup.add(lizardBody);
+  scene.add(lizardGroup);
+
+  // soft contact shadow blob so the lizard visually anchors to the ground
+  const contactShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.45, 16),
+    new THREE.MeshBasicMaterial({ color:0x0a1a08, transparent:true, opacity:0.35 })
+  );
+  contactShadow.rotation.x = -Math.PI/2;
+  contactShadow.position.y = 0.02;
+  lizardGroup.add(contactShadow);
+
+  const lizMatBody = new THREE.MeshLambertMaterial({ color:0x2f8fe0 });
+  const lizMatDark = new THREE.MeshLambertMaterial({ color:0x1c5fa8 });
+  const lizMatEye = new THREE.MeshLambertMaterial({ color:0x1c1c1c });
+  const lizMatBelly = new THREE.MeshLambertMaterial({ color:0x8fd6f5 });
+
+  // Blocky body built from boxes, Minecraft/N64-style — chunky rectangular
+  // forms instead of rounded primitives.
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.32, 0.34), lizMatBody);
+  torso.position.set(0, 0.3, 0);
+  torso.castShadow = true;
+  lizardBody.add(torso);
+
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.3), lizMatBelly);
+  belly.position.set(0, 0.13, 0);
+  lizardBody.add(belly);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.26, 0.28), lizMatBody);
+  head.position.set(0.5, 0.34, 0);
+  head.castShadow = true;
+  lizardBody.add(head);
+
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.18), lizMatBody);
+  snout.position.set(0.7, 0.30, 0);
+  lizardBody.add(snout);
+
+  [ -1, 1 ].forEach(side=>{
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), lizMatEye);
+    eye.position.set(0.6, 0.42, 0.15*side);
+    lizardBody.add(eye);
+  });
+
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.16, 0.16), lizMatDark);
+  tail.position.set(-0.66, 0.26, 0);
+  tail.castShadow = true;
+  lizardBody.add(tail);
+  const tailTip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.1), lizMatDark);
+  tailTip.position.set(-0.96, 0.24, 0);
+  lizardBody.add(tailTip);
+
+  // ridge spikes — small blocky cubes along the back
+  for (let i=0;i<5;i++){
+    const spike = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.07), lizMatDark);
+    spike.position.set(0.22 - i*0.16, 0.5, 0);
+    lizardBody.add(spike);
+  }
+
+  // legs — blocky rectangular stumps
+  const legs = [];
+  const legPositions = [
+    [0.25, 0.16, 0.22], [0.25, 0.16, -0.22],
+    [-0.25, 0.16, 0.22], [-0.25, 0.16, -0.22]
+  ];
+  legPositions.forEach(p=>{
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), lizMatDark);
+    leg.position.set(p[0], p[1], p[2]);
+    leg.castShadow = true;
+    lizardBody.add(leg);
+    legs.push(leg);
+  });
+
+  // tongue — a thin pink box that shoots out from the snout when licking.
+  // Built as its own pivot group at the snout tip so it can scale along its
+  // length without distorting the tip.
+  const tongueMat = new THREE.MeshLambertMaterial({ color:0xe8748f });
+  const tonguePivot = new THREE.Group();
+  tonguePivot.position.set(0.79, 0.30, 0);
+  lizardBody.add(tonguePivot);
+  const TONGUE_MAX_LENGTH = 1.6;
+  const tongue = new THREE.Mesh(new THREE.BoxGeometry(1, 0.08, 0.08), tongueMat);
+  tongue.position.x = 0; // repositioned each frame based on current length
+  tonguePivot.add(tongue);
+  const tongueTip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), tongueMat);
+  tonguePivot.add(tongueTip);
+  tongue.visible = false;
+  tongueTip.visible = false;
+
+  const lizardState = {
+    x: 0, z: 0, y: 0,
+    vy: 0,
+    facingAngle: 0,
+    onGround: true,
+    hidden: false,
+    hideTarget: null,
+    legPhase: 0,
+    moveSpeed: 4.6,
+    squash: 1,
+    licking: false,
+    lickTimer: 0,
+    lickCooldown: 0,
+    drowning: false,
+    drownTimer: 0,
+    spawnX: 0,
+    spawnZ: 0,
+    hearts: 3,
+    maxHearts: 3,
+    invulnTimer: 0,
+    hitFlashTimer: 0,
+    gameOver: false,
+    hunger: 2,
+    maxHunger: 2,
+    hungerDrainTimer: 0,
+    starveTimer: 0,
+    swimming: false
+  };
+
+  const MAX_HEARTS = 3;
+  const HIT_INVULN_DURATION = 0.8; // brief invulnerability window after being bitten
+  const MAX_HUNGER = 2;
+  const HUNGER_DRAIN_INTERVAL = 90; // seconds between hunger points dropping from not eating
+  const STARVE_HEART_INTERVAL = 20; // once hunger hits 0, lose a heart every 20 seconds
+
+  const DROWN_DURATION = 1.4; // seconds of drowning animation before respawn
+
+  const LICK_DURATION = 0.28;   // seconds the tongue is extended
+  const LICK_COOLDOWN = 0.45;   // seconds before another lick can start
+  const LICK_RANGE = 1.9;       // max distance to a frog that can be hit
+  const LICK_ARC = Math.PI/2.2; // how wide an angle in front counts as "facing" the frog
+
+  const CHOP_RANGE = 1.6;
+  const CHOP_ARC = Math.PI/2.2;
+  const CHOP_DOUBLE_TAP_WINDOW = 0.4; // seconds allowed between the two C presses
+  const STICKS_PER_CHOP = 2;          // sticks awarded per successful chop hit
+
+  const GRAVITY = -16;
+  const JUMP_VY = 6.2;
+  // lizardState.y represents height ABOVE the ground surface (0 = standing, >0 = airborne).
+  // The actual world-space y used for rendering/camera is GROUND_SURFACE_Y + lizardState.y.
+
+  // ---------------------------------------------------------------------
+  // Input: keyboard + gamepad
+  // ---------------------------------------------------------------------
+  const keys = {};
+  window.addEventListener('keydown', e=>{
+    keys[e.code] = true;
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+    if (e.code === 'Space') tryJump();
+    if (e.code === 'ControlLeft' || e.code === 'ControlRight') tryToggleHide();
+    if (e.code === 'KeyQ') tryLick();
+    if (e.code === 'KeyI') toggleInventory();
+    if (e.code === 'KeyE') trySleep();
+    if (e.code === 'KeyT') toggleTrade();
+    if (e.code === 'KeyF') eatFood();
+    if (e.code === 'KeyC') handleChopKeyPress();
+    if (e.code === 'KeyV') tryFarm();
+    if (e.code === 'Escape' && inventoryOpen) closeInventory();
+    if (e.code === 'Escape' && tradeOpen) closeTrade();
+  });
+  window.addEventListener('keyup', e=>{ keys[e.code] = false; });
+
+  // Safety net: if the window/tab loses focus while a key is held down
+  // (alt-tab, clicking another app, a browser dialog popping up, etc.),
+  // the browser won't fire 'keyup' for it and the lizard would otherwise
+  // keep moving in that direction forever. Clear all held keys whenever
+  // focus is lost so movement always stops cleanly.
+  function clearAllKeys(){
+    for (const k in keys) keys[k] = false;
+  }
+  window.addEventListener('blur', clearAllKeys);
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden) clearAllKeys();
+  });
+
+  let gamepadIndex = null;
+  let prevButtons = {};
+  let gamepadApiBlocked = false;
+
+  // Some browsers (e.g. Chrome opening a local file:// page) apply a
+  // Permissions Policy that disallows the Gamepad API entirely and
+  // throws a SecurityError the moment getGamepads() is called. Detect
+  // that up front so we can disable gamepad features gracefully instead
+  // of crashing the render loop.
+  function gamepadApiAvailable(){
+    if (!navigator.getGamepads) return false;
+    try {
+      navigator.getGamepads();
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+  gamepadApiBlocked = !gamepadApiAvailable();
+  if (gamepadApiBlocked){
+    document.getElementById('gamepadLabel').textContent = 'Keyboard (gamepad blocked by browser)';
+    const note = document.createElement('div');
+    note.style.cssText = 'margin-top:4px;font-size:11px;color:#e8b13f;max-width:220px;';
+    note.textContent = 'Tip: serve this file over http:// (not by double-clicking) to enable controller support.';
+    document.getElementById('hud').appendChild(note);
+  }
+
+  window.addEventListener('gamepadconnected', e=>{
+    if (gamepadApiBlocked) return;
+    gamepadIndex = e.gamepad.index;
+    document.getElementById('gamepadDot').classList.add('on');
+    document.getElementById('gamepadLabel').textContent = e.gamepad.id.slice(0,22) || 'Controller';
+  });
+  window.addEventListener('gamepaddisconnected', ()=>{
+    if (gamepadApiBlocked) return;
+    gamepadIndex = null;
+    document.getElementById('gamepadDot').classList.remove('on');
+    document.getElementById('gamepadLabel').textContent = 'Keyboard';
+  });
+
+  // Fallback: some browsers (notably Chrome on Windows with certain
+  // Xbox controller drivers) never fire 'gamepadconnected' reliably.
+  // Actively scan navigator.getGamepads() every frame so we pick it up
+  // the moment any button or stick is touched.
+  function scanForGamepad(){
+    if (gamepadApiBlocked) return;
+    let pads;
+    try {
+      pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    } catch (err) {
+      gamepadApiBlocked = true;
+      return;
+    }
+    for (let i=0;i<pads.length;i++){
+      const gp = pads[i];
+      if (!gp) continue;
+      // require some activity (button pressed or stick moved) before
+      // claiming it, so an idle second controller doesn't get grabbed
+      const hasActivity = gp.buttons.some(b=>b.pressed || b.value > 0.2) ||
+                           gp.axes.some(a=>Math.abs(a) > 0.2);
+      if (gamepadIndex === null && hasActivity){
+        gamepadIndex = gp.index;
+        document.getElementById('gamepadDot').classList.add('on');
+        document.getElementById('gamepadLabel').textContent = gp.id.slice(0,22) || 'Controller';
+      }
+    }
+  }
+
+  function pollGamepad(){
+    if (gamepadApiBlocked) return { lx:0, ly:0, jumpPressed:false, hidePressed:false };
+    scanForGamepad();
+    if (gamepadApiBlocked || gamepadIndex === null) return { lx:0, ly:0, jumpPressed:false, hidePressed:false, lickPressed:false };
+    let gp;
+    try {
+      gp = navigator.getGamepads()[gamepadIndex];
+    } catch (err) {
+      gamepadApiBlocked = true;
+      return { lx:0, ly:0, jumpPressed:false, hidePressed:false, lickPressed:false };
+    }
+    if (!gp) { gamepadIndex = null; return { lx:0, ly:0, jumpPressed:false, hidePressed:false, lickPressed:false }; }
+    const lx = Math.abs(gp.axes[0]) > 0.15 ? gp.axes[0] : 0;
+    const ly = Math.abs(gp.axes[1]) > 0.15 ? gp.axes[1] : 0;
+
+    // Standard mapping: A = button 0 (jump), B = button 1 (hide), Y = button 3 (lick)
+    const aDown = gp.buttons[0] && gp.buttons[0].pressed;
+    const bDown = gp.buttons[1] && gp.buttons[1].pressed;
+    const yDown = gp.buttons[3] && gp.buttons[3].pressed;
+
+    const aPressed = aDown && !prevButtons.a;
+    const bPressed = bDown && !prevButtons.b;
+    const yPressed = yDown && !prevButtons.y;
+    prevButtons.a = aDown;
+    prevButtons.b = bDown;
+    prevButtons.y = yDown;
+
+    if (debugEnabled) updateDebugPanel(gp);
+
+    return { lx, ly, jumpPressed:aPressed, hidePressed:bPressed, lickPressed:yPressed };
+  }
+
+  // --- Debug panel: shows raw axes/buttons so we can diagnose mapping ---
+  let debugEnabled = false;
+  const debugPanel = document.createElement('div');
+  debugPanel.id = 'gpDebug';
+  debugPanel.style.cssText = 'position:absolute;bottom:60px;left:50%;transform:translateX(-50%);'+
+    'background:rgba(0,0,0,0.75);color:#9fffb0;font-family:monospace;font-size:11px;'+
+    'padding:8px 12px;border-radius:8px;white-space:pre;display:none;pointer-events:none;z-index:20;';
+  document.getElementById('wrap').appendChild(debugPanel);
+  window.addEventListener('keydown', e=>{
+    if (e.code === 'KeyG'){
+      debugEnabled = !debugEnabled;
+      debugPanel.style.display = debugEnabled ? 'block' : 'none';
+      if (debugEnabled && gamepadApiBlocked){
+        debugPanel.textContent = 'Gamepad API is blocked by this page\'s permissions policy.\n'+
+          'This happens when opening the file directly (file://) in Chrome.\n'+
+          'Fix: serve the file over http:// instead, e.g. run:\n'+
+          '  python3 -m http.server\n'+
+          'in the folder, then open http://localhost:8000/lizard3d.html';
+      }
+    }
+  });
+  function updateDebugPanel(gp){
+    const axesStr = gp.axes.map((a,i)=>`a${i}:${a.toFixed(2)}`).join(' ');
+    const btnStr = gp.buttons.map((b,i)=> b.pressed ? `[${i}]` : '').filter(Boolean).join(' ') || '(none pressed)';
+    debugPanel.textContent = `Gamepad: ${gp.id}\nindex:${gp.index}  ${axesStr}\npressed: ${btnStr}\n(press G to toggle this panel)`;
+  }
+
+  function tryJump(){
+    if (lizardState.onGround && !lizardState.hidden){
+      lizardState.vy = JUMP_VY;
+      lizardState.onGround = false;
+      lizardState.squash = 1.35;
+    }
+  }
+
+  function nearestBush(maxDist){
+    let best = null, bestD = Infinity;
+    obstacles.forEach(o=>{
+      if (o.type !== 'bush') return;
+      const dx = o.x - lizardState.x, dz = o.z - lizardState.z;
+      const d = Math.sqrt(dx*dx+dz*dz);
+      if (d < maxDist && d < bestD){ bestD = d; best = o; }
+    });
+    return best;
+  }
+
+  function tryToggleHide(){
+    if (lizardState.hidden){
+      lizardState.hidden = false;
+      lizardState.hideTarget = null;
+      showHideBanner(false);
+      return;
+    }
+    const b = nearestBush(1.3);
+    if (b){
+      lizardState.hidden = true;
+      lizardState.hideTarget = b;
+      lizardState.x = b.x;
+      lizardState.z = b.z;
+      showHideBanner(true);
+    }
+  }
+
+  function showHideBanner(show){
+    document.getElementById('hideBanner').classList.toggle('show', show);
+  }
+
+  let frogKillCount = 0;
+  function updateFrogHud(){
+    document.getElementById('frogKills').textContent = frogKillCount;
+    document.getElementById('frogsLeft').textContent = frogs.filter(f=>!f.defeated).length;
+  }
+
+  function tryLick(){
+    if (lizardState.hidden || lizardState.lickCooldown > 0 || lizardState.licking) return;
+    lizardState.licking = true;
+    lizardState.lickTimer = LICK_DURATION;
+    lizardState.lickCooldown = LICK_COOLDOWN;
+
+    // forward direction the lizard is currently facing, in world space
+    const fx = Math.cos(-lizardState.facingAngle);
+    const fz = Math.sin(-lizardState.facingAngle);
+
+    frogs.forEach(f=>{
+      if (f.defeated) return;
+      const dx = f.x - lizardState.x, dz = f.z - lizardState.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist > LICK_RANGE || dist < 0.0001) return;
+      // angle between facing direction and direction to the frog
+      const dot = (fx*dx + fz*dz) / dist;
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+      if (angle > LICK_ARC/2) return;
+
+      f.health -= 1;
+      f.hitFlash = 0.25;
+      if (f.health <= 0 && !f.defeated){
+        f.defeated = true;
+        f.defeatTimer = 0.5;
+        frogKillCount++;
+      }
+    });
+    updateFrogHud();
+
+    // Licking a bush/grass patch gathers cloth: every 4 licks on a single
+    // bush yields 2 cloth, matching the requested 4-licks-for-2-cloth rate.
+    // The counter persists per bush so partial progress isn't lost between
+    // licks, and bushes are a renewable resource (the counter just resets
+    // after each 2-cloth payout rather than the bush being consumed).
+    let lickedBush = false;
+    obstacles.forEach(o=>{
+      if (o.type !== 'bush' || lickedBush) return;
+      const dx = o.x - lizardState.x, dz = o.z - lizardState.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist > LICK_RANGE || dist < 0.0001) return;
+      const dot = (fx*dx + fz*dz) / dist;
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+      if (angle > LICK_ARC/2) return;
+
+      lickedBush = true;
+      o.lickCount = (o.lickCount || 0) + 1;
+      shakeBush(o);
+      if (o.lickCount >= 4){
+        o.lickCount -= 4;
+        inventory.cloth += 2;
+        updateInventoryHud();
+        showPickupToast('+2 🧵 Cloth');
+      } else {
+        showPickupToast(`Licking... (${o.lickCount}/4)`);
+      }
+    });
+  }
+
+  function shakeBush(o){
+    const mesh = o.mesh;
+    const originalScale = mesh.userData.baseScale || (mesh.userData.baseScale = mesh.scale.clone());
+    mesh.scale.set(originalScale.x*1.08, originalScale.y*0.92, originalScale.z*1.08);
+    setTimeout(()=>{ mesh.scale.copy(originalScale); }, 120);
+  }
+
+  // -----------------------------------------------------------------
+  // Chopping trees with the axe — triggered by double-tapping C
+  // -----------------------------------------------------------------
+  let lastCTapTime = -Infinity;
+
+  function handleChopKeyPress(){
+    const now = performance.now() / 1000;
+    if (now - lastCTapTime <= CHOP_DOUBLE_TAP_WINDOW){
+      tryChop();
+      lastCTapTime = -Infinity; // reset so a third tap starts a fresh pair
+    } else {
+      lastCTapTime = now;
+    }
+  }
+
+  function tryChop(){
+    if (!inventory.tools.axe || lizardState.hidden) return;
+
+    const fx = Math.cos(-lizardState.facingAngle);
+    const fz = Math.sin(-lizardState.facingAngle);
+
+    let choppedAny = false;
+    for (let i = obstacles.length - 1; i >= 0; i--){
+      if (choppedAny) break;
+      const o = obstacles[i];
+      if (o.type !== 'tree') continue;
+      const dx = o.x - lizardState.x, dz = o.z - lizardState.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist > CHOP_RANGE || dist < 0.0001) continue;
+      const dot = (fx*dx + fz*dz) / dist;
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+      if (angle > CHOP_ARC/2) continue;
+
+      choppedAny = true;
+      shakeBush(o); // reuse the same little shake feedback
+      inventory.sticks += STICKS_PER_CHOP;
+      updateInventoryHud();
+      if (inventoryOpen) refreshInventoryPanel();
+      o.chopHealth--;
+
+      if (o.chopHealth <= 0){
+        showPickupToast(`🌲 Tree felled! +${STICKS_PER_CHOP} 🪵`);
+        propsGroup.remove(o.mesh);
+        obstacles.splice(i, 1);
+      } else {
+        showPickupToast(`🪓 Chop! (${o.chopHealth}/${o.maxChopHealth}) +${STICKS_PER_CHOP} 🪵`);
+      }
+    }
+  }
+
+
+  // ---------------------------------------------------------------------
+  // Collision (simple circle push-out against trees, allow bush overlap)
+  // ---------------------------------------------------------------------
+  const LIZARD_RADIUS = 0.32;
+
+  function resolveCollisions(){
+    obstacles.forEach(o=>{
+      if (o.type !== 'tree' && o.type !== 'tent' && o.type !== 'trader' && o.type !== 'fire') return; // bushes are enterable for hiding, ponds handled separately
+      const dx = lizardState.x - o.x, dz = lizardState.z - o.z;
+      const dist = Math.sqrt(dx*dx+dz*dz);
+      const minDist = o.radius + LIZARD_RADIUS;
+      if (dist < minDist && dist > 0.0001){
+        const push = (minDist - dist);
+        lizardState.x += (dx/dist) * push;
+        lizardState.z += (dz/dist) * push;
+      }
+    });
+    // keep on island
+    const edge = islandEdgeFalloff(lizardState.x, lizardState.z) - LIZARD_RADIUS*0.5;
+    const r = Math.sqrt(lizardState.x**2 + lizardState.z**2);
+    if (r > edge){
+      const scale = edge / r;
+      lizardState.x *= scale;
+      lizardState.z *= scale;
+    }
+  }
+
+  function checkPondDrowning(){
+    if (lizardState.drowning || lizardState.hidden) return;
+    let inAnyPond = false;
+    obstacles.forEach(o=>{
+      if (o.type !== 'pond' || lizardState.drowning) return;
+      const dx = lizardState.x - o.x, dz = lizardState.z - o.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      const inWater = dist < o.radius * 0.85;
+      if (!inWater) return;
+      inAnyPond = true;
+
+      if (inventory.tools.scuba){
+        tryDiveForTreasure(o);
+      } else {
+        startDrowning();
+      }
+    });
+    lizardState.swimming = inAnyPond && inventory.tools.scuba;
+  }
+
+  // With the scuba mask, swimming in a pond occasionally turns up gold —
+  // each pond has its own cooldown so you can't farm one spot endlessly.
+  const DIVE_TREASURE_COOLDOWN = 15; // seconds between possible finds per pond
+  const DIVE_TREASURE_CHANCE = 0.35; // chance per attempt once off cooldown
+
+  function tryDiveForTreasure(pond){
+    const now = performance.now() / 1000;
+    if (pond.nextDiveCheck && now < pond.nextDiveCheck) return;
+    pond.nextDiveCheck = now + DIVE_TREASURE_COOLDOWN;
+    if (Math.random() < DIVE_TREASURE_CHANCE){
+      const found = Math.floor(THREE.MathUtils.randFloat(2, 6));
+      inventory.gold += found;
+      updateInventoryHud();
+      if (inventoryOpen) refreshInventoryPanel();
+      showPickupToast(`🤿 Found ${found} 🪙 underwater!`);
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Sleeping in a tent — heals to full hearts, advances the day counter,
+  // and jumps straight to the next morning (skipping the rest of the
+  // night, so any zombie frogs immediately revert to normal).
+  // -----------------------------------------------------------------
+  const TENT_SLEEP_RANGE = 1.3;
+  const MORNING_T = 0.27; // matches the sunrise stop in dayNightStops
+
+  function nearestTent(){
+    let best = null, bestD = Infinity;
+    obstacles.forEach(o=>{
+      if (o.type !== 'tent') return;
+      const dx = o.x - lizardState.x, dz = o.z - lizardState.z;
+      const d = Math.sqrt(dx*dx + dz*dz);
+      if (d < TENT_SLEEP_RANGE && d < bestD){ bestD = d; best = o; }
+    });
+    return best;
+  }
+
+  function updateSleepPrompt(){
+    const el = document.getElementById('sleepPrompt');
+    if (!el) return;
+    const nearTent = !lizardState.hidden && !lizardState.drowning && nearestTent() !== null;
+    if (!nearTent){
+      el.classList.remove('show');
+      return;
+    }
+    const warm = isNearFire(FIRE_WARMTH_RADIUS);
+    el.textContent = warm ? '🏕️ Press E to sleep in the tent' : '🥶 Too cold to sleep — build a fire nearby';
+    el.classList.add('show');
+  }
+
+  function trySleep(){
+    if (lizardState.hidden || lizardState.drowning || lizardState.gameOver || inventoryOpen || !gameStarted) return;
+    const tent = nearestTent();
+    if (!tent) return;
+    if (!isNearFire(FIRE_WARMTH_RADIUS)){
+      showPickupToast('🥶 Too cold to sleep — build a fire nearby');
+      return;
+    }
+
+    // heal to full
+    lizardState.hearts = lizardState.maxHearts;
+    updateHeartsHud();
+
+    // eating well during a good night's sleep restores hunger too
+    lizardState.hunger = lizardState.maxHunger;
+    updateHungerHud();
+
+    // jump straight to next morning and count the new day
+    gameClock = DAY_NIGHT_CYCLE_SECONDS * MORNING_T;
+    dayCounter++;
+
+    // immediately revert any zombie frogs since it's now day
+    if (isNight){
+      isNight = false;
+      onDayNightTransition(false);
+    }
+
+    showPickupToast('😴 Slept until morning');
+  }
+
+  function startDrowning(){
+    lizardState.drowning = true;
+    lizardState.drownTimer = DROWN_DURATION;
+    lizardState.vy = 0;
+    const el = document.getElementById('sleepPrompt');
+    if (el) el.classList.remove('show');
+  }
+
+  function updateDrowning(dt){
+    lizardState.drownTimer -= dt;
+    // sink and spin while drowning
+    const t = 1 - Math.max(0, lizardState.drownTimer / DROWN_DURATION);
+    lizardState.y = -t * 0.6;
+    lizardBody.rotation.z = t * Math.PI * 2;
+    if (lizardState.drownTimer <= 0){
+      // respawn at the original spawn point, keeping all inventory items —
+      // nothing in the inventory object is touched here, so crafting
+      // materials and built items survive the respawn
+      lizardState.x = lizardState.spawnX;
+      lizardState.z = lizardState.spawnZ;
+      lizardState.y = 0;
+      lizardState.vy = 0;
+      lizardState.drowning = false;
+      lizardBody.rotation.z = 0;
+      showDrownBanner(false);
+    } else {
+      showDrownBanner(true);
+    }
+  }
+
+  function showDrownBanner(show){
+    const el = document.getElementById('drownBanner');
+    if (el) el.classList.toggle('show', show);
+  }
+
+  // -----------------------------------------------------------------
+  // Health / hearts — damage from zombie frog bites at night
+  // -----------------------------------------------------------------
+  function updateHeartsHud(){
+    for (let i=1;i<=MAX_HEARTS;i++){
+      const el = document.getElementById('heart'+i);
+      if (!el) continue;
+      el.textContent = i <= lizardState.hearts ? '❤️' : '🖤';
+    }
+  }
+
+  function damagePlayer(amount){
+    if (lizardState.invulnTimer > 0 || lizardState.drowning || lizardState.gameOver) return;
+    lizardState.hearts = Math.max(0, lizardState.hearts - amount);
+    lizardState.invulnTimer = HIT_INVULN_DURATION;
+    lizardState.hitFlashTimer = 0.4;
+    updateHeartsHud();
+    if (lizardState.hearts <= 0){
+      triggerGameOver();
+    }
+  }
+
+  function triggerGameOver(){
+    lizardState.gameOver = true;
+    const overlay = document.getElementById('gameOverOverlay');
+    if (overlay) overlay.classList.add('show');
+  }
+
+  // -----------------------------------------------------------------
+  // Hunger — drains slowly over time; once empty, costs a heart every
+  // 20 seconds until you eat. Food comes from cooking at a campfire.
+  // -----------------------------------------------------------------
+  function updateHungerHud(){
+    for (let i=1;i<=MAX_HUNGER;i++){
+      const el = document.getElementById('hunger'+i);
+      if (!el) continue;
+      el.textContent = i <= lizardState.hunger ? '🍗' : '🦴';
+    }
+  }
+
+  function updateHunger(dt){
+    lizardState.hungerDrainTimer += dt;
+    if (lizardState.hungerDrainTimer >= HUNGER_DRAIN_INTERVAL){
+      lizardState.hungerDrainTimer = 0;
+      if (lizardState.hunger > 0){
+        lizardState.hunger--;
+        updateHungerHud();
+        if (lizardState.hunger === 0) showPickupToast('😋 Getting hungry...');
+      }
+    }
+
+    if (lizardState.hunger <= 0){
+      lizardState.starveTimer += dt;
+      if (lizardState.starveTimer >= STARVE_HEART_INTERVAL){
+        lizardState.starveTimer = 0;
+        // starvation bypasses combat invulnerability — it's a separate
+        // damage source — but still respects drowning/game-over guards
+        if (!lizardState.drowning && !lizardState.gameOver){
+          lizardState.hearts = Math.max(0, lizardState.hearts - 1);
+          lizardState.hitFlashTimer = 0.4;
+          updateHeartsHud();
+          showPickupToast('🍖 Starving! Lost a heart');
+          if (lizardState.hearts <= 0) triggerGameOver();
+        }
+      }
+    } else {
+      lizardState.starveTimer = 0;
+    }
+  }
+
+  function eatFood(){
+    if (inventory.food <= 0) return false;
+    inventory.food--;
+    lizardState.hunger = lizardState.maxHunger;
+    lizardState.hungerDrainTimer = 0;
+    lizardState.starveTimer = 0;
+    updateHungerHud();
+    updateInventoryHud();
+    if (inventoryOpen) refreshInventoryPanel();
+    showPickupToast('🍗 Ate food (+hunger)');
+    return true;
+  }
+
+  function resetGameState(){
+    lizardState.hearts = MAX_HEARTS;
+    lizardState.gameOver = false;
+    lizardState.invulnTimer = 0;
+    lizardState.hitFlashTimer = 0;
+    lizardState.x = lizardState.spawnX;
+    lizardState.z = lizardState.spawnZ;
+    lizardState.y = 0;
+    lizardState.vy = 0;
+    lizardState.drowning = false;
+    lizardState.hidden = false;
+    lizardState.hunger = MAX_HUNGER;
+    lizardState.hungerDrainTimer = 0;
+    lizardState.starveTimer = 0;
+    inventory.sticks = 0;
+    inventory.cloth = 0;
+    inventory.tents = 0;
+    inventory.fires = 0;
+    inventory.gold = 0;
+    inventory.food = 0;
+    inventory.tools.axe = false;
+    inventory.tools.hoe = false;
+    inventory.tools.scuba = false;
+    outpostUnlocked = false;
+    frogKillCount = 0;
+    gameClock = DAY_NIGHT_CYCLE_SECONDS * 0.27;
+    dayCounter = 1;
+    isNight = false;
+    updateHeartsHud();
+    updateHungerHud();
+    updateInventoryHud();
+    updateFrogHud();
+    showHideBanner(false);
+    showDrownBanner(false);
+    const sleepEl = document.getElementById('sleepPrompt');
+    if (sleepEl) sleepEl.classList.remove('show');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    if (gameOverOverlay) gameOverOverlay.classList.remove('show');
+    generateWorld();
+    clearTents();
+    clearFires();
+    clearFarmPlots();
+    removeTrader();
+  }
+
+  // ---------------------------------------------------------------------
+  // Camera follow (third-person, behind and slightly above the lizard)
+  // ---------------------------------------------------------------------
+  // facingAngle is stored "flipped" (see movement code: targetAngle * -1)
+  // so the world-space forward direction the lizard faces is:
+  const camCurrentPos = new THREE.Vector3(0, camFollowHeight, camFollowDistance);
+  const camCurrentLook = new THREE.Vector3(0, 1, 0);
+  let camInitialized = false;
+
+  function updateCamera(dt){
+    // forward vector the lizard is facing, in world space
+    const fx = Math.cos(-lizardState.facingAngle);
+    const fz = Math.sin(-lizardState.facingAngle);
+
+    const desiredX = lizardState.x - fx * camFollowDistance;
+    const desiredZ = lizardState.z - fz * camFollowDistance;
+    const desiredY = GROUND_SURFACE_Y + lizardState.y + camFollowHeight;
+
+    const lookX = lizardState.x + fx * camLookAhead;
+    const lookZ = lizardState.z + fz * camLookAhead;
+    const lookY = GROUND_SURFACE_Y + lizardState.y + 0.6;
+
+    if (!camInitialized){
+      camCurrentPos.set(desiredX, desiredY, desiredZ);
+      camCurrentLook.set(lookX, lookY, lookZ);
+      camInitialized = true;
+    } else {
+      const t = Math.min(1, camLerpSpeed * dt);
+      camCurrentPos.x += (desiredX - camCurrentPos.x) * t;
+      camCurrentPos.y += (desiredY - camCurrentPos.y) * t;
+      camCurrentPos.z += (desiredZ - camCurrentPos.z) * t;
+      camCurrentLook.x += (lookX - camCurrentLook.x) * t;
+      camCurrentLook.y += (lookY - camCurrentLook.y) * t;
+      camCurrentLook.z += (lookZ - camCurrentLook.z) * t;
+    }
+
+    camera.position.copy(camCurrentPos);
+    camera.lookAt(camCurrentLook);
+  }
+
+  // ---------------------------------------------------------------------
+  // Update loop
+  // ---------------------------------------------------------------------
+  let lastTime = performance.now();
+
+  function update(dt){
+    if (!gameStarted){
+      // keep the camera gently orbiting the island while the start screen
+      // is up, so the background isn't a static frozen frame
+      updateDayNightCycle(dt);
+      updateCamera(dt);
+      return;
+    }
+
+    if (lizardState.gameOver){
+      // freeze the whole simulation behind the game-over screen
+      return;
+    }
+
+    updateDayNightCycle(dt);
+
+    if (inventoryOpen || tradeOpen){
+      updateCamera(dt);
+      return;
+    }
+
+    if (lizardState.drowning){
+      updateDrowning(dt);
+      lizardGroup.position.set(lizardState.x, GROUND_SURFACE_Y + lizardState.y, lizardState.z);
+      updateCamera(dt);
+      return;
+    }
+
+    const gp = pollGamepad();
+
+    if (gp.jumpPressed) tryJump();
+    if (gp.hidePressed) tryToggleHide();
+    if (gp.lickPressed) tryLick();
+
+    const TURN_SPEED = 3.2; // radians/sec at full stick or A/D held
+
+    if (lizardState.hidden){
+      // small chance to auto-exit if user moves stick/keys strongly
+      const kThrottle = (keys['ArrowUp']||keys['KeyW']?1:0) - (keys['ArrowDown']||keys['KeyS']?1:0);
+      const kTurn = (keys['ArrowRight']||keys['KeyD']?1:0) - (keys['ArrowLeft']||keys['KeyA']?1:0);
+      if (Math.abs(gp.lx) > 0.4 || Math.abs(gp.ly) > 0.4 || kThrottle !== 0 || kTurn !== 0){
+        lizardState.hidden = false;
+        lizardState.hideTarget = null;
+        showHideBanner(false);
+      }
+    } else {
+      // Tank controls: forward/back (W/S or stick up/down) moves the lizard
+      // along the direction it's already facing. Left/right (A/D or stick
+      // left/right) rotates that facing direction instead of strafing.
+      let throttle = -gp.ly; // stick up (negative ly) = forward
+      let turn = gp.lx;
+      const kThrottle = (keys['ArrowUp']||keys['KeyW']?1:0) - (keys['ArrowDown']||keys['KeyS']?1:0);
+      const kTurn = (keys['ArrowRight']||keys['KeyD']?1:0) - (keys['ArrowLeft']||keys['KeyA']?1:0);
+      if (kThrottle !== 0) throttle = kThrottle;
+      if (kTurn !== 0) turn = kTurn;
+
+      if (turn !== 0){
+        lizardState.facingAngle -= turn * TURN_SPEED * dt;
+      }
+
+      if (throttle !== 0){
+        const moveLen = Math.min(Math.abs(throttle), 1) * Math.sign(throttle);
+        const fx = Math.cos(-lizardState.facingAngle);
+        const fz = Math.sin(-lizardState.facingAngle);
+        lizardState.x += fx * lizardState.moveSpeed * moveLen * dt;
+        lizardState.z += fz * lizardState.moveSpeed * moveLen * dt;
+
+        if (lizardState.onGround) lizardState.legPhase += dt * 10 * Math.abs(moveLen);
+      }
+
+      resolveCollisions();
+      checkPondDrowning();
+      updateSleepPrompt();
+
+      // gravity
+      lizardState.vy += GRAVITY * dt;
+      lizardState.y += lizardState.vy * dt;
+      if (lizardState.y <= 0){
+        lizardState.y = 0;
+        lizardState.vy = 0;
+        lizardState.onGround = true;
+      }
+
+      lizardState.squash += (1 - lizardState.squash) * Math.min(1, dt*8);
+
+      // auto-hide when standing still inside a bush for a moment isn't required;
+      // hide only via explicit press, per spec.
+    }
+
+    if (lizardState.invulnTimer > 0) lizardState.invulnTimer -= dt;
+    if (lizardState.hitFlashTimer > 0) lizardState.hitFlashTimer -= dt;
+    if (lizardState.hitFlashTimer > 0){
+      const flashOn = Math.floor(lizardState.hitFlashTimer * 16) % 2 === 0;
+      lizMatBody.emissive.setHex(flashOn ? 0xff2020 : 0x000000);
+      lizMatBody.emissiveIntensity = flashOn ? 0.7 : 0;
+    } else if (lizMatBody.emissiveIntensity !== 0){
+      lizMatBody.emissive.setHex(0x000000);
+      lizMatBody.emissiveIntensity = 0;
+    }
+
+    // Apply to scene
+    lizardGroup.visible = !lizardState.hidden;
+    lizardGroup.position.set(lizardState.x, GROUND_SURFACE_Y + lizardState.y, lizardState.z);
+    lizardBody.rotation.y = lizardState.facingAngle;
+
+    // contact shadow shrinks and fades as the lizard jumps higher, and
+    // stays pinned to the ground regardless of how high the lizard flies
+    const shadowFalloff = Math.max(0.15, 1 - lizardState.y * 0.35);
+    contactShadow.scale.set(shadowFalloff, shadowFalloff, shadowFalloff);
+    contactShadow.material.opacity = 0.35 * shadowFalloff;
+    contactShadow.position.y = 0.02 - lizardState.y;
+
+    const bob = (lizardState.onGround && !lizardState.hidden) ? Math.abs(Math.sin(lizardState.legPhase)) * 0.05 : 0;
+    lizardBody.position.y = bob;
+    lizardBody.scale.set(1/Math.sqrt(lizardState.squash), lizardState.squash, 1/Math.sqrt(lizardState.squash));
+
+    legs.forEach((leg, i)=>{
+      const phase = lizardState.legPhase + (i%2===0 ? 0 : Math.PI);
+      const swing = (lizardState.onGround && !lizardState.hidden) ? Math.sin(phase)*0.12 : 0;
+      leg.rotation.x = swing;
+    });
+
+    // lick cooldown / tongue animation
+    if (lizardState.lickCooldown > 0) lizardState.lickCooldown -= dt;
+    if (lizardState.licking){
+      lizardState.lickTimer -= dt;
+      if (lizardState.lickTimer <= 0){
+        lizardState.licking = false;
+        tongue.visible = false;
+        tongueTip.visible = false;
+      } else {
+        // tongue shoots out then snaps back: triangle-wave over the duration
+        const t = 1 - (lizardState.lickTimer / LICK_DURATION);
+        const extend = t < 0.4 ? (t/0.4) : (1 - (t-0.4)/0.6);
+        const length = Math.max(0.05, TONGUE_MAX_LENGTH * extend);
+        tongue.visible = true;
+        tongueTip.visible = true;
+        tongue.scale.x = length;
+        tongue.position.x = length/2;
+        tongueTip.position.x = length;
+      }
+    }
+
+    updateFrogs(dt);
+    updateSticks(dt);
+    updateFires(dt);
+    updateTrader(dt);
+    updateHunger(dt);
+    updateFarmPlots(dt);
+
+    // bush "occupied" eye-peek indicator
+    obstacles.forEach(o=>{
+      if (o.type !== 'bush') return;
+      o.mesh.children.forEach(c=>{ if(c.userData.isEye) c.visible = false; });
+    });
+    if (lizardState.hidden && lizardState.hideTarget){
+      let eyeL = lizardState.hideTarget.mesh.children.find(c=>c.userData.isEye);
+      if (!eyeL){
+        const eyeMat = new THREE.MeshLambertMaterial({ color:0x1c1c1c });
+        const eyeGeo = new THREE.SphereGeometry(0.04, 5, 4);
+        const e1 = new THREE.Mesh(eyeGeo, eyeMat);
+        e1.position.set(0.15, 0.5, 0.08);
+        e1.userData.isEye = true;
+        const e2 = e1.clone();
+        e2.position.z = -0.08;
+        e2.userData.isEye = true;
+        lizardState.hideTarget.mesh.add(e1, e2);
+      } else {
+        lizardState.hideTarget.mesh.children.forEach(c=>{ if(c.userData.isEye) c.visible = true; });
+      }
+    }
+
+    // keep the sun's shadow frustum centered on the lizard so shadow
+    // resolution stays sharp across the larger island, while still
+    // tracking the day/night sweep direction
+    const SUN_FOLLOW_DIST = 30;
+    sun.position.set(
+      lizardState.x + sunDirection.x * SUN_FOLLOW_DIST,
+      sunDirection.y * SUN_FOLLOW_DIST,
+      lizardState.z + sunDirection.z * SUN_FOLLOW_DIST
+    );
+    sunTarget.position.set(lizardState.x, 0, lizardState.z);
+    moon.position.set(
+      lizardState.x + moonDirection.x * SUN_FOLLOW_DIST,
+      Math.max(2, moonDirection.y * SUN_FOLLOW_DIST),
+      lizardState.z + moonDirection.z * SUN_FOLLOW_DIST
+    );
+    moonTarget.position.set(lizardState.x, 0, lizardState.z);
+
+    updateCamera(dt);
+  }
+
+  function animate(now){
+    const dt = Math.min((now - lastTime)/1000, 0.05);
+    lastTime = now;
+    update(dt);
+    renderer.render(scene, camera);
+  }
+
+  function clearTents(){
+    scene.remove(tentsGroup);
+    tentsGroup = new THREE.Group();
+    scene.add(tentsGroup);
+  }
+
+  function clearFires(){
+    scene.remove(firesGroup);
+    firesGroup = new THREE.Group();
+    scene.add(firesGroup);
+    activeFires.length = 0;
+  }
+
+  document.getElementById('regenBtn').addEventListener('click', ()=>{
+    generateWorld();
+    clearTents();
+    clearFires();
+    clearFarmPlots();
+    removeTrader();
+    inventory.tents = 0;
+    inventory.fires = 0;
+    outpostUnlocked = false;
+    lizardState.x = 0; lizardState.z = 0; lizardState.hidden = false;
+    frogKillCount = 0;
+    showHideBanner(false);
+    updateFrogHud();
+    updateInventoryHud();
+    if (inventoryOpen) refreshInventoryPanel();
+  });
+
+  // -----------------------------------------------------------------
+  // Start screen — rainbow color wheel for picking the lizard's color
+  // -----------------------------------------------------------------
+  const hueCanvas = document.getElementById('hueWheel');
+  const hueCtx = hueCanvas.getContext('2d');
+  const wheelSize = hueCanvas.width; // square canvas
+  const wheelCenter = wheelSize / 2;
+  const wheelRadius = wheelSize / 2 - 2;
+
+  function drawHueWheel(){
+    const imgData = hueCtx.createImageData(wheelSize, wheelSize);
+    for (let py = 0; py < wheelSize; py++){
+      for (let px = 0; px < wheelSize; px++){
+        const dx = px - wheelCenter, dy = py - wheelCenter;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const idx = (py * wheelSize + px) * 4;
+        if (dist > wheelRadius){
+          imgData.data[idx+3] = 0; // transparent outside the circle
+          continue;
+        }
+        const angle = Math.atan2(dy, dx); // -PI..PI
+        const hue = ((angle / (Math.PI*2)) * 360 + 360) % 360;
+        const sat = Math.min(1, dist / wheelRadius);
+        const [r,g,b] = hslToRgb(hue/360, sat, 0.55);
+        imgData.data[idx] = r;
+        imgData.data[idx+1] = g;
+        imgData.data[idx+2] = b;
+        imgData.data[idx+3] = 255;
+      }
+    }
+    hueCtx.putImageData(imgData, 0, 0);
+  }
+
+  function hslToRgb(h, s, l){
+    let r, g, b;
+    if (s === 0){ r = g = b = l; }
+    else {
+      const hue2rgb = (p, q, t)=>{
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q-p)*6*t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q-p)*(2/3-t)*6;
+        return p;
+      };
+      const q = l < 0.5 ? l*(1+s) : l+s-l*s;
+      const p = 2*l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+  }
+
+  drawHueWheel();
+
+  let chosenHue = 210/360;   // default starts on a blue, matching prior default
+  let chosenSat = 0.75;
+  const colorPreview = document.getElementById('colorPreview');
+
+  function applyPreview(){
+    const [r,g,b] = hslToRgb(chosenHue, chosenSat, 0.55);
+    colorPreview.style.backgroundColor = `rgb(${r},${g},${b})`;
+    applyLizardColor();
+  }
+  applyPreview();
+
+  function pickFromEvent(e){
+    const rect = hueCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const px = (clientX - rect.left) * (wheelSize / rect.width);
+    const py = (clientY - rect.top) * (wheelSize / rect.height);
+    const dx = px - wheelCenter, dy = py - wheelCenter;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > wheelRadius + 6) return; // ignore clicks well outside the wheel
+    const angle = Math.atan2(dy, dx);
+    chosenHue = ((angle / (Math.PI*2)) + 1) % 1;
+    chosenSat = Math.min(1, dist / wheelRadius);
+    applyPreview();
+  }
+
+  let pickerDragging = false;
+  hueCanvas.addEventListener('mousedown', e=>{ pickerDragging = true; pickFromEvent(e); });
+  window.addEventListener('mousemove', e=>{ if (pickerDragging) pickFromEvent(e); });
+  window.addEventListener('mouseup', ()=>{ pickerDragging = false; });
+  hueCanvas.addEventListener('touchstart', e=>{ pickerDragging = true; pickFromEvent(e); e.preventDefault(); }, {passive:false});
+  hueCanvas.addEventListener('touchmove', e=>{ if (pickerDragging){ pickFromEvent(e); e.preventDefault(); } }, {passive:false});
+  hueCanvas.addEventListener('touchend', ()=>{ pickerDragging = false; });
+
+  // Derive a full lizard palette from the chosen hue: a mid-tone body color,
+  // a darker shade for the back/legs/tail, and a pale belly tint — keeping
+  // the same relative lightness relationships as the original blue scheme.
+  function applyLizardColor(){
+    const [br,bg,bb] = hslToRgb(chosenHue, chosenSat, 0.52);
+    const [dr,dg,db] = hslToRgb(chosenHue, Math.min(1, chosenSat+0.1), 0.32);
+    const [lr,lg,lb] = hslToRgb(chosenHue, Math.max(0.15, chosenSat-0.35), 0.82);
+    lizMatBody.color.setRGB(br/255, bg/255, bb/255);
+    lizMatDark.color.setRGB(dr/255, dg/255, db/255);
+    lizMatBelly.color.setRGB(lr/255, lg/255, lb/255);
+  }
+
+  let gameStarted = false;
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    applyLizardColor();
+    gameStarted = true;
+    document.getElementById('startScreen').classList.add('hidden');
+    updateHeartsHud();
+    updateInventoryHud();
+  });
+
+  document.getElementById('loading').style.display = 'none';
+  renderer.setAnimationLoop(animate);
+})();
+</script>
+</body>
+</html>

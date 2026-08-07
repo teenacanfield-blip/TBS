@@ -1,0 +1,7 @@
+# Local dev-only helper (the PowerShell preview server). Not needed by players.
+.claude/
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store

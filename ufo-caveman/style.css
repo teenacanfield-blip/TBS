@@ -1,0 +1,95 @@
+/* Ugg & the Undersaucer — page furniture only. Every pixel of the game,
+   including the HUD, menus and world map, is drawn inside the canvas. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #07060c;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+#wrap {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keeps its 16:9 shape, scales to the window, and never smooths the art. */
+#c {
+  display: block;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0d0b16;
+  box-shadow: 0 0 0 2px #241f38, 0 0 60px rgba(120, 90, 220, 0.25);
+}
+
+/* ---------- touch controls ---------- */
+
+#touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#touch.hidden { display: none; }
+
+.tgroup {
+  position: absolute;
+  bottom: 3vh;
+  display: flex;
+  gap: 0.8vh;
+}
+
+.tgroup.left { left: 2vw; }
+.tgroup.right { right: 2vw; }
+
+.tb {
+  pointer-events: auto;
+  width: 14vh;
+  height: 9vh;
+  min-width: 62px;
+  min-height: 48px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 2.4vh;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  color: #f2ecff;
+  background: rgba(40, 32, 72, 0.72);
+  border: 2px solid rgba(180, 160, 255, 0.5);
+  border-radius: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tb.big { background: rgba(64, 36, 96, 0.78); }
+.tb:active { background: rgba(120, 90, 220, 0.85); }
+
+/* Scanline sheen over the canvas. Purely decorative. */
+#wrap::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.13) 3px,
+    rgba(0, 0, 0, 0.13) 4px
+  );
+  mix-blend-mode: multiply;
+}
