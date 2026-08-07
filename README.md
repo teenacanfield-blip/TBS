@@ -1,231 +1,93 @@
-# The 13 Dynasties.net
+# Thirsty Bear Hub
 
-A top-down pixel-art survival game. Plain HTML, CSS, and JavaScript — no build step,
-no dependencies. Runs in Chrome, Safari, Firefox, Edge, DuckDuckGo, and mobile browsers.
+A launcher for your games — the shelf that Steam or the Xbox app would give you,
+except it is yours, it is free, and it is four files.
 
-## Playing locally
+It currently hosts:
 
-Open `index.html` in a browser, or run the local dev server and visit
-<http://localhost:8123>.
+- **The 13 Dynasties** — the game in `the-13-dynasties/`
+- **Ugg & the Undersaucer** — the game in `ufo-caveman/`
 
-> **`localhost` only works on your own computer.** Sending that address to a friend
-> will not work — their browser looks at *their* machine. To let other people play,
-> publish the game (below).
+Plain HTML, CSS and JavaScript. No build step, no dependencies, no image files —
+every piece of cover art on the site is drawn in code by `art.js`.
 
-## Playing on a phone or tablet
+## Opening it
 
-Touch controls appear automatically on touch devices: a movement pad on the left and
-action buttons on the right. The game scales to fit any screen. Landscape gives you a
-much larger view than portrait.
+Open `index.html` in a browser, or run the dev server and visit
+<http://localhost:8123>. The hub is the front page of the whole site, so that
+bare address is all anyone needs.
 
-## The three worlds
+Hitting **Play** runs the game right there in the page, the way a launcher does.
+A small pill floats at the top with **Exit game** and a session timer; it fades
+out while you play and comes back when you move the mouse. `Shift+Esc` also
+exits, and the arrow button on the pill opens the game in its own tab instead.
 
-The game is three worlds stacked on top of each other, and each one is meaningfully
-nastier than the one above it.
+`Esc` on its own is left alone deliberately — both games use it for their own
+menus.
 
-| | Hunger | Healing | Holds |
-| --- | --- | --- | --- |
-| **The Surface** | slow | fast | cave guards, and wolves after dark |
-| **The Undergrove** | 2x | barely | thugs, spitters, brutes, three Wardens |
-| **The Deep Hollow** | 3x | none at all | all of the above, and the Goblin King |
+## What it remembers
 
-Sprinting burns food, so it is worth saving for when it counts.
+Time played, number of sessions, when you last played, and which games you have
+pinned. All of it lives in your own browser (`localStorage`), on your own
+device. There is no account and no server, so nothing is shared between people
+or between browsers, and clearing browser data resets it.
 
-### Getting to the end
+## Demos
 
-There is no beeline any more. The route is:
+The six demos in the **Demos** tab each get their own page with a review box —
+stars, a name, and a comment — so people can tell you what they think before a
+game is finished. Reviews are saved in the reader's own browser.
 
-1. **Days 1–4 on the surface.** Repair the house, get an axe, a pickaxe and a sword.
-   Sleeping only works after dark and costs food, so a day takes a day — and wolves come
-   out at night, so a wall or two is time well spent. Nine **supply crates** are buried
-   around the map; each one opens once, and walking out to find them beats chopping the
-   same clearing over and over.
-2. **Day 5:** the rotting log gives way and the Undergrove opens.
-3. **Three Wardens** hold one **Dynasty Seal** each, one to a corner chamber. All three
-   open the Sealed Stair in the fourth corner. A Warden never gives up a chase.
-4. **The Deep Hollow.** Crystal only grows down here, and the throne doors are barred
-   from the inside — nothing short of an **iron sword** levers them apart.
-5. **The Goblin King**, who fights in three phases, calls his guard when he is hurt, and
-   enrages for the last quarter of his health. Watch the ground for his slam.
+You never type a path for a demo. Put it in `demos/<name>/index.html`, where
+`<name>` is the demo's `id` from `games.js`, and the hub finds it on the next
+reload and turns its Play button on. See `demos/README.md` for the list of
+folder names.
 
-   He has **40,000 health** and hits for 40 — 46 on the slam. That is 728 swings of a
-   Tier 3 iron sword, so go in with a full shield, armour, food and med kits. Ungeared he
-   kills you in three hits; with a Tier 3 shield and iron armour it takes twenty.
+## Adding a game
 
-### Tools go to Tier 3
+1. Put the game in its own folder here, so nothing it does can touch the other
+   games.
+2. Open `games.js` and copy one of the two entries.
+3. Change the fields. The ones that matter:
 
-The upgrade bench has two rungs now, not one. Tier 2 is stone-and-wood work you can do
-above ground. Tier 3 needs Undergrove iron and Deep Hollow crystal — and a Tier 2 pickaxe
-is what lets you cut iron in the first place. So the ore chain runs: stone pickaxe → iron
-→ iron pickaxe → crystal → iron sword.
-
-Three things are new on the crafting list: the **Lantern** (you carry your own light,
-which is the difference between groping through the Deep Hollow and seeing it), **Iron
-Armour** (soaks a flat 8 damage off every hit), and the **Med Kit** (+65 health, for when
-bandages are not enough).
-
-## Controls
-
-| Key | Action |
+| Field | What it is |
 | --- | --- |
-| `WASD` | Move |
-| `Shift` | Sprint |
-| `Space` | Gather / attack |
-| `F` | Eat |
-| `B` | Use bandage, then med kit |
-| `E` | Interact (repair, sleep, enter cave, free Ned, upgrade bench, open doors) |
-| `C` | Crafting menu |
-| `I` | Inventory |
-| `J` | Play together |
-| `K` | Choose your look |
-| `1`–`6` | Place wall / stone wall / campfire / torch / bedroll / workbench |
-| `P` / `L` | Save / load |
-| `X` | Skip cutscene |
+| `id` | A short name with dashes. Must be unique — it becomes the page address. |
+| `title` | Shown everywhere. |
+| `suffix` | Optional bit shown small and in the accent colour, like `.net`. |
+| `tagline` | Five or six words. |
+| `url` | Path to the game's HTML file, **relative to this folder**. |
+| `accent` | The game's colour, used for buttons and highlights on its pages. |
+| `accentDark` | A dark colour that stays readable *on top of* `accent`. |
+| `short` | One or two sentences, for the home page banner and the cards. |
+| `about` | An array of paragraphs for the detail page. |
+| `genres`, `features` | Short words; they become the little pill labels. |
+| `controls` | Pairs of `['key', 'what it does']`. |
+| `stages` | Optional. Triples of `['number', 'name', 'description']`. |
+| `stagesTitle` | Optional heading above that table — `The three worlds`, `The five stages`. Defaults to `Stages`. |
+| `notes` | Optional. Honest caveats worth knowing before playing. |
 
-## Publishing to GitHub Pages (free)
+4. Add cover art in `art.js`. Write a `yourGameScene(w, h, focal)` function
+   alongside the two that are there, then add its `id` to `scene()`, `defs()`
+   and `icon()`. `focal` is where the main subject sits across the frame — the
+   wide banner passes `0.66` so the title text never covers it, the tall card
+   passes `0.5`.
 
-You only do steps 1–4 once. After that, updating is just step 5.
+   If you would rather not draw a scene, the quickest shortcut is to make
+   `defs()` return a gradient and have your scene return one full-size `<rect>`
+   filled with it. The site works fine with a plain coloured card.
 
-**1. Make a GitHub account** at <https://github.com> if you don't have one.
+That is the whole job. Nothing else needs editing.
 
-**2. Create an empty repository.** Click **New repository**, name it something like
-`the-13-dynasties`, set it to **Public**, and do *not* add a README (you already have one).
+## Path gotcha
 
-**3. Upload this folder.** In a terminal opened in this folder, run:
+`url` is relative to this folder — the top of the site — so a game in its own
+folder is `./folder/index.html`.
 
-```bash
-git init
-git add -A
-git commit -m "The 13 Dynasties.net"
-git branch -M main
-git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
-git push -u origin main
-```
+If the filename has spaces or punctuation in it, write it the way a URL wants
+it: `./ufo-caveman/game%20load%20up!.html` — `%20` is a space.
 
-Replace `YOUR-USERNAME` and `YOUR-REPO-NAME` with your actual values.
+## Publishing
 
-**4. Turn on Pages.** In the repository, go to **Settings → Pages**. Under
-*Build and deployment*, set **Source** to `Deploy from a branch`, pick branch `main`
-and folder `/ (root)`, then **Save**.
+See PUBLISHING.md for the full GitHub Pages and Cloudflare walkthrough.
 
-Wait about a minute. Your game will be live at:
-
-```
-https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/
-```
-
-That is the link you share. It works on any browser, on phones and computers.
-
-**5. Publishing an update.** After you change the game:
-
-```bash
-powershell -ExecutionPolicy Bypass -File bump-version.ps1
-git add -A
-git commit -m "Update game"
-git push
-```
-
-The `bump-version.ps1` step matters. Browsers aggressively cache game files, so without
-it some players would keep seeing the old version. Bumping the version changes the file
-addresses (`game.js?v=4`), which forces every browser to download the new copy.
-
-It bumps every page that has a version marker — the game and the arcade — each on its own
-counter, so they do not have to stay in step. If you add another page with its own scripts,
-add its path to the `$pages` list at the top of the script.
-
-## Using your own domain (13dynasties.com)
-
-A `.com` address is **not free** — someone has to buy it, and it renews yearly
-(roughly $10–15/year). There is no way around this; every `.com` in the world is paid
-for by whoever owns it. A free host still gives you a real, shareable link
-(`https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/`) that works in every browser, so buy
-a domain only if you specifically want the shorter name.
-
-If you do want it, get the free version working first, then:
-
-**1. Buy the domain.** Use a registrar such as Cloudflare Registrar (sells at cost),
-Namecheap, or Porkbun. This step needs a real payment method, so an adult should handle
-it. Buy `13dynasties.com` itself — do not buy a "web builder" bundle, you only need the
-domain.
-
-**2. Tell GitHub about it.** Create a file named exactly `CNAME` (no extension) in this
-folder, containing one line:
-
-```
-13dynasties.com
-```
-
-Then commit and push it.
-
-> Only add this file **after** you actually own the domain. If the file is there while
-> the domain isn't yours, GitHub Pages tries to serve the site at an address you don't
-> control and your working `github.io` link can break.
-
-**3. Point the domain at GitHub.** In your registrar's DNS settings, add these records:
-
-| Type | Name | Value |
-| --- | --- | --- |
-| A | `@` | `185.199.108.153` |
-| A | `@` | `185.199.109.153` |
-| A | `@` | `185.199.110.153` |
-| A | `@` | `185.199.111.153` |
-| CNAME | `www` | `YOUR-USERNAME.github.io` |
-
-**4. Enable HTTPS.** In the repository, go to **Settings → Pages**, put your domain in
-*Custom domain*, save, and tick **Enforce HTTPS** once it becomes available.
-
-DNS changes can take anywhere from a few minutes to a day to spread. After that, typing
-`13dynasties.com` in any browser loads the game.
-
-## Save data
-
-Saves live in the player's own browser (`localStorage`), on their own device. They are
-not shared between people or between browsers, and clearing browser data erases them.
-If a browser blocks storage (for example Safari private mode), the game shows a message
-instead of crashing.
-
-The game autosaves every 45 seconds, after sleeping, when moving between the surface and
-the Undergrove, and when the tab is closed or hidden. `P` saves manually and `L` reloads
-the last save.
-
-## Dying
-
-Death is not a wipe. Choosing **Get Back Up** revives you at the house, keeping your
-tools, buildings, level and world progress, at the cost of half your carried raw
-materials. **Start Over** erases the save and begins a fresh run.
-
-## Multiplayer (two players)
-
-Press **J** to open the Play Together panel. One player hosts and gets a six-character
-code; the other types it in and joins.
-
-There are two ways to connect:
-
-- **Same Computer** — two tabs in one browser, using `BroadcastChannel`. No internet, no
-  library, nothing that can fail to connect. Host in one tab, then open a second tab,
-  type the code, and press *Same Computer* again.
-- **Host a World / Join** — over the internet, peer-to-peer via WebRTC. Loads PeerJS from
-  a CDN the first time it is used.
-
-### How it works
-
-The host is authoritative. It owns the clock, the enemies, and Ned; joiners mirror that
-state and send their own position plus *requests* to act. When a joiner swings at a thug
-it does not change the thug's health directly — it asks the host, and the result comes
-back in the next snapshot, so the two games can never disagree about who is alive.
-
-On connecting, the host sends its world seed and the joiner regenerates its whole map to
-match. Both players end up in an identical world.
-
-Shared between players: the map, felled trees and rocks, placed buildings, enemy health
-and positions, the day/night clock, and Ned. Kept private to each player: inventory,
-health, hunger, level, and explored fog.
-
-### Limits worth knowing
-
-- **Two players.** The protocol is written for one host and one joiner.
-- **Strict networks block WebRTC.** Some school and guest wifi will refuse peer-to-peer
-  connections, and fixing that needs a paid relay (TURN) server. Same Computer mode
-  always works and is the reliable fallback.
-- **PeerJS is an external service.** Internet play depends on their free signalling
-  server being up.

@@ -91,20 +91,25 @@ function demoFolders(d) {
 
 /* Ordered most-likely-first and kept short on purpose: every candidate that is
    not there costs a 404, and this runs on every page load for any demo still
-   missing. Roughly eight checks per unfound demo is the balance. */
+   missing.
+
+   Both `./` and `../` are tried so the hub keeps working wherever it is put —
+   at the top of the site, which is where it lives now, or one folder down. */
 function demoCandidates(d) {
   const folders = demoFolders(d);
   const out = [];
 
   // The obvious place first: demos/<name>/index.html, then beside the hub.
   for (const folder of folders) {
+    out.push(`./demos/${folder}/index.html`);
     out.push(`../demos/${folder}/index.html`);
+    out.push(`./${folder}/index.html`);
     out.push(`../${folder}/index.html`);
   }
   // Then the other names a main file gets given, for the first folder only.
   for (const file of ['game.html', 'play.html']) {
+    out.push(`./demos/${folders[0]}/${file}`);
     out.push(`../demos/${folders[0]}/${file}`);
-    out.push(`../${folders[0]}/${file}`);
   }
 
   return [...new Set(out)].map(encodeURI);

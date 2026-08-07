@@ -5,15 +5,16 @@
 #   Right-click this file -> "Run with PowerShell"
 #   or from a terminal:  powershell -ExecutionPolicy Bypass -File bump-version.ps1
 #
-# Each page keeps its own counter, so the arcade and the game do not have to be
+# Each page keeps its own counter, so the hub and the games do not have to be
 # in step with each other. A page without a ?v= marker is skipped, not an error —
 # that is how a page that does not need cache-busting behaves.
-
-# Every page with its own script/stylesheet versions. Add a line when you add
-# one; the game folders below have their own index.html and their own counter.
+#
+# This script lives at the top of the site and the paths below are relative to
+# it. Add a line when you add a game that has its own ?v= markers.
 $pages = @(
     "index.html",
-    "arcade/index.html"
+    "the-13-dynasties/index.html",
+    "ufo-caveman/game load up!.html"
 )
 
 # Read/write with explicit UTF-8 so accented and symbol characters survive.

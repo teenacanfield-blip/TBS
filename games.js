@@ -94,7 +94,7 @@ const GAMES = [
     suffix: '.net',
     tagline: 'A survival story',
     // Where the playable game lives, relative to this folder.
-    url: '../index.html',
+    url: './the-13-dynasties/index.html',
     developer: 'Thirsty Bear Studios',
     released: '2026',
     accent: '#5ce08a',
@@ -165,7 +165,7 @@ const GAMES = [
     title: 'Ugg & the Undersaucer',
     suffix: '',
     tagline: 'The cave lies to you',
-    url: '../ufo-caveman/game%20load%20up!.html',
+    url: './ufo-caveman/game%20load%20up!.html',
     developer: 'Thirsty Bear Studios',
     released: '2026',
     accent: '#7ce6ff',
