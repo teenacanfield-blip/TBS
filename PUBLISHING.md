@@ -14,40 +14,26 @@ else.
 
 ---
 
-## 1. Make a GitHub account
+## 1–2. Account and repository — done
 
-<https://github.com> — skip if you already have one. Note your username; it
-appears in the instructions below as `YOUR-USERNAME`.
-
-## 2. Make an empty repository
-
-**New repository** on GitHub. Name it whatever you like — `thirsty-bear-hub` is
-a reasonable choice. Set it to **Public** (Pages needs Public on a free account).
-
-Do **not** tick "Add a README", "Add .gitignore" or "Choose a license". The
-repository has to start completely empty or the first push will be rejected.
+The repository is <https://github.com/teenacanfield-blip/TBS>. It is public,
+which is what GitHub Pages needs on a free account, and empty, which is what a
+first push needs.
 
 ## 3. Push this folder up
 
-The repository is already set up locally — git is initialised and everything is
-committed. You only need to connect it and push. In a terminal opened in this
-folder:
+Also done, apart from the push itself. Git is initialised, everything is
+committed, `origin` points at the repository above, and the branch is `main`.
 
-```bash
-git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
-```
-
-```bash
-git branch -M main
-```
+That leaves one command, run in this folder:
 
 ```bash
 git push -u origin main
 ```
 
-The first push asks you to sign in to GitHub. A browser window is the easiest
-way; if it asks for a password instead, that is a *personal access token*, not
-your account password — GitHub's sign-in page walks you through making one.
+If it asks you to sign in, a browser window is the easiest way. If it asks for a
+password instead, that is a *personal access token*, not your account password —
+GitHub's sign-in page walks you through making one.
 
 ## 4. Turn Pages on
 
@@ -58,7 +44,7 @@ In the repository: **Settings → Pages**. Under *Build and deployment*, set
 Wait a minute or two. The site appears at:
 
 ```
-https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/
+https://teenacanfield-blip.github.io/TBS/
 ```
 
 **Check this address works before touching the domain.** If the hub loads here,
@@ -75,7 +61,7 @@ or `CNAME` record on `@` or `www` first, then add these five:
 | A | `@` | `185.199.109.153` | **DNS only** |
 | A | `@` | `185.199.110.153` | **DNS only** |
 | A | `@` | `185.199.111.153` | **DNS only** |
-| CNAME | `www` | `YOUR-USERNAME.github.io` | **DNS only** |
+| CNAME | `www` | `teenacanfield-blip.github.io` | **DNS only** |
 
 ### The two Cloudflare settings that break this
 
