@@ -5549,9 +5549,19 @@
   // ---------- tour mode ----------
   // Add ?tour to the address to skip straight into the game with a panel of
   // buttons that jump to each area. It exists so the new content can be looked
-  // at without playing five days to reach it. Nothing below runs on a normal
-  // load, so it cannot affect an ordinary game.
-  const TOUR = new URLSearchParams(location.search).has("tour");
+  // at without playing five days to reach it.
+  //
+  // It is deliberately limited to your own machine — the dev server, or the file
+  // opened directly. On the published site the address bar is thirstybearstudios
+  // .com, so this is false and a visitor typing ?tour gets the ordinary game with
+  // no buttons and no free gear.
+  const ON_OWN_MACHINE =
+    location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1" ||
+    location.hostname === "[::1]" ||
+    location.hostname === "";  // opened as a file:// address
+
+  const TOUR = ON_OWN_MACHINE && new URLSearchParams(location.search).has("tour");
 
   function tourGear() {
     state.tools = { axe: 3, pickaxe: 3, sword: 3, shield: 3, lantern: 1, armor: 1 };
