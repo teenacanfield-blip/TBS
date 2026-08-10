@@ -65,6 +65,11 @@ which is the difference between groping through the Deep Hollow and seeing it), 
 Armour** (soaks a flat 8 damage off every hit), and the **Med Kit** (+65 health, for when
 bandages are not enough).
 
+Upgrading your sword arms Ned too. He swings a copy of your blade at 70% of your damage,
+so he is worth 14 a hit with a basic sword and 39 with iron — he keeps pace with you
+instead of falling behind. In co-op Ned belongs to the host, so he follows the host's
+sword.
+
 ## Controls
 
 | Key | Action |

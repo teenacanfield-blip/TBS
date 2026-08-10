@@ -104,7 +104,10 @@
   const NED_FOLLOW_SPEED = 130;
   const NED_FOLLOW_DISTANCE = 50;
   const NED_ATTACK_RADIUS = 44;
-  const NED_DAMAGE = 14;
+  // Ned fights with a copy of your blade, at this share of your own swing. At
+  // 0.7 a basic sword gives him 14 — and unlike a flat number, he keeps up when
+  // you reach iron instead of turning into decoration against the King.
+  const NED_SWORD_SHARE = 0.7;
   const NED_ATTACK_COOLDOWN = 1.4;
 
   // Surface cave guards: beatable early, before you own a sword.
@@ -2304,6 +2307,12 @@
     return FIST_DAMAGE;
   }
 
+  // Ned swings whatever you swing, a little softer. In co-op he is the host's
+  // to run, so he follows the host's blade.
+  function nedDamage() {
+    return Math.max(1, Math.round(swordDamage() * NED_SWORD_SHARE));
+  }
+
   function attackEnemy(e) {
     const dmg = swordDamage();
     lastAttackTime = performance.now();
@@ -3613,7 +3622,7 @@
       ned.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
       ned.moving = false;
       if (ned.attackCooldown <= 0) {
-        target.hp -= NED_DAMAGE;
+        target.hp -= nedDamage();
         ned.attackCooldown = NED_ATTACK_COOLDOWN;
         lastNedCastTime = performance.now();
         sfx("magic");
@@ -5536,5 +5545,127 @@
     if (savedName) { state.playerName = savedName; menuName.value = savedName; }
   } catch (err) { /* storage blocked */ }
   refreshMenuSkins();
-  startStudioSplash();
+
+  // ---------- tour mode ----------
+  // Add ?tour to the address to skip straight into the game with a panel of
+  // buttons that jump to each area. It exists so the new content can be looked
+  // at without playing five days to reach it. Nothing below runs on a normal
+  // load, so it cannot affect an ordinary game.
+  const TOUR = new URLSearchParams(location.search).has("tour");
+
+  function tourGear() {
+    state.tools = { axe: 3, pickaxe: 3, sword: 3, shield: 3, lantern: 1, armor: 1 };
+    Object.assign(state.inventory, {
+      wood: 99, stone: 99, fiber: 99, iron: 99, crystal: 99,
+      berry: 20, egg: 10, milk: 10, bandage: 10, medkit: 5,
+      wall: 20, stonewall: 20, campfire: 5, torch: 20, bedroll: 2, workbench: 2,
+    });
+    state.xp = 6000;
+    state.maxHealth = 100;
+    state.health = 100;
+    state.hunger = 100;
+    updateInventoryHud();
+    refreshCraftPanel();
+  }
+
+  function tourGoSurface(night) {
+    if (currentArea === "deep") exitDeepHollow();
+    if (currentArea === "undergrove") exitUndergrove();
+    state.time = night ? (21 - 6) / 24 : 0.25;
+    player.x = house.x;
+    player.y = house.y + TILE * 3;
+    toast(night ? "Surface, 9 PM — wolves are on their way." : "Surface, midday.");
+  }
+
+  function tourGoUndergrove(atWarden) {
+    if (currentArea === "deep") exitDeepHollow();
+    if (currentArea === "surface") {
+      passage.revealed = true;
+      enterUndergrove();
+    }
+    if (atWarden) {
+      const w = enemies.find((e) => e.isWarden && !e.dead);
+      if (w) {
+        player.x = w.x - 90;
+        player.y = w.y;
+        toast(`${w.name} — 380 health, and he never stops chasing.`);
+        return;
+      }
+    }
+    player.x = exitStairs.x;
+    player.y = exitStairs.y + 40;
+    toast("The Undergrove. Iron in the walls, three Wardens in the corners.");
+  }
+
+  function tourGoSealedDoor() {
+    tourGoUndergrove(false);
+    state.seals = 2; // one short, so the door shows its counter
+    // If the Deep Hollow stop already carved this doorway, put the wall back —
+    // otherwise the sealed-door art gets drawn over an open hole.
+    if (state.stairOpen && sealedStair.doorTiles) {
+      for (const t of sealedStair.doorTiles) map[t.r][t.c] = T_CAVEWALL;
+    }
+    state.stairOpen = false;
+    player.x = sealedStair.doorX - 70;
+    player.y = sealedStair.doorY;
+    toast("The Sealed Stair. Two of three seals — the door stays shut.");
+  }
+
+  function tourGoDeep() {
+    if (currentArea === "surface") { passage.revealed = true; enterUndergrove(); }
+    state.seals = SEALS_NEEDED;
+    openSealedStair(true);
+    if (currentArea === "undergrove") {
+      player.x = sealedStair.x;
+      player.y = sealedStair.y;
+      enterDeepHollow();
+    }
+    player.x = deepStairUp.x;
+    player.y = deepStairUp.y + 40;
+    toast("The Deep Hollow. Crystal, brutes, and no healing at all.");
+  }
+
+  function tourGoBoss() {
+    tourGoDeep();
+    openBossGate(true);
+    const boss = enemies.find((e) => e.isBoss);
+    if (boss) {
+      player.x = boss.x - 220;
+      player.y = boss.y;
+      toast("The Goblin King. 40,000 health. Watch the ground for the slam.");
+    }
+  }
+
+  function buildTourPanel() {
+    const bar = document.createElement("div");
+    bar.id = "tour-bar";
+    const stops = [
+      ["Gear me up", tourGear],
+      ["Surface — day", () => tourGoSurface(false)],
+      ["Surface — night (wolves)", () => tourGoSurface(true)],
+      ["Undergrove", () => tourGoUndergrove(false)],
+      ["A Warden", () => tourGoUndergrove(true)],
+      ["Sealed Stair", tourGoSealedDoor],
+      ["Deep Hollow", tourGoDeep],
+      ["The Goblin King", tourGoBoss],
+    ];
+    for (const [label, fn] of stops) {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.addEventListener("click", () => { fn(); b.blur(); });
+      bar.appendChild(b);
+    }
+    document.body.appendChild(bar);
+  }
+
+  if (TOUR) {
+    document.getElementById("studio-splash").classList.add("hidden");
+    mainMenu.classList.add("hidden");
+    afterIntro();
+    tourGear();
+    buildTourPanel();
+    toast("Tour mode — use the buttons at the bottom to jump around.");
+  } else {
+    startStudioSplash();
+  }
 })();

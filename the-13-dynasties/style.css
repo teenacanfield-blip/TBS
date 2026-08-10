@@ -397,6 +397,41 @@ canvas {
   pointer-events: none;
 }
 
+/* Tour mode only — the jump-to-area buttons. Never rendered on a normal load,
+   because the panel is only built when ?tour is in the address. */
+#tour-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  max-width: 96vw;
+  background: rgba(8, 10, 14, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  z-index: 60;
+}
+
+#tour-bar button {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 11px;
+  color: #eaf2ff;
+  background: #21324a;
+  border: 1px solid #35507a;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#tour-bar button:hover {
+  background: #2c4363;
+  border-color: #4a6da3;
+}
+
 .end-screen {
   position: absolute;
   inset: 0;
