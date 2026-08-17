@@ -143,7 +143,42 @@ async function discoverDemos() {
 
 /* --------------------------------------------------------------- reviews */
 
-const reviewsFor = (key) => state.reviews[key] || [];
+/* Two modes, decided by whether supabase-config.js has been filled in.
+ *
+ *   configured   — reviews live in the database and everyone sees them. Posting
+ *                  needs an account, so `live` below is a cache of what came
+ *                  back from the server, per game.
+ *   not set up   — the original behaviour: reviews sit in this browser only.
+ *
+ * The rest of the file does not care which is running; it asks reviewsFor(). */
+const LIVE = typeof Accounts !== 'undefined' && Accounts.configured;
+
+// { [key]: { state: 'idle'|'loading'|'ready'|'error', list: [], error: '' } }
+const live = {};
+
+function liveSlot(key) {
+  return (live[key] ||= { state: 'idle', list: [], error: '' });
+}
+
+// Fetches a game's reviews once, then re-renders so they appear. Called from
+// the render pass, so it has to be careful not to loop: only an 'idle' slot
+// starts a request.
+function ensureReviews(key) {
+  const slot = liveSlot(key);
+  if (!LIVE || slot.state !== 'idle') return;
+  slot.state = 'loading';
+  Accounts.listReviews(key)
+    .then((list) => { slot.state = 'ready'; slot.list = list; })
+    .catch((err) => { slot.state = 'error'; slot.error = err.message; })
+    .then(() => render());
+}
+
+// Throws away what we know about a game's reviews so the next render refetches.
+function invalidateReviews(key) {
+  delete live[key];
+}
+
+const reviewsFor = (key) => (LIVE ? liveSlot(key).list : state.reviews[key] || []);
 
 function averageStars(key) {
   const list = reviewsFor(key);
@@ -171,10 +206,77 @@ function reviewSummary(key) {
     <span>${list.length} review${list.length === 1 ? '' : 's'}</span></span>`;
 }
 
+/* Which of the two account forms is showing, and anything we need to tell the
+   person. Module-level so a re-render does not bounce them back to the wrong
+   tab or swallow an error they have not read yet. */
+let authMode = 'in';   // 'in' | 'up'
+let authNote = '';     // shown in green — "check your email", etc
+let authError = '';    // shown in red
+
+// The sign-in / create-account panel that stands in for the post box when
+// nobody is signed in.
+function authBox() {
+  const signingUp = authMode === 'up';
+  return `
+  <form class="rv-auth" data-auth="${signingUp ? 'signup' : 'signin'}">
+    <p class="rv-auth-lead">${signingUp
+      ? 'Make an account to post reviews. Your username is what everyone sees — your email is not shown to anyone.'
+      : 'Sign in to post a review.'}</p>
+
+    <input name="email" class="rv-input" type="email" required
+      maxlength="120" placeholder="Email" autocomplete="email" />
+
+    ${signingUp ? `<input name="username" class="rv-input" required
+      maxlength="20" placeholder="Username (3–20 letters, numbers or _)"
+      autocomplete="username" />` : ''}
+
+    <input name="password" class="rv-input" type="password" required
+      minlength="6" maxlength="72" placeholder="Password (at least 6 characters)"
+      autocomplete="${signingUp ? 'new-password' : 'current-password'}" />
+
+    <div class="row">
+      <button type="submit" class="btn play small">${signingUp ? 'Create account' : 'Sign in'}</button>
+      <button type="button" class="btn ghost small" data-authmode="${signingUp ? 'in' : 'up'}">
+        ${signingUp ? 'I already have one' : 'Create an account'}
+      </button>
+    </div>
+
+    ${authError ? `<p class="rv-error-msg">${esc(authError)}</p>` : ''}
+    ${authNote ? `<p class="rv-note-msg">${esc(authNote)}</p>` : ''}
+  </form>`;
+}
+
+// The star-and-words form, for someone who is allowed to post.
+function postForm(key, what) {
+  return `
+  <form class="rv-form" data-review="${esc(key)}">
+    <div class="rv-stars" role="group" aria-label="Your rating">
+      ${starRow(0, true)}
+      <input type="hidden" name="rating" value="0" />
+      <span class="rv-hint">Tap a star</span>
+    </div>
+    ${LIVE
+      ? `<p class="rv-as">Posting as <b>${esc(Accounts.username || 'you')}</b>
+           <button type="button" class="rv-signout" data-signout>Sign out</button></p>`
+      : `<input name="who" class="rv-input" maxlength="24" placeholder="Your name (optional)" autocomplete="off" />`}
+    <textarea name="text" class="rv-input" rows="3" maxlength="600"
+      placeholder="What did you think of ${esc(what)}?"></textarea>
+    <div class="row">
+      <button type="submit" class="btn play small">Post review</button>
+      <span class="rv-error" hidden>Pick a star rating first.</span>
+    </div>
+  </form>`;
+}
+
 // The whole review box: the score so far, the form, and everything posted.
 // `key` is a game or demo id, so both kinds of page can use the same block.
 function reviewBlock(key, what) {
+  if (LIVE) ensureReviews(key);
+  const slot = LIVE ? liveSlot(key) : null;
+  const signedIn = LIVE && Accounts.session;
   const list = reviewsFor(key).slice().sort((a, b) => b.ts - a.ts);
+
+  const body = !LIVE || signedIn ? postForm(key, what) : authBox();
 
   return `
   <div class="panel reviews">
@@ -183,20 +285,11 @@ function reviewBlock(key, what) {
       ${reviewSummary(key)}
     </div>
 
-    <form class="rv-form" data-review="${esc(key)}">
-      <div class="rv-stars" role="group" aria-label="Your rating">
-        ${starRow(0, true)}
-        <input type="hidden" name="rating" value="0" />
-        <span class="rv-hint">Tap a star</span>
-      </div>
-      <input name="who" class="rv-input" maxlength="24" placeholder="Your name (optional)" autocomplete="off" />
-      <textarea name="text" class="rv-input" rows="3" maxlength="600"
-        placeholder="What did you think of ${esc(what)}?"></textarea>
-      <div class="row">
-        <button type="submit" class="btn play small">Post review</button>
-        <span class="rv-error" hidden>Pick a star rating first.</span>
-      </div>
-    </form>
+    ${body}
+
+    ${LIVE && slot.state === 'loading' ? `<p class="rv-loading">Loading reviews…</p>` : ''}
+    ${LIVE && slot.state === 'error'
+      ? `<p class="rv-error-msg">Could not load reviews: ${esc(slot.error)}</p>` : ''}
 
     ${list.length ? `<ul class="rv-list">
       ${list.map((r) => `
@@ -205,13 +298,17 @@ function reviewBlock(key, what) {
             ${starRow(r.stars)}
             <b>${esc(r.who || 'Player')}</b>
             <span>${new Date(r.ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-            <button class="rv-del" data-unreview="${esc(key)}:${r.ts}" title="Delete this review">Delete</button>
+            ${!LIVE || r.mine
+              ? `<button class="rv-del" data-unreview="${esc(key)}:${LIVE ? esc(String(r.id)) : r.ts}" title="Delete this review">Delete</button>`
+              : ''}
           </div>
           ${r.text ? `<p>${esc(r.text)}</p>` : ''}
         </li>`).join('')}
     </ul>` : ''}
 
-    <p class="rv-foot">Reviews are saved in this browser only — they are yours to read, not published anywhere.</p>
+    <p class="rv-foot">${LIVE
+      ? 'Reviews are public — everyone who visits sees them. You can delete your own at any time.'
+      : 'Reviews are saved in this browser only — they are yours to read, not published anywhere.'}</p>
   </div>`;
 }
 
@@ -849,9 +946,33 @@ document.addEventListener('click', (e) => {
 
   const del = e.target.closest('[data-unreview]');
   if (del) {
-    const [key, ts] = del.dataset.unreview.split(':');
-    state.reviews[key] = reviewsFor(key).filter((r) => String(r.ts) !== ts);
-    save();
+    const [key, id] = del.dataset.unreview.split(':');
+    if (LIVE) {
+      del.disabled = true;
+      Accounts.deleteReview(id)
+        .then(() => { invalidateReviews(key); render(); })
+        .catch((err) => { del.disabled = false; alert(err.message); });
+    } else {
+      state.reviews[key] = reviewsFor(key).filter((r) => String(r.ts) !== id);
+      save();
+      render();
+    }
+    return;
+  }
+
+  // Swap between "sign in" and "create an account" without losing the page.
+  const mode = e.target.closest('[data-authmode]');
+  if (mode) {
+    authMode = mode.dataset.authmode;
+    authError = '';
+    authNote = '';
+    render();
+    return;
+  }
+
+  if (e.target.closest('[data-signout]')) {
+    Accounts.signOut();
+    Object.keys(live).forEach(invalidateReviews); // drop the "mine" flags
     render();
     return;
   }
@@ -896,6 +1017,13 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('submit', (e) => {
+  const auth = e.target.closest('[data-auth]');
+  if (auth) {
+    e.preventDefault();
+    handleAuth(auth);
+    return;
+  }
+
   const form = e.target.closest('[data-review]');
   if (!form) return;
   e.preventDefault();
@@ -903,7 +1031,6 @@ document.addEventListener('submit', (e) => {
   const key = form.dataset.review;
   const stars = +form.elements.rating.value;
   const text = form.elements.text.value.trim();
-  const who = form.elements.who.value.trim();
 
   // A star is the one thing a review cannot do without — the words are optional.
   if (!stars) {
@@ -911,10 +1038,61 @@ document.addEventListener('submit', (e) => {
     return;
   }
 
+  if (LIVE) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Posting…';
+    Accounts.postReview(key, stars, text)
+      .then(() => { invalidateReviews(key); render(); })
+      .catch((err) => {
+        btn.disabled = false;
+        btn.textContent = 'Post review';
+        const slot = form.querySelector('.rv-error');
+        slot.textContent = err.message;
+        slot.hidden = false;
+      });
+    return;
+  }
+
+  const who = form.elements.who.value.trim();
   (state.reviews[key] ||= []).push({ stars, text, who, ts: Date.now() });
   save();
   render();
 });
+
+function handleAuth(form) {
+  const signingUp = form.dataset.auth === 'signup';
+  const email = form.elements.email.value.trim();
+  const password = form.elements.password.value;
+  const username = signingUp ? form.elements.username.value.trim() : '';
+  const btn = form.querySelector('button[type="submit"]');
+
+  authError = '';
+  authNote = '';
+
+  if (signingUp) {
+    const bad = Accounts.checkUsername(username);
+    if (bad) { authError = bad; render(); return; }
+  }
+
+  btn.disabled = true;
+  btn.textContent = signingUp ? 'Creating…' : 'Signing in…';
+
+  const done = (fn) => fn
+    .then((res) => {
+      if (signingUp && res && res.needsConfirmation) {
+        authMode = 'in';
+        authNote = `Account made. Check ${email} for a confirmation link, then sign in.`;
+      }
+      Object.keys(live).forEach(invalidateReviews); // pick up "mine" flags
+      render();
+    })
+    .catch((err) => { authError = err.message; render(); });
+
+  done(signingUp
+    ? Accounts.signUp(email, password, username)
+    : Accounts.signIn(email, password));
+}
 
 // Enter/Space on the pin star, which is a span inside a button.
 document.addEventListener('keydown', (e) => {

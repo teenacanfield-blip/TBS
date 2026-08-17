@@ -781,6 +781,55 @@ table.keys td:last-child { color: var(--text-dim); }
   letter-spacing: 0.03em; color: var(--text-mute);
 }
 
+/* --------------------------------------------------- accounts (live reviews) */
+/* Only rendered when supabase-config.js has been filled in. */
+
+.rv-auth { display: flex; flex-direction: column; gap: 12px; }
+
+.rv-auth-lead {
+  margin: 0;
+  font-size: 14px;
+  color: #c6cfdd;
+}
+
+/* Who you are posting as, with the way out next to it. */
+.rv-as {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0;
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute);
+}
+.rv-as b { color: var(--text); }
+
+.rv-signout {
+  background: none;
+  border: 2px solid var(--line);
+  color: var(--text-mute);
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.rv-signout:hover { border-color: var(--accent); color: var(--text); }
+
+/* A sentence the person needs to read, rather than a one-word field error. */
+.rv-error-msg,
+.rv-note-msg {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 9px 11px;
+  border-left: 3px solid currentColor;
+}
+.rv-error-msg { color: #ff6b7a; background: rgba(255, 107, 122, 0.08); }
+.rv-note-msg  { color: #6ee7a8; background: rgba(110, 231, 168, 0.08); }
+
+.rv-loading {
+  margin: 18px 0 0;
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute);
+}
+
 /* ---------------------------------------------------------------- empty */
 
 .empty {

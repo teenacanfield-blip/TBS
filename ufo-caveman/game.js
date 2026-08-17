@@ -1110,96 +1110,6 @@ addEventListener('keydown', e => {
   audio();
 
   /* Typing a sign message swallows everything except Enter and Escape. */
-  if (editor.on && editor.typing) {
-    e.preventDefault();
-    if (e.key === 'Enter') {
-      const key = editor.tx + ',' + editor.ty;
-      if (!level.src.signs) level.src.signs = {};
-      if (editor.buf.trim()) level.src.signs[key] = editor.buf.trim().toUpperCase();
-      else delete level.src.signs[key];
-      editor.typing = false;
-      editor.dirty = true;
-      rebuildFromSource(false);
-      editStatus('SIGN SET', 1.4);
-    } else if (e.key === 'Escape') {
-      editor.typing = false;
-      editStatus('CANCELLED', 1);
-    } else if (e.key === 'Backspace') {
-      editor.buf = editor.buf.slice(0, -1);
-    } else if (e.key.length === 1 && editor.buf.length < 42) {
-      editor.buf += e.key;
-    }
-    return;
-  }
-
-  if (editor.on) {
-    e.preventDefault();
-    switch (e.code) {
-      case 'KeyE': case 'Escape': closeEditor(); editStatus('', 0); return;
-      case 'BracketLeft': editor.tool = (editor.tool + TOOLS.length - 1) % TOOLS.length; return;
-      case 'BracketRight': editor.tool = (editor.tool + 1) % TOOLS.length; return;
-      case 'KeyZ': if (editor.tx >= 0) cycleRoomZone(editor.tx); return;
-      case 'KeyS': editorSave(); return;
-      case 'KeyP': publishFromEditor(); return;
-      case 'KeyX': editorRevert(); return;
-      case 'Enter': editorTestPlay(); return;
-      case 'KeyT':
-        if (editor.tx >= 0 && signAt(editor.tx, editor.ty)) {
-          editor.typing = true;
-          const cur = level.src.signs && level.src.signs[editor.tx + ',' + editor.ty];
-          editor.buf = cur || '';
-        } else {
-          editStatus('POINT AT A SIGN FIRST', 1.4);
-        }
-        return;
-      case 'KeyM': muted = !muted; editStatus(muted ? 'MUTED' : 'UNMUTED', 1); return;
-    }
-    if (e.code.startsWith('Digit')) {
-      const n = parseInt(e.code.slice(5), 10);
-      if (n >= 1 && n <= 9) editor.tool = Math.min(TOOLS.length - 1, n);
-      return;
-    }
-    /* arrows and WASD fall through to pan the camera */
-    const act = KEYMAP[e.code];
-    if (act) rawKeys[act] = true;
-    return;
-  }
-
-  if (lab.on) {
-    if (e.ctrlKey || e.metaKey) {
-      /* Ctrl+C copies; Ctrl+V falls through to the paste handler below. */
-      if (e.code === 'KeyC') { e.preventDefault(); labCopy(); }
-      return;
-    }
-    e.preventDefault();
-    switch (e.code) {
-      case 'ArrowLeft': lab.cx = (lab.cx + SKIN_W - 1) % SKIN_W; return;
-      case 'ArrowRight': lab.cx = (lab.cx + 1) % SKIN_W; return;
-      case 'ArrowUp': lab.cy = (lab.cy + SKIN_H - 1) % SKIN_H; return;
-      case 'ArrowDown': lab.cy = (lab.cy + 1) % SKIN_H; return;
-      case 'Space': labSetPixel(lab.cx, lab.cy, lab.col); return;
-      case 'Backspace': case 'Delete': labSetPixel(lab.cx, lab.cy, '.'); return;
-      case 'BracketLeft':
-        lab.col = SKIN_PALETTE[(SKIN_PALETTE.indexOf(lab.col) + SKIN_PALETTE.length - 1) % SKIN_PALETTE.length];
-        return;
-      case 'BracketRight':
-        lab.col = SKIN_PALETTE[(SKIN_PALETTE.indexOf(lab.col) + 1) % SKIN_PALETTE.length];
-        return;
-      case 'KeyS': labSave(); return;
-      case 'KeyR': labReset(); return;
-      case 'KeyX': labClear(); return;
-      case 'KeyC': labCycleBeard(e.shiftKey ? -1 : 1); return;
-      case 'KeyQ': labShave(); return;
-      case 'Escape': closeLab(); return;
-      case 'KeyM': muted = !muted; return;
-    }
-    if (e.code.startsWith('Digit')) {
-      const n = parseInt(e.code.slice(5), 10);
-      if (n >= 1 && n <= 4) labSelectSlot(n - 1);
-    }
-    return;
-  }
-
   /* The board wants four-way navigation, so it takes the arrows itself rather
      than letting them fall through to the shared jump/thrust mapping. */
   if (game.state === 'board') {
@@ -1228,14 +1138,6 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyG' && (game.state === 'map' || game.state === 'title')) { showChoose(); return; }
   if (e.code === 'KeyR' && game.state === 'play') respawn(true);
   if (e.code === 'KeyM') { muted = !muted; toast(muted ? 'MUTED' : 'UNMUTED', 0.8); }
-  if (e.code === 'KeyE') {
-    if (game.state === 'play') { openEditor(); return; }
-    if (game.state === 'map' && isUnlocked(game.stage, game.cursor)) {
-      startLevel(game.stage, game.cursor);
-      openEditor();
-      return;
-    }
-  }
   if (e.code === 'Escape') {
     if (game.state === 'play') showMap(game.stage);
     else if (game.state === 'map') showTitle();
@@ -1395,149 +1297,14 @@ function writeSave() {
   } catch (_) { /* ignore */ }
 }
 
-/* ---- edited levels -------------------------------------------------------
-   The editor saves a whole level source here, keyed by stage and index. If a
-   level has an override it is loaded instead of being composed from chunks, so
-   an edit survives reloads and can always be reverted back to the original. */
-
-const EDIT_KEY = 'uggsaucer.levels';
-let overrides = {};
-
-function loadOverrides() {
-  try { overrides = JSON.parse(localStorage.getItem(EDIT_KEY) || '{}') || {}; }
-  catch (_) { overrides = {}; }
-}
-
-function persistOverrides() {
-  try { localStorage.setItem(EDIT_KEY, JSON.stringify(overrides)); return true; }
-  catch (_) { return false; }
-}
-
-function overrideKey(stage, idx) { return stage + ',' + idx; }
-
-function hasOverride(stage, idx) {
-  return Object.prototype.hasOwnProperty.call(overrides, overrideKey(stage, idx));
-}
-
-function saveOverride(stage, idx, src) {
-  overrides[overrideKey(stage, idx)] = {
-    rows: src.rows.slice(),
-    zones: (src.zones || []).map(z => z.slice()),
-    signs: Object.assign({}, src.signs),
-  };
-  return persistOverrides();
-}
-
-function clearOverride(stage, idx) {
-  delete overrides[overrideKey(stage, idx)];
-  persistOverrides();
-}
-
-/* ---- shareable level codes ----------------------------------------------
-   A whole level as one line of text, so a level can be posted, pasted into a
-   message, or handed to anyone else. Rows are run-length encoded —
-   tile characters are never digits, so "#16" is unambiguous — which takes a
-   typical level from a few thousand characters to a few hundred. */
-
-function rleRow(row) {
-  let out = '';
-  let i = 0;
-  while (i < row.length) {
-    const ch = row[i] === ' ' ? '.' : row[i];
-    let n = 1;
-    while (i + n < row.length && (row[i + n] === ' ' ? '.' : row[i + n]) === ch) n++;
-    out += ch + n;
-    i += n;
-  }
-  return out;
-}
-
-function unRleRow(s) {
-  let out = '';
-  let i = 0;
-  while (i < s.length) {
-    const ch = s[i];
-    i++;
-    let num = '';
-    while (i < s.length && s[i] >= '0' && s[i] <= '9') { num += s[i]; i++; }
-    const n = parseInt(num || '1', 10);
-    out += (ch === '.' ? ' ' : ch).repeat(Math.max(0, Math.min(4096, n)));
-  }
-  return out;
-}
-
-function encodeLevelCode(src, name) {
-  const clean = String(name || 'UNTITLED').replace(/~/g, '-').slice(0, 24);
-  const rows = src.rows.map(rleRow).join(';');
-  const zones = (src.zones || []).map(z => z.join(',')).join(';');
-  const signs = Object.keys(src.signs || {})
-    .map(k => k.replace(/[|:]/g, '') + ':' + String(src.signs[k]).replace(/[|~]/g, ' '))
-    .join('|');
-  return ['TBS1', clean, rows, zones, signs].join('~');
-}
-
-function decodeLevelCode(code) {
-  const parts = String(code).trim().split('~');
-  if (parts[0] !== 'TBS1' || parts.length < 3) return null;
-  const name = parts[1] || 'UNTITLED';
-  const rows = parts[2].split(';').map(unRleRow);
-  if (!rows.length) return null;
-
-  /* every row must be the same width, and a whole number of rooms wide */
-  let w = 0;
-  for (const r of rows) w = Math.max(w, r.length);
-  w = Math.max(CW, Math.ceil(w / CW) * CW);
-  const padded = [];
-  for (let y = 0; y < CH; y++) {
-    let r = rows[y] || '';
-    if (r.length > w) r = r.slice(0, w);
-    while (r.length < w) r += ' ';
-    padded.push(r);
-  }
-
-  const zones = [];
-  if (parts[3]) {
-    for (const z of parts[3].split(';')) {
-      if (!z) continue;
-      const f = z.split(',');
-      if (f.length < 5) continue;
-      zones.push([f[0], +f[1] || 0, +f[2] || 0, +f[3] || 0, +f[4] || 0, f[5] === undefined ? 1 : +f[5]]);
-    }
-  }
-
-  const signs = {};
-  if (parts[4]) {
-    for (const s of parts[4].split('|')) {
-      const at = s.indexOf(':');
-      if (at < 0) continue;
-      signs[s.slice(0, at)] = s.slice(at + 1);
-    }
-  }
-
-  return { name, src: { rows: padded, zones, signs } };
-}
-
-/* A flat starter level for building one from scratch. */
-function blankUserLevel(rooms) {
-  const cols = (rooms || 6) * CW;
-  const rows = [];
-  for (let y = 0; y < CH; y++) {
-    if (y >= 14) rows.push('#'.repeat(cols));
-    else rows.push(' '.repeat(cols));
-  }
-  const put = (x, y, ch) => { rows[y] = rows[y].slice(0, x) + ch + rows[y].slice(x + 1); };
-  put(2, 13, '@');
-  put(cols - 4, 13, 'G');
-  return { rows, zones: [], signs: {} };
-}
 
 /* The source a level should load from: an edit if one exists, else the
    generated original. */
 function levelSource(stage, idx) {
-  if (hasOverride(stage, idx)) {
-    const o = overrides[overrideKey(stage, idx)];
-    return { rows: o.rows.slice(), zones: (o.zones || []).map(z => z.slice()), signs: Object.assign({}, o.signs) };
-  }
+  const built = sourceFromChunks(composeLevel(stage, idx));
+  built.signs = {};
+  return built;
+}
   const built = sourceFromChunks(composeLevel(stage, idx));
   built.signs = {};
   return built;
@@ -3026,17 +2793,12 @@ function draw() {
   if (game.state === 'lab') { drawLab(); drawFade(); present(); return; }
   if (!level) { drawIdleBackdrop(); present(); return; }
 
-  /* camera, in world pixels — the editor drives it by hand */
-  if (editor.on) {
-    cam.x = editor.camX;
-    cam.y = editor.camY;
-  } else {
-    const lookX = clamp(p.vx * 14, -50, 50);
-    const tx = clamp(p.x + p.w / 2 - viewW / 2 + lookX, 0, Math.max(0, level.w - viewW));
-    const ty = clamp(p.y + p.h / 2 - viewH / 2, 0, Math.max(0, level.h - viewH));
-    cam.x += (tx - cam.x) * 0.11;
-    cam.y += (ty - cam.y) * 0.09;
-  }
+  /* camera, in world pixels */
+  const lookX = clamp(p.vx * 14, -50, 50);
+  const tx = clamp(p.x + p.w / 2 - viewW / 2 + lookX, 0, Math.max(0, level.w - viewW));
+  const ty = clamp(p.y + p.h / 2 - viewH / 2, 0, Math.max(0, level.h - viewH));
+  cam.x += (tx - cam.x) * 0.11;
+  cam.y += (ty - cam.y) * 0.09;
 
   let shx = 0, shy = 0;
   if (game.shake > 0) {
@@ -3068,12 +2830,6 @@ function draw() {
 
   bx.restore();
 
-  if (editor.on) {
-    drawEditorOverlay();
-    drawFade();
-    present();
-    return;
-  }
 
   drawDark();
   drawFlashes();
@@ -3727,144 +3483,6 @@ function drawHud() {
   }
 }
 
-/* ---------------------------------------------------------- editor overlay */
-
-function drawEditorOverlay() {
-  const t = game.time;
-
-  /* tile grid, and a heavier line on each room boundary */
-  bx.globalAlpha = 0.18;
-  bx.fillStyle = '#ffffff';
-  const gx0 = Math.max(0, Math.floor(cam.x / TS)), gx1 = Math.min(level.cols, Math.ceil((cam.x + viewW) / TS));
-  for (let gx = gx0; gx <= gx1; gx++) {
-    const x = ax(gx * TS);
-    bx.globalAlpha = (gx % CW === 0) ? 0.4 : 0.13;
-    bx.fillRect(x, 0, 1, BH);
-  }
-  for (let gy = 0; gy <= CH; gy++) {
-    bx.globalAlpha = 0.13;
-    bx.fillRect(0, ay(gy * TS), BW, 1);
-  }
-  bx.globalAlpha = 1;
-
-  /* room numbers along the top */
-  for (let r = Math.floor(cam.x / (CW * TS)); r <= Math.ceil((cam.x + viewW) / (CW * TS)); r++) {
-    if (r < 0 || r * CW >= level.cols) continue;
-    drawText('ROOM ' + (r + 1), ax(r * CW * TS) + 3, 14, '#5f5a75', 1);
-  }
-
-  /* hovered tile */
-  if (editor.tx >= 0) {
-    const hx = ax(editor.tx * TS), hy = ay(editor.ty * TS);
-    const tool = TOOLS[editor.tool];
-    bx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 8);
-    bx.fillStyle = tool.col;
-    bx.fillRect(hx, hy, TA, TA);
-    bx.globalAlpha = 1;
-    bx.strokeStyle = '#ffffff';
-    bx.lineWidth = 1;
-    bx.strokeRect(hx + 0.5, hy + 0.5, TA - 1, TA - 1);
-  }
-
-  /* spawn point, which is extracted out of the grid and so draws nothing */
-  if (level.spawn) {
-    const sx = ax(level.spawn.x) - 2, sy = ay(level.spawn.y) - 4;
-    bx.globalAlpha = 0.55;
-    blit(SPR.ugg, sx, sy);
-    bx.globalAlpha = 1;
-    drawText('SPAWN', sx + 8, sy - 8, '#ffe9a8', 1, 'center');
-  }
-
-  /* top bar */
-  bx.fillStyle = 'rgba(8,6,16,0.85)';
-  bx.fillRect(0, 0, BW, 11);
-  drawText('EDIT ' + level.name + (editor.dirty ? ' *' : ''), 3, 2, editor.dirty ? '#ffd479' : '#7de3c8', 1);
-  if (editor.tx >= 0) {
-    drawText('X' + editor.tx + ' Y' + editor.ty, BW - 3, 2, '#8f89a6', 1, 'right');
-  }
-  drawText(hasOverride(level.stage, game.levelIdx) ? 'EDITED' : 'GENERATED', BW / 2, 2, '#5f5a75', 1, 'center');
-
-  /* status line */
-  if (editor.statusTimer > 0) {
-    drawTextShadow(editor.status, BW / 2, 22, '#ffffff', 1, 'center');
-  }
-
-  /* sign typing prompt */
-  if (editor.typing) {
-    bx.fillStyle = 'rgba(8,6,16,0.92)';
-    bx.fillRect(10, 60, BW - 20, 34);
-    bx.strokeStyle = '#a87c3a';
-    bx.lineWidth = 1;
-    bx.strokeRect(10.5, 60.5, BW - 21, 33);
-    drawText('SIGN TEXT - ENTER TO SET, ESC TO CANCEL', BW / 2, 64, '#8f89a6', 1, 'center');
-    const caret = Math.floor(t * 3) % 2 === 0 ? '_' : ' ';
-    drawText(editor.buf + caret, BW / 2, 78, '#f3d9a0', 1, 'center');
-  }
-
-  /* bottom panel: help, selected tool name, palette */
-  const barY = BH - 16;
-  bx.fillStyle = 'rgba(8,6,16,0.92)';
-  bx.fillRect(0, BH - 42, BW, 42);
-  drawText('LMB PAINT  RMB ERASE  [ ] TOOL  Z ROOM FX', BW / 2, BH - 40, '#6f6a86', 1, 'center');
-  drawText('T SIGN  S SAVE  P PUBLISH  ENTER TEST  E EXIT', BW / 2, BH - 32, '#6f6a86', 1, 'center');
-  drawText(TOOLS[editor.tool].name, BW / 2, BH - 24, TOOLS[editor.tool].col, 1, 'center');
-
-  for (let i = 0; i < TOOLS.length; i++) {
-    const cx = i * 13, sel = i === editor.tool;
-    bx.fillStyle = sel ? TOOLS[i].col : 'rgba(255,255,255,0.07)';
-    bx.fillRect(cx + 1, barY + 3, 11, 11);
-    drawText(TOOLS[i].lab, cx + 6, barY + 5, sel ? '#0d0b16' : TOOLS[i].col, 1, 'center');
-    if (sel) {
-      bx.strokeStyle = '#ffffff';
-      bx.lineWidth = 1;
-      bx.strokeRect(cx + 0.5, barY + 2.5, 12, 12);
-    }
-  }
-}
-
-/* -------------------------------------------------------------- studio splash */
-
-function drawSplash() {
-  const t = game.splashT;
-
-  bx.fillStyle = '#07060c';
-  bx.fillRect(0, 0, BW, BH);
-
-  /* slow starfield so the plate is not dead still */
-  for (let i = 0; i < 40; i++) {
-    const sx = (i * 137) % BW, sy = (i * 89) % BH;
-    const tw = Math.sin(game.time * 1.4 + i) > 0.2;
-    bx.fillStyle = tw ? '#2a2440' : '#171325';
-    bx.fillRect(sx, sy, 1, 1);
-  }
-
-  /* the whole plate eases in, holds, and eases out */
-  const fadeIn = clamp(t / 0.6, 0, 1);
-  const fadeOut = clamp((SPLASH_TIME - t) / 0.6, 0, 1);
-  bx.globalAlpha = Math.min(fadeIn, fadeOut);
-
-  drawText('PRODUCED BY', BW / 2, 24, '#6f6a86', 1, 'center');
-  drawTextShadow('CLAUDE', BW / 2, 36, '#8fe6ff', 3, 'center');
-  drawText('AND', BW / 2, 64, '#6f6a86', 1, 'center');
-
-  /* studio mark at double size so it reads as a logo, not a sprite */
-  const bob = Math.round(Math.sin(game.time * 2) * 1);
-  bx.save();
-  bx.translate(BW / 2 - 24, 76 + bob);
-  bx.scale(2, 2);
-  blit(SPR.bear, 0, 0);
-  blit(SPR.mug, 15, 6);
-  bx.restore();
-
-  drawTextShadow('THIRSTY BEAR', BW / 2, 112, '#ffd479', 2, 'center');
-  drawTextShadow('STUDIOS', BW / 2, 128, '#ffd479', 2, 'center');
-
-  bx.globalAlpha = 1;
-  if (t > 1.2 && Math.floor(t * 2) % 2 === 0) {
-    drawText('PRESS SPACE', BW / 2, 166, '#4f4a63', 1, 'center');
-  }
-}
-
 /* ------------------------------------------------------------ character select */
 
 function drawChoose() {
@@ -4092,11 +3710,8 @@ function drawMap() {
   if (open && Math.floor(t * 2) % 2 === 0) {
     drawText('SPACE: ENTER', BW - 4, BH - 12, '#ffffff', 1, 'right');
   }
-  drawText('< > MOVE   E EDIT   B BOARD   C SKIN', BW / 2, BH - 12, '#8f89a6', 1, 'center');
+  drawText('< > MOVE   B BOARD   C SKIN', BW / 2, BH - 12, '#8f89a6', 1, 'center');
   drawText('ROCKS ' + rocksAvailable(), 4, 32, '#9fd0ff', 1);
-  if (hasOverride(game.stage, game.cursor)) {
-    drawText('EDITED', BW / 2, BH - 22, '#ffd479', 1, 'center');
-  }
 
   if (game.stage > 0) drawText('< STAGE ' + game.stage, 4, 32, '#5f5a75', 1);
   if (game.stage < STAGE_COUNT - 1 && isUnlocked(game.stage + 1, 0)) {
@@ -4781,179 +4396,6 @@ addEventListener('paste', e => {
   sfx('pickup');
 });
 
-/* ------------------------------------------------------------------- editor */
-/* Paints straight onto the level's source grid, then rebuilds the level so the
-   result is immediately playable. Everything an editor places is just a
-   character in that grid, which is why hazards, enemies and props all work the
-   same way. */
-
-const TOOLS = [
-  { ch: ' ', lab: 'X', name: 'ERASE', col: '#8f89a6' },
-  { ch: '#', lab: '#', name: 'ROCK', col: '#6b5c96' },
-  { ch: '=', lab: '=', name: 'PLATFORM', col: '#9a8fc4' },
-  { ch: 'F', lab: 'F', name: 'FAKE PLATFORM', col: '#ff5fd0' },
-  { ch: 'P', lab: 'P', name: 'PHANTOM PLATFORM', col: '#9fd0ff' },
-  { ch: 'B', lab: 'B1', name: 'BLINKER A', col: '#7ff3d8' },
-  { ch: 'b', lab: 'B2', name: 'BLINKER B', col: '#ffc07d' },
-  { ch: 'C', lab: '>', name: 'CONVEYOR RIGHT', col: '#ffd23f' },
-  { ch: 'c', lab: '<', name: 'CONVEYOR LEFT', col: '#ffd23f' },
-  { ch: 'T', lab: 'T', name: 'BOUNCE PAD', col: '#ff5fd0' },
-  { ch: '^', lab: '^', name: 'SPIKES', col: '#c9c9d8' },
-  { ch: '~', lab: '~', name: 'GOO', col: '#48c46a' },
-  { ch: 'S', lab: 'S', name: 'SAWBLADE', col: '#c9c9d8' },
-  { ch: 'V', lab: 'V', name: 'CRUSHER', col: '#a86fd4' },
-  { ch: 'o', lab: 'O', name: 'HOMING SPARK', col: '#ffd23f' },
-  { ch: 'd', lab: 'D', name: 'CAVE CRITTER', col: '#a86fd4' },
-  { ch: 'R', lab: 'R', name: 'BOULDER SPAWN', col: '#6f5f8c' },
-  { ch: 'E', lab: 'E', name: 'ECHO TRIGGER', col: '#b98cff' },
-  { ch: '?', lab: '?', name: 'LYING SIGN', col: '#a87c3a' },
-  { ch: '*', lab: '*', name: 'SHINY ROCK', col: '#9fd0ff' },
-  { ch: 'K', lab: 'K', name: 'CHECKPOINT', col: '#7de3c8' },
-  { ch: '@', lab: '@', name: 'SPAWN', col: '#ffe9a8' },
-  { ch: 'G', lab: 'G1', name: 'MOTHERSHIP', col: '#ffe9a8' },
-  { ch: 'g', lab: 'G2', name: 'DECOY SHIP', col: '#ff8f7a' },
-];
-
-/* Only one of these may exist per level, so painting one clears the others. */
-const UNIQUE_TOOLS = '@Gg';
-
-const ZONE_CYCLE = [null, 'invert', 'swapkeys', 'lag', 'mirror', 'flip', 'heavy', 'low', 'wind', 'dark', 'strobe'];
-
-const editor = {
-  on: false,
-  tool: 1,
-  camX: 0, camY: 0,
-  mx: 0, my: 0,            // mouse in art pixels
-  tx: -1, ty: -1,          // hovered tile
-  painting: 0,             // 1 paint, 2 erase
-  typing: false,
-  buf: '',
-  status: '',
-  statusTimer: 0,
-  dirty: false,
-};
-
-function editStatus(msg, secs) {
-  editor.status = msg;
-  editor.statusTimer = secs || 1.6;
-}
-
-function openEditor() {
-  if (!level) return;
-  editor.on = true;
-  editor.typing = false;
-  editor.camX = cam.x;
-  editor.camY = cam.y;
-  editor.dirty = false;
-  game.mirrorAmt = 0;
-  game.darkAmt = 0;
-  editStatus('EDITING ' + level.name, 2);
-}
-
-function closeEditor() {
-  editor.on = false;
-  editor.typing = false;
-}
-
-/* Rebuild the level from its (edited) source, keeping the editor open. */
-function rebuildFromSource(resetPlayer) {
-  const src = level.src;
-  const stage = level.stage, name = level.name;
-  buildLevel(src, stage, name);
-  if (resetPlayer) {
-    p = makePlayer(level.spawn);
-    particles = [];
-    inputLog = [];
-  }
-}
-
-function setTile(gx, gy, ch) {
-  if (gx < 0 || gy < 0 || gx >= level.cols || gy >= CH) return false;
-  const rows = level.src.rows;
-  if (rows[gy][gx] === ch) return false;
-
-  /* spawn, goal and decoy are one-per-level */
-  if (ch !== ' ' && UNIQUE_TOOLS.includes(ch)) {
-    for (let y = 0; y < CH; y++) {
-      const idx = rows[y].indexOf(ch);
-      if (idx >= 0) rows[y] = rows[y].slice(0, idx) + ' ' + rows[y].slice(idx + 1);
-    }
-  }
-  if (rows[gy][gx] === '?' && ch !== '?' && level.src.signs) {
-    delete level.src.signs[gx + ',' + gy];
-  }
-  rows[gy] = rows[gy].slice(0, gx) + ch + rows[gy].slice(gx + 1);
-  editor.dirty = true;
-  return true;
-}
-
-/* Cycles the whole-room effect for the 16-tile room under the cursor. */
-function cycleRoomZone(gx) {
-  const room = Math.floor(gx / CW);
-  const zones = level.src.zones;
-  let at = -1;
-  for (let i = 0; i < zones.length; i++) {
-    const [, zx, , zw] = zones[i];
-    if (zx === room * CW && zw === CW) { at = i; break; }
-  }
-  const current = at >= 0 ? zones[at][0] : null;
-  let next = ZONE_CYCLE[(ZONE_CYCLE.indexOf(current) + 1) % ZONE_CYCLE.length];
-  if (at >= 0) zones.splice(at, 1);
-  if (next) zones.push([next, room * CW, 0, CW, CH, 1]);
-  editor.dirty = true;
-  rebuildFromSource(false);
-  editStatus('ROOM ' + (room + 1) + ': ' + (next ? ZONE_INFO[next].label : 'NO EFFECT'), 1.6);
-}
-
-function signAt(gx, gy) {
-  return level.src.rows[gy] && level.src.rows[gy][gx] === '?';
-}
-
-function editorPaint(erase) {
-  const gx = editor.tx, gy = editor.ty;
-  if (gx < 0) return;
-  const ch = erase ? ' ' : TOOLS[editor.tool].ch;
-  if (setTile(gx, gy, ch)) rebuildFromSource(false);
-}
-
-function editorSave() {
-  /* A shared level is not a campaign level, so it must never be written over
-     one. Saving there copies its code out instead. */
-  if (game.userLevel) { publishFromEditor(); return; }
-  const ok = saveOverride(level.stage, game.levelIdx, level.src);
-  editor.dirty = !ok;
-  editStatus(ok ? 'SAVED LEVEL ' + level.name : 'SAVE FAILED - STORAGE BLOCKED', 2);
-  sfx(ok ? 'check' : 'die');
-}
-
-function editorRevert() {
-  if (game.userLevel) {
-    level.src = blankUserLevel(Math.max(1, level.cols / CW));
-    rebuildFromSource(true);
-    editor.dirty = false;
-    editStatus('CLEARED TO A BLANK LEVEL', 2);
-    sfx('warp');
-    return;
-  }
-  clearOverride(level.stage, game.levelIdx);
-  level.src = levelSource(level.stage, game.levelIdx);
-  rebuildFromSource(true);
-  editor.dirty = false;
-  editStatus('REVERTED TO GENERATED LEVEL', 2);
-  sfx('warp');
-}
-
-function editorTestPlay() {
-  closeEditor();
-  rebuildFromSource(true);
-  cam.x = clamp(p.x - viewW / 2, 0, Math.max(0, level.w - viewW));
-  cam.y = clamp(p.y - viewH / 2, 0, Math.max(0, level.h - viewH));
-  clearHeldKeys();
-  toast('TESTING ' + level.name, 1.2);
-}
-
-/* ---- editor input ---- */
-
 function pointerArt(e) {
   const r = cv.getBoundingClientRect();
   return {
@@ -4962,15 +4404,7 @@ function pointerArt(e) {
   };
 }
 
-function updateHover() {
-  const wx = (editor.mx + Math.round(editor.camX / WPB)) * WPB;
-  const wy = (editor.my + Math.round(editor.camY / WPB)) * WPB;
-  const gx = Math.floor(wx / TS), gy = Math.floor(wy / TS);
-  editor.tx = (gx >= 0 && gx < level.cols && gy >= 0 && gy < CH) ? gx : -1;
-  editor.ty = gy;
-}
-
-cv.addEventListener('contextmenu', e => { if (editor.on || lab.on) e.preventDefault(); });
+cv.addEventListener('contextmenu', e => { if (lab.on) e.preventDefault(); });
 
 /* Which lab widget, if any, is under a point. */
 function labHit(a) {
@@ -5009,44 +4443,19 @@ cv.addEventListener('pointerdown', e => {
     } else if (hit.what === 'slot') {
       labSelectSlot(hit.i);
     }
-    return;
   }
-
-  if (!editor.on || !level) return;
-  const a = pointerArt(e);
-  editor.mx = a.x; editor.my = a.y;
-  updateHover();
-  if (a.y > BH - 16) {                      // clicked the palette bar
-    const i = Math.floor(a.x / 13);
-    if (i >= 0 && i < TOOLS.length) { editor.tool = i; sfx('pickup'); }
-    return;
-  }
-  editor.painting = e.button === 2 ? 2 : 1;
-  editorPaint(editor.painting === 2);
-  cv.setPointerCapture(e.pointerId);
 });
 
 cv.addEventListener('pointermove', e => {
-  if (lab.on) {
-    if (!lab.painting) return;
-    const hit = labHit(pointerArt(e));
-    if (hit && hit.what === 'grid') {
-      lab.cx = hit.x; lab.cy = hit.y;
-      labSetPixel(hit.x, hit.y, lab.painting === 2 ? '.' : lab.col);
-    }
-    return;
-  }
-  if (!editor.on || !level) return;
-  const a = pointerArt(e);
-  editor.mx = a.x; editor.my = a.y;
-  const before = editor.tx + ',' + editor.ty;
-  updateHover();
-  if (editor.painting && before !== editor.tx + ',' + editor.ty) {
-    editorPaint(editor.painting === 2);
+  if (!lab.on || !lab.painting) return;
+  const hit = labHit(pointerArt(e));
+  if (hit && hit.what === 'grid') {
+    lab.cx = hit.x; lab.cy = hit.y;
+    labSetPixel(hit.x, hit.y, lab.painting === 2 ? '.' : lab.col);
   }
 });
 
-addEventListener('pointerup', () => { editor.painting = 0; lab.painting = 0; });
+addEventListener('pointerup', () => { lab.painting = 0; });
 
 /* Menu and map navigation, driven by the same inputs as the game so the touch
    buttons work everywhere. */
@@ -5128,26 +4537,11 @@ function menuStep() {
   }
 }
 
-function editorStep() {
-  if (editor.statusTimer > 0) editor.statusTimer -= STEP;
-  if (editor.typing) return;
-  const raw = readRaw();
-  const speed = 6;
-  if (raw.l) editor.camX -= speed;
-  if (raw.r) editor.camX += speed;
-  if (raw.j) editor.camY -= speed;
-  if (raw.t) editor.camY += speed;
-  editor.camX = clamp(editor.camX, 0, Math.max(0, level.w - viewW));
-  editor.camY = clamp(editor.camY, 0, Math.max(0, level.h - viewH));
-  updateHover();
-}
-
 function step() {
   game.time += STEP;
   game.frame++;
 
   if (lab.on) { if (lab.statusTimer > 0) lab.statusTimer -= STEP; return; }
-  if (editor.on) { editorStep(); return; }
   if (game.state !== 'play') { menuStep(); return; }
 
   if (p.dead) {
@@ -5202,71 +4596,11 @@ function rectHit(ax, ay, aw, ah, bx, by, bw, bh) {
 
 /* ----------------------------------------------------------------------- boot */
 
-/* ---- shared-level entry points ------------------------------------------
-   The game can start three ways: normally, straight into a level someone sent
-   you (?code=<code>), or into the editor on a blank canvas (?maker=1). P in the
-   editor copies the level's code out so it can be handed to someone else. */
-
-function startUserLevel(src, name, meta) {
-  game.stage = 0;
-  game.levelIdx = 0;
-  game.userLevel = Object.assign({ name: name || 'POSTED LEVEL' }, meta || {});
-  game.state = 'play';
-  game.time = 0;
-  game.runDeaths = 0;
-  game.mirrorAmt = 0;
-  game.darkAmt = 0;
-  game.fade = 1;
-  buildLevel(src, 0, name || 'POSTED');
-  p = makePlayer(level.spawn);
-  particles = [];
-  inputLog = [];
-  cam.x = clamp(p.x - viewW / 2, 0, Math.max(0, level.w - viewW));
-  cam.y = clamp(p.y - viewH / 2, 0, Math.max(0, level.h - viewH));
-  clearHeldKeys();
-  toast(name || 'POSTED LEVEL', 1.8);
-}
-
-function publishFromEditor() {
-  const code = encodeLevelCode(level.src, level.name);
-
-  /* Announce it locally too, so anything hosting this build can pick it up
-     without caring whether it is in an iframe. */
-  try {
-    window.dispatchEvent(new CustomEvent('tbs-publish', { detail: { code, name: level.name } }));
-  } catch (_) { /* very old browsers */ }
-
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({ type: 'tbs-publish', code, name: level.name }, '*');
-    editStatus('SENT TO THE HOST PAGE', 2);
-  } else if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(
-      () => editStatus('LEVEL CODE COPIED', 2),
-      () => editStatus('COPY BLOCKED BY BROWSER', 2));
-  } else {
-    editStatus('NOWHERE TO PUBLISH TO', 2);
-  }
-  sfx('check');
-}
-
 loadSave();
-loadOverrides();
 loadSkins();
 
-const bootParams = new URLSearchParams(location.search);
-if (bootParams.get('maker') === '1') {
-  const seed = bootParams.get('code');
-  const decoded = seed ? decodeLevelCode(seed) : null;
-  startUserLevel(decoded ? decoded.src : blankUserLevel(6),
-    decoded ? decoded.name : 'MY LEVEL', { maker: true });
-  openEditor();
-} else if (bootParams.get('code')) {
-  const decoded = decodeLevelCode(bootParams.get('code'));
-  if (decoded) startUserLevel(decoded.src, decoded.name, { posted: true, id: bootParams.get('id') });
-  else showSplash();
-} else {
-  showSplash();                    // studio plate first, then the title
-}
+showSplash();                      // studio plate first, then the title
+
 requestAnimationFrame(frame);
 
 })();
