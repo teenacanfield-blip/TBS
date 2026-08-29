@@ -220,4 +220,74 @@ const GAMES = [
       'Skins export as a short code you can paste to a friend.',
     ],
   },
+
+  {
+    id: 'roaminals',
+    title: 'Roaminals',
+    suffix: '',
+    tagline: 'Catch the hotel',
+    url: './roaminals/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#86c06c',
+    accentDark: '#1d3320',
+    genres: ['Monster catching', 'Turn-based', 'Game Boy', 'Top-down'],
+    short:
+      'A monster-catching game in the shape of the original Game Boy ones, set ' +
+      'entirely inside one very large building: a hotel shut for forty years.',
+    about: [
+      'The ghosts in the Rothsay Grand could not stay ghosts, so each one moved into ' +
+      'an object — a mop, a boiler, a ledger, a chandelier, a bell — and the object ' +
+      'moved into an animal that had wandered in out of the cold. That fusion is a ' +
+      'Roaminal, and what the ghost possessed is the creature’s type. It is why the ' +
+      'type chart is a wheel of household things instead of fire and water.',
+      'You are the new night porter: ten floors, a satchel of jars, and a lift that ' +
+      'only stops where you have a key. Beat the staff ghost holding a floor and the ' +
+      'next one opens up.',
+      'One generation, forty-four species, all catchable. Commons fill the floors in ' +
+      'lines that evolve by level. Five ultra rares turn up about one encounter in ' +
+      'forty and arrived already finished. Three legendaries exist once each, waiting ' +
+      'on a fitting rather than in the dust — the desk bell, the furnace door, and the ' +
+      'clock on the roof. Every wild creature rolls for a shiny coat, which on a four ' +
+      'shade screen is the whole sprite turned inside out.',
+      'The floors are laid out by a seeded generator, so the hotel is big, is the same ' +
+      'hotel for everybody, and no room, box or member of staff can ever be sealed off.',
+    ],
+    features: [
+      'Single player',
+      '44 species, all catchable',
+      'Shiny, ultra rare and legendary',
+      'Evolution by level',
+      'Ten floors',
+      '10 staff-ghost bosses',
+      'Ten-type wheel',
+      'Save to your browser',
+      'Touch controls',
+    ],
+    controls: [
+      ['Arrows / WASD', 'Walk, and move any cursor'],
+      ['Z / Space', 'A — talk, open, confirm'],
+      ['X / Esc', 'B — back'],
+      ['Enter', 'Start — the menu'],
+    ],
+    stagesTitle: 'The building',
+    stages: [
+      ['1F', 'The Lobby', 'Where you start. Bellhop Oskar holds the first key'],
+      ['B1', 'Laundry', 'Lint, suds, and Laundress Maud'],
+      ['B2', 'Boiler Room', 'The Bright Penny, and a furnace with something in it'],
+      ['2F', 'Kitchens', 'Cutlery, a walk-in freezer, Chef Anouk'],
+      ['3F', 'Guest Rooms', 'Velvet, room thirteen, Housekeeper Vane'],
+      ['4F', 'Ballroom', 'Eight bars of music since the lights went out'],
+      ['5F', 'Offices', 'Every guest since 1912, filed'],
+      ['6F', 'Nursery', 'The toys are asleep. Were asleep'],
+      ['7F', 'Conservatory', 'Glass held; everything under it grew back meaner'],
+      ['R', 'The Roof', 'The Night Manager, and the clock'],
+    ],
+    notes: [
+      'Each type beats the two that follow it on the Ledger Wheel and struggles against the two before it. It is printed on the lobby wall.',
+      'Dust drifts are this game’s tall grass — walk through one and something in it wakes up.',
+      'Faint your whole party and you come to at the housekeeping cart, minus half your tokens. Nothing else is lost.',
+      'A legendary you beat or run from goes back into its fitting, so it can never be missed for good.',
+    ],
+  },
 ];

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<meta name="color-scheme" content="dark" />
+<title>Roaminals</title>
+<meta name="description" content="A Game Boy style monster-catching game set in one very big haunted hotel. Catch the animals the ghosts moved into." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%23071821'/%3E%3Crect x='3' y='4' width='10' height='9' fill='%2386c06c'/%3E%3Crect x='2' y='2' width='3' height='3' fill='%2386c06c'/%3E%3Crect x='11' y='2' width='3' height='3' fill='%2386c06c'/%3E%3Crect x='5' y='7' width='2' height='2' fill='%23071821'/%3E%3Crect x='9' y='7' width='2' height='2' fill='%23071821'/%3E%3Crect x='6' y='11' width='4' height='2' fill='%23e0f8cf'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css?v=2" />
+</head>
+<body>
+<div id="wrap">
+  <!-- The whole game, menus and text included, is drawn into this canvas at
+       160x144 — a Game Boy screen — and blown up with nearest-neighbour. -->
+  <canvas id="c" width="640" height="576"></canvas>
+
+  <div id="touch" class="hidden">
+    <div class="dpad">
+      <button class="tb up"    data-key="up"    aria-label="Up">&#9650;</button>
+      <button class="tb left"  data-key="left"  aria-label="Left">&#9664;</button>
+      <button class="tb right" data-key="right" aria-label="Right">&#9654;</button>
+      <button class="tb down"  data-key="down"  aria-label="Down">&#9660;</button>
+    </div>
+    <div class="face">
+      <button class="tb round b" data-key="b" aria-label="B — back">B</button>
+      <button class="tb round a" data-key="a" aria-label="A — confirm">A</button>
+    </div>
+    <button class="tb start" data-key="start" aria-label="Start — menu">START</button>
+  </div>
+</div>
+
+<script src="game.js?v=2"></script>
+</body>
+</html>

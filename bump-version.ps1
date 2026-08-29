@@ -14,7 +14,8 @@
 $pages = @(
     "index.html",
     "the-13-dynasties/index.html",
-    "ufo-caveman/game load up!.html"
+    "ufo-caveman/game load up!.html",
+    "roaminals/index.html"
 )
 
 # Read/write with explicit UTF-8 so accented and symbol characters survive.

@@ -1,0 +1,87 @@
+/* Roaminals — page furniture only. Every pixel of the game, including all text,
+   menus and battle screens, is drawn inside the canvas at 160x144. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0b1410;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#wrap {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keeps the 10:9 Game Boy shape, scales to the window, never smooths the art. */
+#c {
+  display: block;
+  width: min(100vw, calc(100vh * 10 / 9));
+  height: min(100vh, calc(100vw * 9 / 10));
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #e0f8cf;
+  box-shadow: 0 0 0 3px #1d2c22, 0 0 60px rgba(120, 200, 120, 0.18);
+}
+
+/* ---------- touch controls ---------- */
+
+#touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+#touch.hidden { display: none; }
+
+.tb {
+  pointer-events: auto;
+  position: absolute;
+  border: 2px solid #2c4034;
+  background: rgba(19, 32, 25, 0.72);
+  color: #cfe8bc;
+  font: inherit;
+  font-size: 3.4vh;
+  line-height: 1;
+  padding: 0;
+  touch-action: none;
+  user-select: none;
+}
+
+.tb:active { background: rgba(134, 192, 108, 0.55); color: #0b1410; }
+
+.dpad, .face { position: absolute; bottom: 4vh; }
+.dpad { left: 3vw; width: 24vh; height: 24vh; }
+.face { right: 3vw; width: 26vh; height: 20vh; }
+
+.dpad .tb { width: 8vh; height: 8vh; }
+.dpad .up    { left: 8vh; top: 0; }
+.dpad .left  { left: 0; top: 8vh; }
+.dpad .right { left: 16vh; top: 8vh; }
+.dpad .down  { left: 8vh; top: 16vh; }
+
+.face .round { width: 10vh; height: 10vh; border-radius: 50%; font-size: 4vh; }
+.face .a { right: 0; top: 2vh; }
+.face .b { right: 11vh; top: 8vh; }
+
+.start {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 1.5vh;
+  width: 22vw;
+  max-width: 26vh;
+  height: 5vh;
+  font-size: 2vh;
+  letter-spacing: 0.1em;
+  border-radius: 2.5vh;
+}
