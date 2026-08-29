@@ -265,6 +265,7 @@ const GAMES = [
       'Ten floors',
       '10 staff-ghost bosses',
       'Ten-type wheel',
+      'Skin Lab — repaint Max and your Roaminals',
       'Save to your browser',
       'Touch controls',
     ],

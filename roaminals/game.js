@@ -125,6 +125,24 @@ function hueShift(hex, deg) {
   return rgbHex((rr + m) * 255, (gg + m) * 255, (bb + m) * 255);
 }
 
+/* Hue, saturation, lightness in — hex out. The skin lab's colour strip is
+   built from this rather than from a list of five hundred written-out
+   swatches. */
+function hslHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return rgbHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+}
+
 function rampLift(ramp, a) { return ramp.map(c => lighten(c, a)); }
 function rampSink(ramp, a) { return ramp.map(c => darken(c, a)); }
 function rampShift(ramp, deg) { return ramp.map(c => hueShift(c, deg)); }
@@ -326,6 +344,10 @@ function makeSprite(rows, ramp) {
   byRamp.set(key, c);
   return c;
 }
+
+/* Sprites are cached against the grid they were baked from, so when the skin
+   lab paints on a grid the old bake has to be thrown away by hand. */
+function invalidateSprite(rows) { spriteCache.delete(rows); }
 
 /* Draws a sprite canvas, optionally mirrored and blown up by a whole number.
    Everything lands on whole pixels — nothing here is ever drawn on a half
@@ -789,7 +811,10 @@ const TYPE_RAMP = {
    second version of a creature for free. */
 function coatFor(sp, shiny) {
   const fam = FAMILY[sp.family] || FAMILY.possum;
-  let ramp = fam.coat;
+  /* A coat repainted in the skin lab replaces the family's, and everything
+     below still happens to it — so a recoloured line still darkens as it
+     evolves, and its shiny is still its own colour turned round. */
+  let ramp = (SKINS.mons && SKINS.mons[sp.no]) || fam.coat;
   if (sp.stage === 1) ramp = rampLift(ramp, 0.16);
   else if (sp.stage >= 3) ramp = rampSink(ramp, 0.12);
   if (sp.rarity === 'ULTRA') ramp = rampShift(ramp, 40);
@@ -949,7 +974,18 @@ function typeBadge(type, x, y) {
    0 outline, 1 skin, 2 skin shadow, 3 cloth, 4 cloth shadow, 5 hair,
    6 the bright accent — Max's headphones and satchel buckle. */
 
+/* Mutable on purpose: the skin lab writes into this array in place, so every
+   sprite already drawn from it re-bakes with the new colours. */
 const MAX_PAL = ['#171128', '#f4c79a', '#c68a5e', '#4a7ccc', '#2c4c94', '#7a4a2a', '#f8d05c'];
+
+const MAX_PAL_STOCK = MAX_PAL.slice();
+
+/* What the seven slots are, in the lab's list. */
+const MAX_SLOTS = ['OUTLINE', 'SKIN', 'SHADOW', 'HOODIE', 'FOLD', 'HAIR', 'BRASS'];
+
+/* Everything the player has repainted. Kept in its own store so a skin
+   outlives any single round. */
+const SKINS = { max: null, grids: null, mons: {} };
 
 const MAX_DOWN = [
 "................",
@@ -1007,6 +1043,46 @@ const MAX_SIDE = [
 "..033333330.....",
 "..04400440......",
 ];
+
+/* The grids the lab paints on, and the originals to put back on RESET. */
+const MAX_GRIDS = { DOWN: MAX_DOWN, UP: MAX_UP, SIDE: MAX_SIDE };
+const MAX_GRIDS_STOCK = {
+  DOWN: MAX_DOWN.slice(), UP: MAX_UP.slice(), SIDE: MAX_SIDE.slice(),
+};
+
+/* Put a saved skin back on. Colours are written into the live palette in
+   place and grids row by row, so nothing that already holds a reference to
+   either has to be told about it — only the sprite bakery, which is cleared. */
+function applySkins() {
+  if (SKINS.max) {
+    for (let i = 0; i < MAX_PAL.length; i++) {
+      if (SKINS.max[i]) MAX_PAL[i] = SKINS.max[i];
+    }
+  }
+  if (SKINS.grids) {
+    for (const key of Object.keys(MAX_GRIDS)) {
+      const rows = SKINS.grids[key];
+      if (!rows) continue;
+      const live = MAX_GRIDS[key];
+      for (let y = 0; y < live.length; y++) {
+        if (typeof rows[y] === 'string') live[y] = rows[y];
+      }
+      invalidateSprite(live);
+    }
+  }
+  walkCache.clear();
+}
+
+function resetSkins() {
+  for (let i = 0; i < MAX_PAL.length; i++) MAX_PAL[i] = MAX_PAL_STOCK[i];
+  for (const key of Object.keys(MAX_GRIDS)) {
+    const live = MAX_GRIDS[key], stock = MAX_GRIDS_STOCK[key];
+    for (let y = 0; y < live.length; y++) live[y] = stock[y];
+    invalidateSprite(live);
+  }
+  SKINS.max = null; SKINS.grids = null; SKINS.mons = {};
+  walkCache.clear();
+}
 
 /* Somebody else in the building: staff who never clocked off, guests who never
    checked out, and the ones who have stopped pretending to have feet. These
@@ -1274,6 +1350,24 @@ function paintTile(g, kind, th) {
       px(g, 3, 9, 2, 3, '#e05888'); px(g, 6, 9, 2, 3, '#5a88e0');
       px(g, 11, 3, 3, 5, '#2a3142');
       px(g, 11, 9, 3, 3, '#f8d05c');
+      break;
+
+    /* A row of these stands against the laundry wall. Three of them still
+       have their doors shut, and they do not all contain washing. */
+    case 'wash':
+      px(g, 0, 0, TS, TS, th.wall);
+      px(g, 1, 1, 14, 15, '#1d2536');
+      px(g, 2, 2, 12, 13, '#dfe6ee');
+      px(g, 2, 2, 12, 1, '#ffffff');
+      px(g, 2, 14, 12, 1, '#9aa8bc');
+      px(g, 3, 3, 10, 3, '#9aa8bc');
+      px(g, 4, 4, 2, 1, '#e05848');
+      px(g, 7, 4, 2, 1, '#58c860');
+      px(g, 10, 4, 2, 1, '#f8d05c');
+      px(g, 4, 7, 8, 7, '#1d2536');
+      px(g, 5, 8, 6, 5, '#4a90b8');
+      px(g, 6, 9, 4, 3, '#9fd8ea');
+      px(g, 6, 9, 2, 1, '#ffffff');
       break;
 
     case 'sign':
@@ -1628,6 +1722,13 @@ const FLOORS = [
     lv: [5, 8],
     table: [[31, 12], [7, 11], [1, 9], [13, 7], [37, 1]],
     items: ['POULTICE', 'GHOST JAR', 'JAR'],
+    /* Three machines against the wall. The first has no back to it and is the
+       way into the room the laundry was built around. The other two have
+       something in the drum that should not fit in a drum. */
+    machines: {
+      mon: { no: 4, lv: 1000 },
+      secret: ['VAULT JAR', 'SUGAR CUBE', 'FULL KIT'],
+    },
     boss: {
       name: 'LAUNDRESS MAUD', art: 'ghost', reward: 500,
       team: [[31, 11], [7, 11], [8, 12]],
@@ -1637,6 +1738,8 @@ const FLOORS = [
     },
     folks: [
       { kind: 'talk', art: 'ghost', lines: ['THE DRIERS RAN ALL NIGHT', 'FOR FORTY YEARS.', 'THAT IS A LOT OF LINT', 'AND LINT GETS IDEAS.'] },
+      { kind: 'talk', art: 'staff', lines: ['THREE MACHINES ON THAT WALL.', 'ONLY ONE OF THEM WASHES.',
+        'THE FIRST HAS NO BACK TO IT', 'AND GOES SOMEWHERE.', 'DO NOT OPEN THE OTHER TWO.', 'I AM SERIOUS.'] },
       { kind: 'fight', name: 'PORTER HALLAM', art: 'staff', reward: 200, team: [[31, 9], [1, 10]],
         pre: ['HALLAM: THE OTHER PORTER.', 'ONLY ONE OF US', 'GETS THE ROUND.'],
         win: ['HALLAM: TAKE IT THEN.', 'MY FEET HURT ANYWAY.'] },
@@ -1920,6 +2023,70 @@ function buildFloor(fi) {
   put(rooms[0], 'H', 0, -1);
   put(rooms[2], 'S', 0, -1);
 
+  /* ---- the washing machines, and the room behind the first one ---- */
+  const machines = [];
+  const secretBoxes = [];
+  let secret = null;
+  if (f.machines) {
+    const rm = rooms[3];
+    for (let i = 0; i < 3; i++) {
+      const x = clamp(rm.cx - 1 + i, 1, FW - 2);
+      const y = clamp(rm.y, 1, FH - 3);
+      g[y][x] = 'W';
+      g[y + 1][x] = '.';
+      machines.push({ x, y, kind: i === 0 ? 'door' : 'rat' });
+    }
+
+    /* A sealed room, dug into solid wall and joined to nothing. The only way
+       in is through the first machine, which is why the flood-repair below is
+       told to leave its boxes alone. */
+    /* Find solid rock big enough to hollow out, with a wall left all the way
+       round it so the room touches nothing. Biggest first, and it settles for
+       a cupboard if that is all the floor has left. */
+    const findRock = (w, h) => {
+      for (let y = 2; y < FH - h - 2; y++) {
+        for (let x = 2; x < FW - w - 2; x++) {
+          let clear = true;
+          for (let j = -1; j <= h && clear; j++) {
+            for (let i = -1; i <= w && clear; i++) {
+              if (g[y + j][x + i] !== '#') clear = false;
+            }
+          }
+          if (clear) return { x, y };
+        }
+      }
+      return null;
+    };
+
+    let spot = null, SW = 0, SH = 0;
+    for (const size of [[8, 5], [7, 4], [5, 3]]) {
+      spot = findRock(size[0], size[1]);
+      if (spot) { SW = size[0]; SH = size[1]; break; }
+    }
+    if (spot) {
+      for (let j = 0; j < SH; j++) {
+        for (let i = 0; i < SW; i++) g[spot.y + j][spot.x + i] = '.';
+      }
+      /* The back of the machine you came through, to get out again. */
+      g[spot.y][spot.x + 1] = 'W';
+      g[spot.y + 1][spot.x + 1] = '.';
+      machines.push({ x: spot.x + 1, y: spot.y, kind: 'back' });
+
+      /* What the laundry was hiding, in a row along the back wall — as many
+         as the room it found will hold. */
+      const iy = spot.y + Math.min(2, SH - 1);
+      let ix = spot.x + 2;
+      for (const item of f.machines.secret) {
+        if (ix > spot.x + SW - 2) break;
+        g[iy][ix] = 'i';
+        secretBoxes.push({ x: ix, y: iy, item, secret: true });
+        ix += 2;
+      }
+
+      secret = { x: spot.x + 1, y: spot.y + 1 };
+    }
+  }
+
   /* Lost-and-found boxes, one per listed item, spread around the outer rooms. */
   const boxRooms = [1, 3, 5, 7, 6, 0];
   const boxes = [];
@@ -1935,6 +2102,7 @@ function buildFloor(fi) {
     g[y][x] = 'i';
     boxes.push({ x, y, item: it });
   });
+  boxes.push(...secretBoxes);
 
   /* The legendary's own tile: a furnace door, a desk bell, a clock face. */
   let shrine = null;
@@ -2002,7 +2170,9 @@ function buildFloor(fi) {
   let reach = flood();
   const needed = [{ x: lift.x, y: lift.y + 1 }];
   for (const f of folk) needed.push({ x: f.x, y: f.y });
-  for (const b of boxes) needed.push({ x: b.x, y: b.y + 1 });
+  /* The secret room's boxes are left off this list on purpose — digging a
+     corridor to them is exactly what would stop them being secret. */
+  for (const b of boxes) if (!b.secret) needed.push({ x: b.x, y: b.y + 1 });
   for (let y = 1; y < FH - 1; y++) {
     for (let x = 1; x < FW - 1; x++) {
       if (g[y][x] === 'H' || g[y][x] === 'S' || g[y][x] === 'L') needed.push({ x, y: y + 1 });
@@ -2015,7 +2185,7 @@ function buildFloor(fi) {
   }
 
   return {
-    grid: g, rooms, lift, boxes, shrine, folk,
+    grid: g, rooms, lift, boxes, shrine, folk, machines, secret,
     spawn: { x: lift.x, y: lift.y + 1 },
   };
 }
@@ -2036,10 +2206,11 @@ const S = {
   tokens: 500,
   keys: 0,               // floors of the hotel the lift will admit you to
   seen: {}, caught: {},
-  taken: {}, beaten: {}, shrines: {},
+  taken: {}, beaten: {}, shrines: {}, machines: {},
   repel: 0, steps: 0, playFrames: 0,
   started: false, finished: false,
   fade: 0, fadeDir: 0, fadeThen: null,
+  lab: null,
 };
 
 function bagAdd(item, n) { S.bag[item] = (S.bag[item] || 0) + (n || 1); }
@@ -2061,7 +2232,7 @@ function saveGame() {
       v: 1, floor: S.floor, p: { x: S.p.x, y: S.p.y, dir: S.p.dir },
       party: S.party, bag: S.bag, tokens: S.tokens, keys: S.keys,
       seen: S.seen, caught: S.caught, taken: S.taken, beaten: S.beaten,
-      shrines: S.shrines, steps: S.steps, playFrames: S.playFrames,
+      shrines: S.shrines, machines: S.machines, steps: S.steps, playFrames: S.playFrames,
       finished: S.finished,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -2085,6 +2256,7 @@ function loadGame() {
     S.seen = d.seen || {}; S.caught = d.caught || {};
     S.taken = d.taken || {}; S.beaten = d.beaten || {};
     S.shrines = d.shrines || {};
+    S.machines = d.machines || {};
     S.steps = d.steps || 0; S.playFrames = d.playFrames || 0;
     S.finished = !!d.finished;
     enterFloor(S.floor, d.p ? d.p.x : null, d.p ? d.p.y : null);
@@ -2297,6 +2469,53 @@ function interact() {
 
   if (t === 'x') { say(['THE BOX IS EMPTY NOW.']); return; }
 
+  /* The three machines in the laundry. One of them is a door. */
+  if (t === 'W') {
+    const m = (S.map.machines || []).find(w => w.x === f.x && w.y === f.y);
+    if (!m) return;
+
+    if (m.kind === 'door') {
+      say(['THE FIRST MACHINE HAS NO', 'BACK TO IT. THE DRUM IS A', 'HOLE IN THE WALL.'], () => {
+        if (!S.map.secret) { say(['IT IS BRICKED UP NOW.']); return; }
+        fadeTo(() => {
+          S.p.x = S.map.secret.x; S.p.y = S.map.secret.y;
+          S.p.dir = 0; S.p.sub = 0; S.p.moving = 0;
+        });
+      });
+      return;
+    }
+
+    if (m.kind === 'back') {
+      const out = (S.map.machines || []).find(w => w.kind === 'door');
+      say(['YOU CLIMB BACK THROUGH.'], () => {
+        if (!out) return;
+        fadeTo(() => {
+          S.p.x = out.x; S.p.y = out.y + 1;
+          S.p.dir = 0; S.p.sub = 0; S.p.moving = 0;
+        });
+      });
+      return;
+    }
+
+    /* The other two. */
+    const key = S.floor + ':' + f.x + ',' + f.y;
+    if (S.machines && S.machines[key]) {
+      say(['THE DRUM IS EMPTY.', 'IT IS STILL WARM.']);
+      return;
+    }
+    const spawn = FLOORS[S.floor].machines.mon;
+    say(['SOMETHING IS ASLEEP IN THE',
+      'DRUM. IT IS FAR TOO BIG TO',
+      'BE IN THERE, AND IT IS',
+      'GETTING UP.'], () => {
+      startBattle({
+        kind: 'wild', machine: { x: f.x, y: f.y },
+        foe: [makeMon(spawn.no, spawn.lv, { shiny: rnd(40) === 0 })],
+      });
+    });
+    return;
+  }
+
   if (t === 'L' && fl.shrine) {
     if (S.keys < fl.shrine.keys) { say(fl.shrine.wait); return; }
     const sh = fl.shrine;
@@ -2384,7 +2603,7 @@ function updateWorld() {
 const TILE_KIND = {
   '#': 'wall', '.': 'floor', ',': 'dust', '=': 'prop', 'p': 'plant',
   'E': 'elev', 'H': 'heal', 'S': 'shop', 'i': 'item', 'x': 'itemgone',
-  'n': 'sign', 'L': 'shrine',
+  'n': 'sign', 'L': 'shrine', 'W': 'wash',
 };
 
 function drawWorld() {
@@ -2552,6 +2771,7 @@ function openMainMenu() {
       { label: 'BAG', on: () => openBag(null) },
       { label: 'LEDGER', on: openLedger },
       { label: 'TRAINER', on: openTrainerCard },
+      { label: 'SKIN LAB', on: () => { S.ui = null; openSkinLab('world'); } },
       { label: 'SAVE', on: () => {
         const ok = saveGame();
         say(ok ? ['THE NIGHT BOOK IS WRITTEN.', 'YOUR ROUND IS SAVED.']
@@ -2956,6 +3176,395 @@ function drawFade() {
 }
 
 /* ============================================================================
+   THE SKIN LAB
+   Repaint Max, and repaint anything in your satchel.
+
+   Two things can be changed. A COLOUR is a slot in a ramp — swap Max's hoodie
+   from blue to red and every sprite drawn from that palette changes with it,
+   because the art was never storing colours in the first place. A PIXEL is a
+   cell in Max's own 16x16 grid, painted with one of his seven slots, which is
+   how you give him a fringe or take his headphones off.
+
+   Creatures are colour-only on purpose: the forty-four share sixteen animal
+   grids between them, so painting a possum pixel would paint every possum in
+   the line. Their coats are theirs alone, and those you can do anything to.
+   ========================================================================== */
+
+/* The colour strip: six greys and eleven hues in four steps each. Built rather
+   than written out, so it stays one line of intent instead of sixty of hex. */
+const SWATCHES = (() => {
+  const list = ['#ffffff', '#d0d0d0', '#989898', '#606060', '#303030', '#0a0a0a'];
+  const hues = [0, 20, 40, 60, 95, 150, 180, 205, 230, 265, 300, 330];
+  for (const h of hues) {
+    for (const sl of [[0.85, 0.78], [0.85, 0.62], [0.80, 0.46], [0.75, 0.30], [0.70, 0.18]]) {
+      list.push(hslHex(h, sl[0], sl[1]));
+    }
+  }
+  return list;
+})();
+
+function nearestSwatch(hex) {
+  const want = hexRgb(hex);
+  let best = 0, bestD = 1e9;
+  for (let i = 0; i < SWATCHES.length; i++) {
+    const c = hexRgb(SWATCHES[i]);
+    const d = (c[0] - want[0]) ** 2 + (c[1] - want[1]) ** 2 + (c[2] - want[2]) ** 2;
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+/* Whole looks, for anybody who does not want to pick seven colours by hand. */
+const MAX_PRESETS = [
+  { name: 'NIGHT PORTER', pal: ['#171128', '#f4c79a', '#c68a5e', '#4a7ccc', '#2c4c94', '#7a4a2a', '#f8d05c'] },
+  { name: 'LOST PROPERTY', pal: ['#1a1020', '#f0c49a', '#c08a5e', '#c8402c', '#8f2a20', '#e8c060', '#f4f0e0'] },
+  { name: 'BOILER ROOM', pal: ['#180f0c', '#c08050', '#8a5630', '#e07828', '#a04c14', '#2a1c14', '#f8d05c'] },
+  { name: 'LAUNDRY', pal: ['#1c2028', '#f6d6b4', '#c8a078', '#e8eef4', '#b0bcc8', '#4a4038', '#8fd0e8'] },
+  { name: 'VELVET SUITE', pal: ['#180f24', '#f0c8a8', '#bc9068', '#7a44b8', '#4e2880', '#e8e0f0', '#f0c85c'] },
+  { name: 'CONSERVATORY', pal: ['#0f1c10', '#e8c49c', '#b48a60', '#4a9c48', '#2c6830', '#3a2a18', '#f0e0a0'] },
+  { name: 'THIRSTY BEAR', pal: ['#1a120c', '#f0c49a', '#bc8c60', '#96663f', '#5c3b21', '#241a12', '#7ce6ff'] },
+  { name: 'MIDNIGHT', pal: ['#0a0c1a', '#d8c8f0', '#a08cc0', '#2a3060', '#161a3a', '#c8b0e8', '#f4f7ff'] },
+];
+
+const MON_SLOTS = ['HIGHLIGHT', 'COAT', 'SHADOW', 'OUTLINE'];
+
+/* ------------------------------------------------------------------ storage */
+
+const SKIN_KEY = 'roaminals-skins-v1';
+
+function saveSkins() {
+  try {
+    localStorage.setItem(SKIN_KEY, JSON.stringify({
+      v: 1, max: SKINS.max, grids: SKINS.grids, mons: SKINS.mons,
+    }));
+    return true;
+  } catch (e) { return false; }
+}
+
+function loadSkins() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SKIN_KEY));
+    if (!d) return false;
+    SKINS.max = d.max || null;
+    SKINS.grids = d.grids || null;
+    SKINS.mons = d.mons || {};
+    applySkins();
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ------------------------------------------------------------------- opening */
+
+function labSubjects() {
+  const list = [{ kind: 'max', name: 'MAX' }];
+  for (let i = 0; i < S.party.length; i++) {
+    list.push({ kind: 'mon', no: S.party[i].no, idx: i, name: monName(S.party[i]) });
+  }
+  /* Nothing caught yet — let them play with the three they are about to
+     choose between, so the lab is never an empty room. */
+  if (S.party.length === 0) {
+    for (const no of STARTERS) list.push({ kind: 'mon', no, name: spec(no).name });
+  }
+  return list;
+}
+
+function openSkinLab(back) {
+  S.lab = {
+    back: back || 'title',
+    subjects: labSubjects(), subject: 0,
+    row: 0, preset: 0, face: 'DOWN',
+    painter: null, cx: 8, cy: 8, tool: 1,
+    toast: '', toastT: 0,
+  };
+  S.mode = 'skinlab';
+}
+
+function labSubject() { return S.lab.subjects[S.lab.subject]; }
+
+/* The ramp the lab is currently pointed at. Max's is the live palette itself;
+   a creature's is its override, made on first touch from the family coat. */
+function labRamp() {
+  const sub = labSubject();
+  if (sub.kind === 'max') return MAX_PAL;
+  if (!SKINS.mons[sub.no]) {
+    const fam = FAMILY[spec(sub.no).family] || FAMILY.possum;
+    SKINS.mons[sub.no] = fam.coat.slice();
+  }
+  return SKINS.mons[sub.no];
+}
+
+function labSlots() {
+  return labSubject().kind === 'max' ? MAX_SLOTS : MON_SLOTS;
+}
+
+function labToast(msg) { S.lab.toast = msg; S.lab.toastT = 90; }
+
+function labCommit() {
+  const sub = labSubject();
+  if (sub.kind === 'max') {
+    SKINS.max = MAX_PAL.slice();
+    walkCache.clear();
+  }
+  saveSkins();
+}
+
+/* -------------------------------------------------------------------- update */
+
+function updateSkinLab() {
+  const L = S.lab;
+  if (L.toastT > 0) L.toastT--;
+  if (L.painter) return updatePainter();
+
+  const isMax = labSubject().kind === 'max';
+  const d = menuDir();
+  /* Row 0 is the preset row, then one row per colour, then — for Max — the
+     row that says which way he is facing when you go in to paint him. A
+     creature has three fewer rows than Max, so the cursor is pulled back up
+     whenever it would be left pointing past the end of the list. */
+  const faceRow = isMax ? labSlots().length + 1 : -1;
+  const rows = labSlots().length + (isMax ? 2 : 1);
+  if (L.row >= rows) L.row = rows - 1;
+  if (d === 'up') L.row = (L.row + rows - 1) % rows;
+  if (d === 'down') L.row = (L.row + 1) % rows;
+
+  if (d === 'left' || d === 'right') {
+    const step = d === 'left' ? -1 : 1;
+    if (L.row === faceRow) {
+      const order = ['DOWN', 'UP', 'SIDE'];
+      L.face = order[(order.indexOf(L.face) + step + 3) % 3];
+    } else if (L.row === 0) {
+      if (labSubject().kind === 'max') {
+        L.preset = (L.preset + step + MAX_PRESETS.length) % MAX_PRESETS.length;
+        const pal = MAX_PRESETS[L.preset].pal;
+        for (let i = 0; i < MAX_PAL.length; i++) MAX_PAL[i] = pal[i];
+        labToast(MAX_PRESETS[L.preset].name);
+      } else {
+        /* A creature's presets are the ten type ramps — the fastest way to
+           make something look like it was possessed by a different object. */
+        L.preset = (L.preset + step + WHEEL.length) % WHEEL.length;
+        const ramp = TYPE_RAMP[WHEEL[L.preset]];
+        const live = labRamp();
+        for (let i = 0; i < 4; i++) live[i] = ramp[i];
+        labToast(WHEEL[L.preset] + ' RAMP');
+      }
+      labCommit();
+    } else {
+      const ramp = labRamp();
+      const i = L.row - 1;
+      const at = nearestSwatch(ramp[i]);
+      ramp[i] = SWATCHES[(at + step + SWATCHES.length) % SWATCHES.length];
+      labCommit();
+    }
+    return;
+  }
+
+  if (hit.start) {
+    L.subject = (L.subject + 1) % L.subjects.length;
+    L.row = 0; L.preset = 0;
+    return;
+  }
+
+  if (hit.a) {
+    if (isMax) {
+      L.painter = L.face; L.cx = 8; L.cy = 8; L.tool = 1;
+    } else {
+      labToast('COLOURS ONLY - THEY SHARE GRIDS');
+    }
+    return;
+  }
+
+  if (hit.b) {
+    labCommit();
+    S.lab = null;
+    S.mode = L.back;
+    if (S.mode === 'title') toTitle();
+    return;
+  }
+}
+
+function updatePainter() {
+  const L = S.lab;
+  const grid = MAX_GRIDS[L.painter];
+  const d = menuDir();
+  if (d === 'left') L.cx = (L.cx + 15) % 16;
+  if (d === 'right') L.cx = (L.cx + 1) % 16;
+  if (d === 'up') L.cy = (L.cy + 15) % 16;
+  if (d === 'down') L.cy = (L.cy + 1) % 16;
+
+  /* Four buttons: START steps the colour you are painting with — the last one
+     along is the rubber — A paints, and B is the way out. Which way Max is
+     facing was chosen on the way in. */
+  if (hit.start) L.tool = (L.tool + 1) % (MAX_PAL.length + 1);
+  if (hit.b) { L.painter = null; labCommit(); return; }
+
+  const paint = (ch) => {
+    const row = grid[L.cy];
+    if (row[L.cx] === ch) return;
+    grid[L.cy] = row.slice(0, L.cx) + ch + row.slice(L.cx + 1);
+    invalidateSprite(grid);
+    walkCache.clear();
+    if (!SKINS.grids) SKINS.grids = {};
+    SKINS.grids[L.painter] = grid.slice();
+    saveSkins();
+  };
+
+  /* Held, not tapped, so you can draw a line by walking the cursor along it. */
+  if (keys.a) paint(L.tool >= MAX_PAL.length ? '.' : String(L.tool));
+}
+
+/* --------------------------------------------------------------------- draw */
+
+function labHeader(title, right) {
+  fillRect(0, 0, BW, 15, UI.frame);
+  fillRect(0, 0, BW, 1, UI.frameHi);
+  fillRect(0, 15, BW, 1, UI.edge);
+  text(title, 8, 4, UI.panel);
+  if (right) text(right, BW - 8, 4, UI.pick, 1, 'right');
+}
+
+function drawSkinLab() {
+  const L = S.lab;
+  if (L.painter) return drawPainter();
+
+  fillRect(0, 0, BW, BH, '#2b3450');
+  for (let y = 16; y < BH; y += 4) fillRect(0, y, BW, 1, '#313b5c');
+  labHeader('SKIN LAB', labSubject().name);
+
+  /* ---- the subject ---- */
+  panel(4, 19, 88, 92);
+  const sub = labSubject();
+  if (sub.kind === 'max') {
+    fillRect(12, 25, 72, 68, '#1e2740');
+    blit(makeSprite(MAX_GRIDS.DOWN, MAX_PAL), 24, 27, false, 4);
+    blit(makeSprite(MAX_GRIDS.SIDE, MAX_PAL), 14, 95, false, 1);
+    blit(makeSprite(MAX_GRIDS.DOWN, MAX_PAL), 36, 95, false, 1);
+    blit(makeSprite(MAX_GRIDS.UP, MAX_PAL), 58, 95, false, 1);
+  } else {
+    const sp = spec(sub.no);
+    fillRect(12, 25, 72, 72, TYPE_RAMP[sp.type][3]);
+    drawCreature(sp, 16, 29, 4, false, S.t);
+    text(sp.type, 48, 99, UI.inkSoft, 1, 'center');
+  }
+
+  /* ---- the slots ---- */
+  panel(96, 19, 140, 92);
+  const slots = labSlots(), ramp = labRamp();
+  const presetName = sub.kind === 'max'
+    ? MAX_PRESETS[L.preset].name : WHEEL[L.preset] + ' RAMP';
+
+  const isMax = sub.kind === 'max';
+  const faceRow = isMax ? slots.length + 1 : -1;
+  const lastRow = slots.length + (isMax ? 1 : 0);
+  if (L.row > lastRow) L.row = lastRow;
+
+  for (let r = 0; r <= lastRow; r++) {
+    const y = 25 + r * 11;
+    const on = r === L.row;
+    if (on) {
+      fillRect(100, y - 2, 132, 11, '#dce6fa');
+      cursorMark(101, y, UI.pickLo);
+    }
+    if (r === faceRow) {
+      text('PAINT', 110, y, UI.ink);
+      text(L.face, 232, y, on ? UI.ink : UI.inkSoft, 1, 'right');
+    } else if (r === 0) {
+      text('PRESET', 110, y, UI.ink);
+      text(presetName, 232, y, on ? UI.ink : UI.inkSoft, 1, 'right');
+    } else {
+      const colour = ramp[r - 1];
+      fillRect(110, y - 1, 10, 9, UI.edge);
+      fillRect(111, y, 8, 7, colour);
+      text(slots[r - 1], 124, y, UI.ink);
+      text(colour.toUpperCase(), 232, y, UI.inkSoft, 1, 'right');
+    }
+  }
+
+  /* ---- the colour strip ---- */
+  panel(4, 114, BW - 8, 42);
+  if (L.row === faceRow) {
+    text('LEFT AND RIGHT TURN HIM ROUND', 14, 122, UI.ink);
+  } else if (L.row === 0) {
+    text('LEFT AND RIGHT TRY A WHOLE LOOK', 14, 122, UI.ink);
+  } else {
+    const cur = nearestSwatch(ramp[L.row - 1] || ramp[0]);
+    const n = 15;
+    for (let i = 0; i < n; i++) {
+      const idx = (cur - 7 + i + SWATCHES.length * 2) % SWATCHES.length;
+      const x = 14 + i * 15;
+      fillRect(x, 120, 13, 14, SWATCHES[idx]);
+      if (i === 7) {
+        fillRect(x - 2, 118, 17, 2, UI.pick);
+        fillRect(x - 2, 134, 17, 2, UI.pick);
+        fillRect(x - 2, 118, 2, 18, UI.pick);
+        fillRect(x + 13, 118, 2, 18, UI.pick);
+      }
+    }
+  }
+
+  if (L.toastT > 0) {
+    text(L.toast, BW / 2, 140, UI.pickLo, 1, 'center');
+  } else {
+    text(sub.kind === 'max' ? 'A: PAINT PIXELS   START: WHO   B: DONE'
+                            : 'START: WHO   B: DONE', BW / 2, 140, UI.inkSoft, 1, 'center');
+  }
+}
+
+function drawPainter() {
+  const L = S.lab;
+  const grid = MAX_GRIDS[L.painter];
+  fillRect(0, 0, BW, BH, '#2b3450');
+  labHeader('PAINTING MAX', L.painter);
+
+  /* The grid, eight screen pixels to the art pixel, on a checker so you can
+     see which cells are see-through. */
+  const gx = 6, gy = 20, cell = 8;
+  fillRect(gx - 2, gy - 2, 16 * cell + 4, 16 * cell + 4, UI.edge);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const ch = grid[y][x];
+      const px2 = gx + x * cell, py = gy + y * cell;
+      if (ch >= '0' && ch <= '7' && MAX_PAL[+ch]) {
+        fillRect(px2, py, cell, cell, MAX_PAL[+ch]);
+      } else {
+        fillRect(px2, py, cell, cell, (x + y) % 2 ? '#39456e' : '#2f3a60');
+      }
+    }
+  }
+  /* The cursor, drawn as a ring so it never hides the cell under it. */
+  const cxp = gx + L.cx * cell, cyp = gy + L.cy * cell;
+  fillRect(cxp - 1, cyp - 1, cell + 2, 2, UI.pick);
+  fillRect(cxp - 1, cyp + cell - 1, cell + 2, 2, UI.pick);
+  fillRect(cxp - 1, cyp - 1, 2, cell + 2, UI.pick);
+  fillRect(cxp + cell - 1, cyp - 1, 2, cell + 2, UI.pick);
+
+  panel(140, 19, 96, 74);
+  fillRect(146, 25, 62, 62, '#1e2740');
+  blit(makeSprite(grid, MAX_PAL), 147, 26, false, 4);
+
+  panel(140, 96, 96, 60);
+  text('PAINT WITH', 148, 102, UI.inkSoft);
+  for (let i = 0; i <= MAX_PAL.length; i++) {
+    const x = 147 + i * 11, y = 112;
+    fillRect(x, y, 10, 10, UI.edge);
+    if (i < MAX_PAL.length) {
+      fillRect(x + 1, y + 1, 8, 8, MAX_PAL[i]);
+    } else {
+      /* The rubber, drawn as the same checker the empty cells use. */
+      fillRect(x + 1, y + 1, 8, 8, '#2f3a60');
+      fillRect(x + 1, y + 1, 4, 4, '#39456e');
+      fillRect(x + 5, y + 5, 4, 4, '#39456e');
+    }
+    if (i === L.tool) {
+      fillRect(x - 1, y - 2, 12, 2, UI.pick);
+      fillRect(x - 1, y + 10, 12, 2, UI.pick);
+    }
+  }
+  text(L.tool >= MAX_PAL.length ? 'RUB OUT' : (MAX_SLOTS[L.tool] || ''), 148, 126, UI.ink);
+  text('A: PAINT   START: COLOUR', 148, 136, UI.inkSoft);
+  text('B: BACK TO THE LAB', 148, 146, UI.inkSoft);
+}
+
+/* ============================================================================
    BATTLE
    Turn based, one out each side, and the whole thing runs off a queue of
    events. Anything that happens — a line of text, a hit, a faint, a jar going
@@ -2979,7 +3588,7 @@ function startBattle(o) {
   for (const m of foe) S.seen[m.no] = 1;
 
   S.bt = {
-    kind: o.kind, who: o.who || null,
+    kind: o.kind, who: o.who || null, machine: o.machine || null,
     foe, fi: 0, mi: Math.max(0, firstAlive()),
     q: [], msg: null, msgTick: 0,
     sub: 'wait', menu: 0, moveIdx: 0,
@@ -3390,6 +3999,10 @@ function blackOut() {
 function endBattle(result) {
   const wasLegend = S.bt.kind === 'legend';
   const caughtNo = result === 'caught' ? foeMon().no : 0;
+  /* Jar whatever was in the drum and the drum is finally just a drum. */
+  if (result === 'caught' && S.bt.machine) {
+    S.machines[S.floor + ':' + S.bt.machine.x + ',' + S.bt.machine.y] = 1;
+  }
   S.bt.over = result;
   for (const m of S.party) m.rattled = 0;
 
@@ -3814,6 +4427,7 @@ function updateTitle() {
     const chosen = ui.items[ui.idx];
     if (chosen === 'CONTINUE') { if (loadGame()) S.mode = 'world'; return; }
     if (chosen === 'NEW ROUND') { S.mode = 'intro'; S.introPage = 0; return; }
+    if (chosen === 'SKIN LAB') { openSkinLab('title'); return; }
     if (chosen === 'LEDGER') { openLedger(); S.mode = 'titledex'; }
   }
 }
@@ -3957,7 +4571,9 @@ function updateCredits() {
 function toTitle() {
   S.mode = 'title';
   S.ui = null;
-  S.titleUI = { idx: 0, items: hasSave() ? ['CONTINUE', 'NEW ROUND'] : ['NEW ROUND'] };
+  const items = hasSave() ? ['CONTINUE', 'NEW ROUND'] : ['NEW ROUND'];
+  items.push('SKIN LAB');
+  S.titleUI = { idx: 0, items };
 }
 
 function step() {
@@ -3977,6 +4593,7 @@ function step() {
     case 'starter': updateStarter(); break;
     case 'world': updateWorld(); break;
     case 'battle': updateBattle(); break;
+    case 'skinlab': updateSkinLab(); break;
     case 'evolve': updateEvolve(); break;
     case 'credits': updateCredits(); break;
   }
@@ -3997,6 +4614,7 @@ function draw() {
       drawBattle();
       if (S.ui) drawUI(S.ui);
       break;
+    case 'skinlab': drawSkinLab(); break;
     case 'evolve': drawEvolve(); break;
     case 'credits': drawCredits(); break;
     default: clear(0);
@@ -4030,6 +4648,7 @@ if (window.ROAMINALS_ART) {
     FLOORS, tile, resolve, MOVES, ITEMS, effect,
   };
 } else {
+  loadSkins();                 // whatever the skin lab was left holding
   toTitle();
   requestAnimationFrame(frame);
 }

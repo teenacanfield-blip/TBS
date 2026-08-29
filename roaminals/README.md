@@ -53,6 +53,12 @@ visit <http://localhost:8123/roaminals/index.html>.
 | `X` / `Esc` | B — back |
 | `Enter` | Start — Max's menu |
 
+In the **Skin Lab** (title screen, or Max's menu): up and down pick a line,
+left and right change it, `A` opens the pixel painter for Max, `Start` changes
+who you are looking at, `B` is done. In the painter: `A` paints, `Start` steps
+the colour you are painting with — the last one along is the rubber — and `B`
+goes back.
+
 Touch controls appear automatically on phones and tablets.
 
 Saving is under Start &rarr; SAVE, into your own browser on your own device.
@@ -78,6 +84,37 @@ Forty-four species, numbered 001 to 044, all catchable.
 Every species has its own silhouette: the family shape it is drawn from, plus a
 mark nothing else in the generation wears — bristles, a horn, drawer fronts, a
 winding key, a crown of keys, a canopy.
+
+## The Skin Lab
+
+Repaint Max, and repaint anything in your satchel. It is on the title screen
+and in Max's menu, and what it saves outlives any single round.
+
+Two things can be changed. A **colour** is a slot in a ramp — swap Max's hoodie
+from blue to red and every sprite drawn from that palette changes with it,
+because the art was never storing colours in the first place. There are eight
+whole looks to flick through if you would rather not pick seven colours by
+hand, and a creature's presets are the ten type ramps, which is the quickest
+way to make something look like a different ghost got to it.
+
+A **pixel** is a cell in Max's own 16×16 grid, painted with one of his seven
+slots — a fringe, a hood up, no headphones. All three headings are editable.
+
+Creatures are colour-only on purpose: the forty-four share sixteen animal grids
+between them, so painting a possum pixel would paint every possum in the line.
+Their coats are theirs alone, and those you can do anything to — a repainted
+line still darkens as it evolves, and its shiny is still its own colour turned
+round.
+
+## The laundry machines
+
+Three of them stand against a wall in B1. The first has no back to it and is
+the way into a sealed room the flood-repair is told to leave alone — there is
+no corridor to it and never will be.
+
+The other two have something in the drum. It is a **level 1000 EMBERAT**, it is
+far too big to be in there, and it is getting up. You can run, and you can
+throw a jar at it, and one of those is much funnier than the other.
 
 ## The Ledger Wheel
 
