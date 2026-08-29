@@ -1,8 +1,8 @@
 /* ============================================================================
    ROAMINALS
-   A monster-catching game in the shape of the original Game Boy ones, set
-   entirely inside one very large building: the Rothsay Grand Hotel, shut for
-   forty years.
+   A monster-catching game in the shape of the handheld ones, set entirely
+   inside one very large building: the Rothsay Grand Hotel, shut for forty
+   years.
 
    The fiction that drives every system: the hotel's ghosts could not stay
    ghosts, so each one moved into an OBJECT — a mop, a boiler, a ledger, a
@@ -15,19 +15,22 @@
    up about one encounter in forty, three legendaries that exist once each, and
    a shiny roll on every single wild creature.
 
-   Plain JS, no dependencies, no build step. Everything is drawn from character
-   grids and canvas primitives into a 160x144 buffer — a Game Boy screen — and
-   blown up whole. There are no image, font or audio files.
+   The screen is a Game Boy Advance: 240x160, and colour the way that machine
+   did colour — every sprite is a four-tone grid pointed at a palette, so a
+   creature is its animal's natural coat plus the material of the thing
+   possessing it, and a floor is one palette away from being a different room.
+
+   Plain JS, no dependencies, no build step, no image, font or audio files.
    ========================================================================== */
 (() => {
 'use strict';
 
 /* ---------------------------------------------------------------- constants */
 
-const BW = 160, BH = 144;      // the screen, in art pixels. A Game Boy.
-const SCALE = 4;               // blown up to 640x576
+const BW = 240, BH = 160;      // the screen, in art pixels. A Game Boy Advance.
+const SCALE = 4;               // blown up to 960x640
 const TS = 16;                 // tile size, art pixels
-const VIEW_W = BW / TS, VIEW_H = BH / TS;   // ten tiles across, nine down
+const VIEW_W = BW / TS, VIEW_H = BH / TS;   // fifteen tiles across, ten down
 
 const FW = 40, FH = 32;        // every floor of the hotel is this many tiles
 const STEP_FRAMES = 8;         // frames to walk one tile (2px a frame)
@@ -35,13 +38,96 @@ const TURN_FRAMES = 5;         // frames spent turning on the spot
 
 const MAX_PARTY = 6;
 const MAX_LEVEL = 60;
-const SHINY_ODDS = 220;        // one wild creature in this many, halved by the penny
-
-/* The four shades of a Game Boy screen. Index 0 is the lightest — the colour of
-   the glass with nothing drawn on it — and 3 is the darkest ink. */
-const PAL = ['#e0f8cf', '#86c06c', '#306850', '#071821'];
+const SHINY_ODDS = 200;        // one wild creature in this many, halved by the penny
 
 const SAVE_KEY = 'roaminals-save-v1';
+
+/* -------------------------------------------------------------- the palette */
+/* Art is written as four-tone character grids and pointed at a RAMP — four
+   colours running light to dark. That is how the hardware this looks like
+   actually worked, and it is why one possum grid can be a grey possum, a
+   frost-blue one, and a shiny that has never been seen on this floor.
+
+   UI_INK is the ramp everything chrome-coloured uses, so the old habit of
+   passing 0-3 for a shade still means something everywhere. */
+
+const UI_INK = ['#fbfaf2', '#93a6c8', '#4a5878', '#131a2c'];
+
+const UI = {
+  panel:   '#fbfaf2',
+  panelLo: '#dfe3ee',
+  edge:    '#131a2c',
+  frame:   '#4870c0',
+  frameHi: '#89b4f0',
+  ink:     '#1d2438',
+  inkSoft: '#5d6b90',
+  pick:    '#f8d878',
+  pickLo:  '#e0a830',
+  good:    '#58c860',
+  warn:    '#f0b038',
+  bad:     '#e05848',
+  shadow:  'rgba(19,26,44,0.35)',
+};
+
+/* A shade is either an index into UI_INK or a colour of its own. */
+function col(c) {
+  return typeof c === 'number' ? UI_INK[clamp(c, 0, 3)] : c;
+}
+
+/* ------------------------------------------------------------ colour maths */
+/* Ramps are derived rather than written out twice: a stage-one coat is its
+   family's ramp lifted towards the light, a last stage is the same ramp pushed
+   down into it, and a shiny is the whole thing walked around the colour wheel.
+   Forty-four species, three legendary hues and a shiny each, out of sixteen
+   written ramps. */
+
+function hexRgb(h) {
+  const n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function rgbHex(r, g, b) {
+  const f = v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0');
+  return '#' + f(r) + f(g) + f(b);
+}
+function mix(hex, target, amount) {
+  const a = hexRgb(hex), b = hexRgb(target);
+  return rgbHex(a[0] + (b[0] - a[0]) * amount,
+                a[1] + (b[1] - a[1]) * amount,
+                a[2] + (b[2] - a[2]) * amount);
+}
+function lighten(hex, a) { return mix(hex, '#ffffff', a); }
+function darken(hex, a) { return mix(hex, '#000000', a); }
+
+function hueShift(hex, deg) {
+  let [r, g, b] = hexRgb(hex).map(v => v / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0;
+  const l = (max + min) / 2, d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  h = (h + deg + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let rr = 0, gg = 0, bb = 0;
+  if (h < 60) { rr = c; gg = x; }
+  else if (h < 120) { rr = x; gg = c; }
+  else if (h < 180) { gg = c; bb = x; }
+  else if (h < 240) { gg = x; bb = c; }
+  else if (h < 300) { rr = x; bb = c; }
+  else { rr = c; bb = x; }
+  return rgbHex((rr + m) * 255, (gg + m) * 255, (bb + m) * 255);
+}
+
+function rampLift(ramp, a) { return ramp.map(c => lighten(c, a)); }
+function rampSink(ramp, a) { return ramp.map(c => darken(c, a)); }
+function rampShift(ramp, deg) { return ramp.map(c => hueShift(c, deg)); }
 
 /* ------------------------------------------------------------------- canvas */
 
@@ -54,8 +140,8 @@ buf.width = BW; buf.height = BH;
 const bx = buf.getContext('2d');
 bx.imageSmoothingEnabled = false;
 
-function clear(shade) {
-  bx.fillStyle = PAL[shade === undefined ? 0 : shade];
+function clear(c) {
+  bx.fillStyle = col(c === undefined ? 0 : c);
   bx.fillRect(0, 0, BW, BH);
 }
 
@@ -84,8 +170,8 @@ function mulberry(seed) {
 }
 
 /* ------------------------------------------------------------------ letters */
-/* A 5x7 face. Six art pixels a character means twenty-six characters fit across
-   the screen, which is the width the dialogue is written to. */
+/* A 5x7 face. Six art pixels a character means thirty-eight characters fit
+   across the screen, which is the width the dialogue is written to. */
 
 const FONT = {
   'A': [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
@@ -158,13 +244,13 @@ function textWidth(str, scale) {
   return n ? (n * (GW + GAP) - GAP) * (scale || 1) : 0;
 }
 
-function bakeText(str, shade, scale) {
+function bakeText(str, colour, scale) {
   const s = scale || 1;
   const c = document.createElement('canvas');
   c.width = Math.max(1, textWidth(str, s));
   c.height = GH * s;
   const g = c.getContext('2d');
-  g.fillStyle = PAL[shade];
+  g.fillStyle = colour;
   for (let i = 0; i < str.length; i++) {
     const glyph = FONT[str[i]];
     if (!glyph) continue;                    // spaces and unknowns: left blank
@@ -181,13 +267,13 @@ function bakeText(str, shade, scale) {
 /* align: 'left' (default), 'center', 'right'. Coordinates are art pixels. */
 function text(str, x, y, shade, scale, align) {
   str = String(str).toUpperCase();
-  const sh = shade === undefined ? 3 : shade;
+  const colour = col(shade === undefined ? UI.ink : shade);
   const s = scale || 1;
-  const key = str + '|' + sh + '|' + s;
+  const key = str + '|' + colour + '|' + s;
   let c = textCache.get(key);
   if (!c) {
-    if (textCache.size > 500) textCache.clear();
-    c = bakeText(str, sh, s);
+    if (textCache.size > 600) textCache.clear();
+    c = bakeText(str, colour, s);
     textCache.set(key, c);
   }
   let dx = Math.round(x);
@@ -197,20 +283,26 @@ function text(str, x, y, shade, scale, align) {
   return c.width;
 }
 
+/* Anything sitting over artwork gets a hard shadow so it stays readable. */
+function textShadow(str, x, y, shade, scale, align) {
+  text(str, x + 1, y + 1, UI.edge, scale, align);
+  return text(str, x, y, shade, scale, align);
+}
+
 /* ------------------------------------------------------------------ sprites */
-/* Art is written as rows of characters: '.' is see-through and '0' to '3' are
-   the four shades, lightest to darkest. `remap` is a four-character string that
-   re-points those shades, which is how a creature's evolutions and its shiny
-   coat all come out of one grid — '0123' is the plain coat, '1223' a heavier
-   one, and '3210' the inversion a shiny wears. */
+/* Art is rows of characters: '.' is see-through, and a digit points at that
+   slot of whatever ramp the sprite is drawn with. Creatures and tiles use four
+   tones; people get a longer ramp, because a face needs skin, hair and cloth
+   that do not share a colour. */
 
 const spriteCache = new Map();
 
-function makeSprite(rows, remap) {
-  let byRemap = spriteCache.get(rows);
-  if (!byRemap) { byRemap = new Map(); spriteCache.set(rows, byRemap); }
-  const key = remap || '0123';
-  const hit = byRemap.get(key);
+function makeSprite(rows, ramp) {
+  const pal = ramp || UI_INK;
+  let byRamp = spriteCache.get(rows);
+  if (!byRamp) { byRamp = new Map(); spriteCache.set(rows, byRamp); }
+  const key = pal.join('');
+  const hit = byRamp.get(key);
   if (hit) return hit;
 
   let w = 0;
@@ -223,12 +315,15 @@ function makeSprite(rows, remap) {
     const row = rows[y];
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
-      if (ch < '0' || ch > '3') continue;
-      g.fillStyle = PAL[+key[+ch]];
+      if (ch < '0' || ch > '7') continue;
+      const colour = pal[+ch];
+      if (!colour) continue;
+      g.fillStyle = colour;
       g.fillRect(x, y, 1, 1);
     }
   }
-  byRemap.set(key, c);
+  if (byRamp.size > 40) byRamp.clear();
+  byRamp.set(key, c);
   return c;
 }
 
@@ -259,41 +354,47 @@ function blitSolid(spr, x, y, shade, scale) {
   const g = c.getContext('2d');
   g.drawImage(spr, 0, 0);
   g.globalCompositeOperation = 'source-in';
-  g.fillStyle = PAL[shade];
+  g.fillStyle = col(shade);
   g.fillRect(0, 0, c.width, c.height);
   bx.drawImage(c, Math.round(x), Math.round(y), spr.width * s, spr.height * s);
 }
 
 /* -------------------------------------------------------------- panel chrome */
-/* Every box in the game — dialogue, menus, the battle HUD — is the same double
-   frame, so the whole thing reads as one machine. */
-
-function panel(x, y, w, h) {
-  bx.fillStyle = PAL[0];
-  bx.fillRect(x, y, w, h);
-  bx.fillStyle = PAL[3];
-  bx.fillRect(x, y, w, 1);
-  bx.fillRect(x, y + h - 1, w, 1);
-  bx.fillRect(x, y, 1, h);
-  bx.fillRect(x + w - 1, y, 1, h);
-  bx.fillStyle = PAL[2];
-  bx.fillRect(x + 2, y + 2, w - 4, 1);
-  bx.fillRect(x + 2, y + h - 3, w - 4, 1);
-  bx.fillRect(x + 2, y + 2, 1, h - 4);
-  bx.fillRect(x + w - 3, y + 2, 1, h - 4);
-}
+/* Every box in the game — dialogue, menus, the battle HUD — is the same bone
+   panel inside a blue frame, so the whole thing reads as one machine. */
 
 function fillRect(x, y, w, h, shade) {
-  bx.fillStyle = PAL[shade];
+  bx.fillStyle = col(shade);
   bx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+
+function panel(x, y, w, h) {
+  fillRect(x + 1, y + 1, w - 2, h - 2, UI.shadow);
+  fillRect(x, y, w, h, UI.edge);
+  fillRect(x + 1, y + 1, w - 2, h - 2, UI.frame);
+  fillRect(x + 2, y + 2, w - 4, 1, UI.frameHi);
+  fillRect(x + 2, y + 2, 1, h - 4, UI.frameHi);
+  fillRect(x + 3, y + 3, w - 6, h - 6, UI.panel);
+  fillRect(x + 3, y + h - 4, w - 6, 1, UI.panelLo);
 }
 
 /* The chevron that marks the highlighted line of any list. */
 function cursorMark(x, y, shade) {
-  const s = shade === undefined ? 3 : shade;
-  fillRect(x, y, 1, 5, s);
-  fillRect(x + 1, y + 1, 1, 3, s);
-  fillRect(x + 2, y + 2, 1, 1, s);
+  const c = shade === undefined ? UI.pickLo : shade;
+  fillRect(x, y, 2, 7, c);
+  fillRect(x + 2, y + 1, 2, 5, c);
+  fillRect(x + 4, y + 2, 2, 3, c);
+  fillRect(x, y, 1, 5, lighten(col(c), 0.4));
+}
+
+/* A bar with a lip on it: HP, experience, anything that fills. */
+function meter(x, y, w, cur, max, colour) {
+  fillRect(x, y, w, 6, UI.edge);
+  fillRect(x + 1, y + 1, w - 2, 4, '#2a3350');
+  const inner = w - 2;
+  const fill = Math.max(cur > 0 ? 1 : 0, Math.round(inner * clamp(cur / Math.max(1, max), 0, 1)));
+  fillRect(x + 1, y + 1, fill, 4, colour);
+  fillRect(x + 1, y + 1, fill, 1, lighten(colour, 0.45));
 }
 
 /* ============================================================================
@@ -634,32 +735,75 @@ root:  ["....33..", "...3113.", "..31113.", ".3111133", "31111133", "31111133", 
 toy:   ["33333333", "31111113", "31331313", "31111113", "31313313", "31111113", "31133113", "33333333"],
 };
 
-/* Where the thing hangs, and whether the pair looks right mirrored. */
+/* Where the thing hangs, whether the pair looks right mirrored, and the coat
+   the animal itself wears — real fur, feather and shell colours, so a creature
+   reads as an ANIMAL carrying a glowing OBJECT rather than as one tinted
+   blob. */
 const FAMILY = {
-  possum:   { anchor: [9, 0] },
-  rat:      { anchor: [9, 0] },
-  moth:     { anchor: [4, 9], pair: false },
-  cat:      { anchor: [9, 0] },
-  beetle:   { anchor: [10, 8] },
-  newt:     { anchor: [9, 0] },
-  hare:     { anchor: [9, 8] },
-  snail:    { anchor: [5, 3], pair: false },
-  pigeon:   { anchor: [0, 4] },
-  bear:     { anchor: [9, 8] },
-  frog:     { anchor: [8, 0] },
-  eel:      { anchor: [0, 6] },
-  spider:   { anchor: [10, 9] },
-  warden:   { anchor: [9, 8] },
-  stoker:   { anchor: [4, 5], pair: false },
-  midnight: { anchor: [4, 4], pair: false },
+  possum:   { anchor: [9, 0],  coat: ['#ececf4', '#adadbe', '#6b6b7e', '#272736'] },
+  rat:      { anchor: [9, 0],  coat: ['#e6cdae', '#ac8259', '#6d4c31', '#291b12'] },
+  moth:     { anchor: [4, 9],  pair: false, coat: ['#f4ecd6', '#ccb494', '#8b7152', '#2e241a'] },
+  cat:      { anchor: [9, 0],  coat: ['#ffdca6', '#e69a51', '#a25d22', '#3a1d0b'] },
+  beetle:   { anchor: [10, 8], coat: ['#c6d6b6', '#6c855b', '#39492e', '#141d12'] },
+  newt:     { anchor: [9, 0],  coat: ['#deeea6', '#8cae53', '#4e6b2a', '#18260e'] },
+  hare:     { anchor: [9, 8],  coat: ['#f6e6cf', '#c6ae86', '#836b4a', '#2d251a'] },
+  snail:    { anchor: [5, 3],  pair: false, coat: ['#eeddE6', '#b494ac', '#72526a', '#291a29'] },
+  pigeon:   { anchor: [0, 4],  coat: ['#e6eef6', '#9caec6', '#5a6c84', '#1c2532'] },
+  bear:     { anchor: [9, 8],  coat: ['#f6dcbc', '#c69463', '#835b36', '#2d1d12'] },
+  frog:     { anchor: [8, 0],  coat: ['#ddf6b6', '#8cc663', '#4a8332', '#15320a'] },
+  eel:      { anchor: [0, 6],  coat: ['#cceeee', '#6cacac', '#3a6c6c', '#0d2626'] },
+  spider:   { anchor: [10, 9], coat: ['#ddcdee', '#8c6cac', '#523a6c', '#1d122a'] },
+  warden:   { anchor: [9, 8],  coat: ['#f4f4ff', '#b4b4de', '#6c6ca6', '#252542'] },
+  stoker:   { anchor: [4, 5],  pair: false, coat: ['#eec6a6', '#a67253', '#624232', '#211512'] },
+  midnight: { anchor: [8, 4],  pair: false, coat: ['#d6deff', '#7484d6', '#424a96', '#15193a'] },
 };
 
-/* Shade schemes. The outline never moves — only the coat under it darkens as a
-   line evolves. A shiny is the whole grid turned inside out, which on a Game
-   Boy is the only way a different-coloured creature could ever announce
-   itself. */
-const COAT = ['0113', '0123', '0023'];
-const SHINY_COAT = '3203';
+/* The material of the thing possessing the animal. A ghost that moved into a
+   brass key glows brass no matter what it is riding. */
+const THING_RAMP = {
+  mop:   ['#dcf6ea', '#6ccaa6', '#2a835c', '#0d3224'],
+  flame: ['#ffdda6', '#fa8434', '#b23c12', '#4c160a'],
+  frost: ['#e6f2ff', '#8cbcf4', '#3a64b4', '#121e42'],
+  wire:  ['#fffcb6', '#f2d434', '#aa8400', '#3c2a00'],
+  paper: ['#fff4cc', '#eccc7c', '#aa7c32', '#422a0a'],
+  glass: ['#dcfcff', '#7cdcf4', '#2a8cb4', '#0a3242'],
+  cloth: ['#eed4fc', '#bc7ce4', '#723ca4', '#2c1242'],
+  brass: ['#ffecb6', '#e4ac44', '#a26c1a', '#3c220a'],
+  root:  ['#dcf4a6', '#7cc444', '#3a7c1a', '#122a0a'],
+  toy:   ['#ffdcec', '#fa7cac', '#b23c6c', '#420e22'],
+};
+
+/* Every type also has a ramp, which is what the marks and the type badges are
+   drawn in. */
+const TYPE_RAMP = {
+  PLAIN: ['#ececec', '#a4a4a4', '#5c5c5c', '#1a1a1a'],
+  BROOM: THING_RAMP.mop,   FLAME: THING_RAMP.flame, FROST: THING_RAMP.frost,
+  WIRE:  THING_RAMP.wire,  PAPER: THING_RAMP.paper, GLASS: THING_RAMP.glass,
+  CLOTH: THING_RAMP.cloth, BRASS: THING_RAMP.brass, ROOT:  THING_RAMP.root,
+  TOY:   THING_RAMP.toy,
+};
+
+/* A line's stages are the same coat lifted towards the light or pushed down
+   into it, and a shiny is that coat walked most of the way round the colour
+   wheel — which is exactly the trick the hardware this imitates used to get a
+   second version of a creature for free. */
+function coatFor(sp, shiny) {
+  const fam = FAMILY[sp.family] || FAMILY.possum;
+  let ramp = fam.coat;
+  if (sp.stage === 1) ramp = rampLift(ramp, 0.16);
+  else if (sp.stage >= 3) ramp = rampSink(ramp, 0.12);
+  if (sp.rarity === 'ULTRA') ramp = rampShift(ramp, 40);
+  if (sp.rarity === 'LEGEND') ramp = rampLift(rampShift(ramp, -25), 0.08);
+  if (shiny) ramp = rampLift(rampShift(ramp, 155), 0.12);
+  return ramp;
+}
+
+function thingFor(sp, shiny) {
+  let ramp = THING_RAMP[sp.thing] || THING_RAMP.mop;
+  if (sp.stage >= 3) ramp = rampLift(ramp, 0.10);
+  if (shiny) ramp = rampShift(ramp, 155);
+  return ramp;
+}
 
 /* --------------------------------------------------------------- the marks */
 /* Every one of the forty-four wears its own thing on top of the family shape:
@@ -729,41 +873,43 @@ const MARK = {
   44: [[7, 5, 1, 5, 3], [8, 8, 4, 1, 3], [7, 0, 2, 2, 0], [2, 2, 1, 1, 0], [13, 2, 1, 1, 0], [2, 13, 1, 1, 0], [13, 13, 1, 1, 0]],
 };
 
-function drawMark(runs, x, y, s, coat) {
+function drawMark(runs, x, y, s, ramp) {
   if (!runs) return;
   for (const r of runs) {
-    fillRect(x + r[0] * s, y + r[1] * s, r[2] * s, r[3] * s, +coat[r[4]]);
+    fillRect(x + r[0] * s, y + r[1] * s, r[2] * s, r[3] * s, ramp[r[4]]);
   }
 }
 
-/* Ghostlight coming off a creature. Seeded per species, so the same Roaminal
-   always smokes the same way. */
-function drawWisps(x, y, n, seed, t) {
+/* Ghostlight coming off a creature, in the colour of whatever possessed it.
+   Seeded per species, so the same Roaminal always smokes the same way. */
+function drawWisps(x, y, n, seed, t, ramp, s) {
   const r = mulberry(seed);
   for (let i = 0; i < n; i++) {
-    const ax = x + Math.floor(r() * 34);
-    const ay = y + Math.floor(r() * 30);
+    const ax = x + Math.floor(r() * 17 * s);
+    const ay = y + Math.floor(r() * 15 * s);
     const bob = Math.round(Math.sin(t * 2 + i) * 2);
-    fillRect(ax, ay + bob, 2, 2, 2);
-    fillRect(ax + 1, ay + bob - 2, 1, 1, 1);
+    fillRect(ax, ay + bob, 2, 2, ramp[2]);
+    fillRect(ax + 1, ay + bob - 2, 1, 1, ramp[1]);
   }
 }
 
 /* The whole creature: animal, the object that possessed it, and whatever the
-   evolution has piled on top. `scale` is 2 in battle, 1 in the menus. */
+   evolution has piled on top. `scale` is 3 in battle, 1 or 2 in the menus. */
 function drawCreature(sp, x, y, scale, shiny, t) {
   const s = scale || 1;
   const fam = FAMILY[sp.family] || FAMILY.possum;
-  const coat = shiny ? SHINY_COAT : COAT[Math.min(2, sp.stage - 1)];
+  const coat = coatFor(sp, shiny);
+  const glow = thingFor(sp, shiny);
   const body = makeSprite(BODY[sp.family] || BODY.possum, coat);
-  const thing = makeSprite(THING[sp.thing] || THING.mop, coat);
+  const thing = makeSprite(THING[sp.thing] || THING.mop, glow);
 
   if (sp.stage >= 2 || sp.rarity !== 'COMMON') {
-    drawWisps(x - 3 * s, y - 2 * s, sp.stage >= 3 ? 6 : 3, sp.no * 977 + 13, t || 0);
+    drawWisps(x - 3 * s, y - 2 * s, sp.stage >= 3 ? 6 : 3, sp.no * 977 + 13,
+      t || 0, glow, s);
   }
 
   blit(body, x, y, false, s);
-  drawMark(MARK[sp.no], x, y, s, coat);
+  drawMark(MARK[sp.no], x, y, s, glow);
   blit(thing, x + fam.anchor[0] * s, y + fam.anchor[1] * s, false, s);
 
   /* The last stage of a line carries a second one, mirrored, and wears a hoop
@@ -775,74 +921,103 @@ function drawCreature(sp, x, y, scale, shiny, t) {
     const w = 16 * s;
     for (let i = 0; i < 6; i++) {
       const a = (t || 0) * 1.5 + i * 1.05;
-      fillRect(x + w / 2 + Math.cos(a) * (w * 0.66) - 1,
-               y + 9 * s + Math.sin(a) * (w * 0.34) - 1, 2, 2, 2);
+      const hx = x + w / 2 + Math.cos(a) * (w * 0.66) - 1;
+      const hy = y + 9 * s + Math.sin(a) * (w * 0.34) - 1;
+      fillRect(hx, hy, 2, 2, glow[1]);
+      fillRect(hx, hy, 1, 1, glow[0]);
     }
   }
 }
 
-/* --------------------------------------------------------------- the porter */
-/* You: the new night porter. Cap, satchel, sixteen pixels tall. */
+/* A little coloured plate with the type on it, used anywhere a creature is
+   named. It is the fastest way to read the wheel mid-fight. */
+function typeBadge(type, x, y) {
+  const ramp = TYPE_RAMP[type] || TYPE_RAMP.PLAIN;
+  const w = textWidth(type, 1) + 7;
+  fillRect(x, y, w, 10, ramp[3]);
+  fillRect(x + 1, y + 1, w - 2, 8, ramp[1]);
+  fillRect(x + 1, y + 1, w - 2, 1, ramp[0]);
+  text(type, x + 4, y + 2, ramp[3]);
+  return w;
+}
 
-const PORTER_DOWN = [
+/* ------------------------------------------------------------------ MAX */
+/* You. Fifteen, hoodie, headphones round the neck, the night porter's satchel
+   across one shoulder because nobody else applied for the job.
+
+   People get a seven-slot ramp instead of the four a creature uses:
+   0 outline, 1 skin, 2 skin shadow, 3 cloth, 4 cloth shadow, 5 hair,
+   6 the bright accent — Max's headphones and satchel buckle. */
+
+const MAX_PAL = ['#171128', '#f4c79a', '#c68a5e', '#4a7ccc', '#2c4c94', '#7a4a2a', '#f8d05c'];
+
+const MAX_DOWN = [
 "................",
-"....333333......",
-"...31111113.....",
-"..3111111113....",
-"..3333333333....",
-"...31111113.....",
-"...31311313.....",
-"...31111113.....",
-"...33111133.....",
-"..3113113113....",
-"..3113113113....",
-"..3111111113....",
-"..3111111113....",
-"...31111113.....",
-"...3113.3113....",
-"...333...333....",
+"....555555......",
+"...55555555.....",
+"..5555555555....",
+"..5511111155....",
+"..5111111115....",
+"..5101111015....",
+"..5111221115....",
+"...0111110......",
+"..6033333306....",
+".06333333333 0..",
+".013336633310...",
+".0134444444310..",
+".0133333333310..",
+"..0333333330....",
+"..0440..0440....",
 ];
 
-const PORTER_UP = [
+const MAX_UP = [
 "................",
-"....333333......",
-"...31111113.....",
-"..3111111113....",
-"..3333333333....",
-"...31111113.....",
-"...31111113.....",
-"...31111113.....",
-"...33111133.....",
-"..3113113113....",
-"..3113113113....",
-"..3111111113....",
-"..3111111113....",
-"...31111113.....",
-"...3113.3113....",
-"...333...333....",
+"....555555......",
+"...55555555.....",
+"..5555555555....",
+"..5555555555....",
+"..5555555555....",
+"..5555555555....",
+"..5155555515....",
+"...0111110......",
+"..6033333306....",
+".063333333330...",
+".013333333310...",
+".0133444433310..",
+".0133333333310..",
+"..0333333330....",
+"..0440..0440....",
 ];
 
-const PORTER_SIDE = [
+const MAX_SIDE = [
 "................",
-"....3333........",
-"...311113.......",
-"..31111113......",
-"..333333333.....",
-"...3111133......",
-"...3131133......",
-"...3111113......",
-"...3311113......",
-"..31111113......",
-"..311111133.....",
-"..311111113.....",
-"..311111113.....",
-"...3111113......",
-"...31133113.....",
-"...333..333.....",
+"....5555........",
+"...555555.......",
+"..55555555......",
+"..5551111550....",
+"..5511111110....",
+"..5510111110....",
+"..5511122110....",
+"...0111111 0....",
+"..60333333 0....",
+".0633333333 0...",
+".01333366331 0..",
+".0134444433 0...",
+".01333333310....",
+"..033333330.....",
+"..04400440......",
 ];
 
 /* Somebody else in the building: staff who never clocked off, guests who never
-   checked out, and the ones who have stopped pretending to have feet. */
+   checked out, and the ones who have stopped pretending to have feet. These
+   keep the four-tone creature convention — light to dark. */
+
+const NPC_PAL = {
+  staff: ['#ffe4c4', '#c85a5a', '#7c2c34', '#22101a'],
+  guest: ['#eaf6ff', '#7ab0c8', '#3a6478', '#141e28'],
+  ghost: ['#f6fbff', '#aecdf4', '#6b88c8', '#2b3a68'],
+};
+
 const NPC_STAFF = [
 "................",
 "....333333......",
@@ -920,17 +1095,35 @@ function walkFrame(spr, dir) {
 }
 
 /* ------------------------------------------------------------------- tiles */
-/* Tiles are drawn rather than stored, so a floor's whole look — carpet, tiling,
-   floorboards, boiler grating — comes out of one small theme object. */
+/* Tiles are drawn rather than stored, so a floor's whole look — red lobby
+   carpet, laundry tiling, boiler grating, the conservatory's mossy stone —
+   comes out of one small theme object of colours. Fittings that are the same
+   object everywhere (a vending machine, a housekeeping cart) keep their own
+   colours on every floor, because that is what makes them findable. */
 
-function px(g, x, y, w, h, shade) {
-  g.fillStyle = PAL[shade];
+function px(g, x, y, w, h, colour) {
+  g.fillStyle = colour;
   g.fillRect(x, y, w, h);
 }
 
 const tileCache = new Map();
 
+/* Colours a theme does not name are worked out from the ones it does. */
+function resolve(th) {
+  if (th._done) return th;
+  th.floorHi = th.floorHi || lighten(th.floor, 0.16);
+  th.floorLo = th.floorLo || darken(th.floor, 0.16);
+  th.wallLo = th.wallLo || darken(th.wall, 0.35);
+  th.mortar = th.mortar || darken(th.wall, 0.5);
+  th.prop = th.prop || '#9c6b3c';
+  th.propHi = th.propHi || lighten(th.prop, 0.25);
+  th.propLo = th.propLo || darken(th.prop, 0.3);
+  th._done = true;
+  return th;
+}
+
 function tile(kind, th) {
+  resolve(th);
   const key = kind + '|' + th.id;
   let c = tileCache.get(key);
   if (c) return c;
@@ -943,31 +1136,37 @@ function tile(kind, th) {
 }
 
 function paintFloor(g, th) {
-  px(g, 0, 0, TS, TS, th.f);
-  const a = th.acc;
+  px(g, 0, 0, TS, TS, th.floor);
   switch (th.pattern) {
     case 'carpet':
-      px(g, 3, 3, 2, 2, a); px(g, 11, 11, 2, 2, a);
-      px(g, 11, 3, 1, 1, a); px(g, 3, 11, 1, 1, a);
+      px(g, 3, 3, 2, 2, th.accent); px(g, 11, 11, 2, 2, th.accent);
+      px(g, 11, 3, 1, 1, th.floorHi); px(g, 3, 11, 1, 1, th.floorHi);
+      px(g, 0, 7, TS, 1, th.floorLo);
       break;
     case 'tiles':
-      px(g, 0, 0, TS, 1, a); px(g, 0, 0, 1, TS, a);
-      px(g, 8, 8, 8, 1, a); px(g, 8, 8, 1, 8, a);
+      px(g, 0, 0, TS, 1, th.floorLo); px(g, 0, 0, 1, TS, th.floorLo);
+      px(g, 1, 1, 6, 1, th.floorHi); px(g, 9, 9, 6, 1, th.floorHi);
+      px(g, 8, 8, 8, 1, th.floorLo); px(g, 8, 8, 1, 8, th.floorLo);
       break;
     case 'boards':
-      px(g, 0, 0, TS, 1, a); px(g, 0, 8, TS, 1, a);
-      px(g, 5, 0, 1, 8, a); px(g, 12, 8, 1, 8, a);
+      px(g, 0, 0, TS, 1, th.floorLo); px(g, 0, 8, TS, 1, th.floorLo);
+      px(g, 0, 1, TS, 1, th.floorHi); px(g, 0, 9, TS, 1, th.floorHi);
+      px(g, 5, 1, 1, 7, th.floorLo); px(g, 12, 9, 1, 7, th.floorLo);
       break;
     case 'grate':
-      for (let i = 2; i < TS; i += 4) px(g, i, 0, 1, TS, a);
-      px(g, 0, 7, TS, 1, a);
+      for (let i = 2; i < TS; i += 4) {
+        px(g, i, 0, 1, TS, th.floorLo);
+        px(g, i + 1, 0, 1, TS, th.floorHi);
+      }
+      px(g, 0, 7, TS, 1, th.accent);
       break;
     case 'stone':
-      px(g, 2, 4, 2, 1, a); px(g, 9, 2, 3, 1, a);
-      px(g, 6, 10, 2, 1, a); px(g, 12, 12, 2, 1, a);
+      px(g, 0, 0, TS, 1, th.floorLo); px(g, 0, 8, TS, 1, th.floorLo);
+      px(g, 7, 1, 1, 7, th.floorLo); px(g, 2, 9, 1, 7, th.floorLo);
+      px(g, 3, 3, 2, 1, th.accent); px(g, 10, 11, 3, 1, th.accent);
       break;
     default:
-      px(g, 7, 7, 1, 1, a);
+      px(g, 7, 7, 2, 2, th.accent);
   }
 }
 
@@ -986,112 +1185,134 @@ function paintTile(g, kind, th) {
         px(g, p[0], p[1], 1, 3, th.dust);
         px(g, p[0] - 1, p[1] + 1, 1, 2, th.dust);
         px(g, p[0] + 1, p[1] + 1, 1, 2, th.dust);
+        px(g, p[0], p[1], 1, 1, lighten(th.dust, 0.3));
       }
       break;
 
     case 'wall':
-      px(g, 0, 0, TS, TS, th.w);
-      px(g, 0, 0, TS, 1, th.wl);
-      px(g, 0, 7, TS, 1, 3);
-      px(g, 0, 15, TS, 1, 3);
-      px(g, 5, 0, 1, 7, 3);
-      px(g, 11, 8, 1, 7, 3);
+      px(g, 0, 0, TS, TS, th.wall);
+      px(g, 0, 0, TS, 3, th.wallTop);
+      px(g, 0, 3, TS, 1, th.wallLo);
+      px(g, 0, 9, TS, 1, th.mortar);
+      px(g, 0, 15, TS, 1, th.mortar);
+      px(g, 5, 4, 1, 5, th.mortar);
+      px(g, 11, 10, 1, 5, th.mortar);
+      px(g, 0, 4, TS, 1, lighten(th.wall, 0.1));
+      px(g, 0, 10, TS, 1, lighten(th.wall, 0.1));
       break;
 
     /* Furniture: crates, trunks, cabinets. Always the same shape, whichever
        floor you are on, so you always know what you cannot walk through. */
     case 'prop':
       paintFloor(g, th);
-      px(g, 2, 3, 12, 11, 3);
-      px(g, 3, 4, 10, 9, 2);
-      px(g, 3, 4, 10, 1, 1);
-      px(g, 7, 4, 1, 9, 3);
-      px(g, 3, 8, 10, 1, 3);
+      px(g, 2, 3, 12, 12, '#000000');
+      px(g, 2, 3, 12, 11, th.propLo);
+      px(g, 3, 4, 10, 9, th.prop);
+      px(g, 3, 4, 10, 1, th.propHi);
+      px(g, 7, 4, 1, 9, th.propLo);
+      px(g, 3, 8, 10, 1, th.propLo);
+      px(g, 4, 5, 2, 1, lighten(th.prop, 0.4));
       break;
 
     case 'plant':
       paintFloor(g, th);
-      px(g, 6, 10, 5, 5, 3);
-      px(g, 7, 11, 3, 3, 2);
-      px(g, 7, 2, 3, 8, 2);
-      px(g, 4, 4, 4, 2, 2); px(g, 9, 6, 4, 2, 2);
-      px(g, 5, 2, 2, 2, 1); px(g, 10, 3, 2, 2, 1);
+      px(g, 5, 10, 7, 6, '#231512');
+      px(g, 5, 10, 7, 5, '#a0522d');
+      px(g, 5, 10, 7, 1, '#c87a4a');
+      px(g, 7, 3, 3, 8, '#2f6b28');
+      px(g, 3, 4, 5, 3, '#3f8f34'); px(g, 8, 6, 5, 3, '#3f8f34');
+      px(g, 4, 4, 3, 1, '#67c04a'); px(g, 9, 6, 3, 1, '#67c04a');
+      px(g, 6, 1, 4, 3, '#3f8f34'); px(g, 7, 1, 2, 1, '#7ad45a');
       break;
 
     case 'door':
-      px(g, 0, 0, TS, TS, th.w);
-      px(g, 2, 1, 12, 15, 3);
-      px(g, 3, 2, 10, 14, 1);
-      px(g, 3, 2, 10, 1, 0);
-      px(g, 11, 8, 2, 2, 3);
-      px(g, 5, 4, 6, 3, 2);
+      px(g, 0, 0, TS, TS, th.wall);
+      px(g, 1, 0, 14, 16, '#2a1a12');
+      px(g, 2, 1, 12, 15, '#8b5a2b');
+      px(g, 2, 1, 12, 1, '#b57a44');
+      px(g, 4, 3, 8, 5, '#6b4423');
+      px(g, 4, 10, 8, 4, '#6b4423');
+      px(g, 11, 8, 2, 2, '#f8d05c');
       break;
 
     /* The lift. Everything in this building hangs off it. */
     case 'elev':
-      px(g, 0, 0, TS, TS, th.w);
-      px(g, 1, 0, 14, 16, 3);
-      px(g, 2, 2, 12, 13, 2);
-      px(g, 8, 2, 1, 13, 3);
-      px(g, 2, 2, 12, 1, 0);
-      px(g, 6, 4, 4, 1, 0);
-      px(g, 7, 3, 2, 1, 0);
+      px(g, 0, 0, TS, TS, th.wall);
+      px(g, 0, 0, 16, 16, '#1b2030');
+      px(g, 1, 1, 14, 14, '#8a94a8');
+      px(g, 1, 1, 14, 1, '#c6cddc');
+      px(g, 2, 2, 6, 12, '#6f7a90');
+      px(g, 9, 2, 5, 12, '#6f7a90');
+      px(g, 8, 1, 1, 14, '#3a4256');
+      px(g, 6, 5, 4, 3, '#f8d05c');
+      px(g, 7, 4, 2, 1, '#f8d05c');
+      px(g, 6, 12, 4, 2, '#2a3142');
       break;
 
     /* Housekeeping cart. Rest against it and everything in your jars comes back
        up to full. The building's only kindness. */
     case 'heal':
       paintFloor(g, th);
-      px(g, 1, 4, 14, 9, 3);
-      px(g, 2, 5, 12, 7, 1);
-      px(g, 7, 6, 2, 5, 3);
-      px(g, 5, 7, 6, 2, 3);
-      px(g, 3, 13, 3, 2, 3); px(g, 10, 13, 3, 2, 3);
+      px(g, 1, 3, 14, 11, '#1b2030');
+      px(g, 2, 4, 12, 9, '#eef2f6');
+      px(g, 2, 4, 12, 1, '#ffffff');
+      px(g, 7, 5, 2, 7, '#e04848');
+      px(g, 4, 7, 8, 2, '#e04848');
+      px(g, 2, 13, 3, 3, '#2a3142'); px(g, 11, 13, 3, 3, '#2a3142');
+      px(g, 3, 14, 1, 1, '#8a94a8'); px(g, 12, 14, 1, 1, '#8a94a8');
       break;
 
     /* A vending machine that still takes tokens, forty years on. */
     case 'shop':
-      px(g, 0, 0, TS, TS, th.w);
-      px(g, 1, 0, 14, 16, 3);
-      px(g, 2, 1, 9, 11, 0);
-      px(g, 3, 3, 7, 1, 2); px(g, 3, 6, 7, 1, 2); px(g, 3, 9, 7, 1, 2);
-      px(g, 12, 2, 2, 4, 2);
-      px(g, 12, 8, 2, 2, 1);
-      px(g, 2, 13, 12, 2, 2);
+      px(g, 0, 0, TS, TS, th.wall);
+      px(g, 0, 0, 16, 16, '#141a26');
+      px(g, 1, 1, 14, 14, '#c03a3a');
+      px(g, 1, 1, 14, 1, '#e86a5a');
+      px(g, 2, 2, 8, 11, '#1a2436');
+      px(g, 3, 3, 6, 1, '#5ac8e0');
+      px(g, 3, 5, 2, 3, '#f8d05c'); px(g, 6, 5, 2, 3, '#58c860');
+      px(g, 3, 9, 2, 3, '#e05888'); px(g, 6, 9, 2, 3, '#5a88e0');
+      px(g, 11, 3, 3, 5, '#2a3142');
+      px(g, 11, 9, 3, 3, '#f8d05c');
       break;
 
     case 'sign':
       paintFloor(g, th);
-      px(g, 2, 2, 12, 9, 3);
-      px(g, 3, 3, 10, 7, 0);
-      px(g, 4, 5, 8, 1, 2); px(g, 4, 7, 6, 1, 2);
-      px(g, 7, 11, 2, 4, 3);
+      px(g, 7, 9, 2, 7, '#5a4028');
+      px(g, 1, 1, 14, 9, '#2a1a12');
+      px(g, 2, 2, 12, 7, '#e8dcc0');
+      px(g, 3, 4, 10, 1, '#7a6a50'); px(g, 3, 6, 7, 1, '#7a6a50');
       break;
 
     /* A lost-and-found box. Something is in it, once. */
     case 'item':
       paintFloor(g, th);
-      px(g, 3, 5, 10, 9, 3);
-      px(g, 4, 6, 8, 7, 1);
-      px(g, 4, 9, 8, 1, 3);
-      px(g, 7, 6, 2, 7, 3);
+      px(g, 2, 4, 12, 11, '#231a10');
+      px(g, 3, 5, 10, 9, '#c8963c');
+      px(g, 3, 5, 10, 2, '#e8bc64');
+      px(g, 3, 9, 10, 1, '#8a5c1c');
+      px(g, 7, 5, 2, 9, '#8a5c1c');
+      px(g, 4, 6, 2, 1, '#f8e0a0');
       break;
 
     case 'itemgone':
       paintFloor(g, th);
-      px(g, 4, 10, 8, 4, 3);
-      px(g, 5, 11, 6, 2, 2);
+      px(g, 3, 11, 10, 4, '#231a10');
+      px(g, 4, 12, 8, 2, '#8a6a3c');
       break;
 
     /* Where a legendary is waiting: a furnace door, a desk bell, a clock face.
-       Drawn as a shrine so you can see it from across the room. */
+       Drawn as an alcove with something lit inside it, so you can see it from
+       across the room. */
     case 'shrine':
-      px(g, 0, 0, TS, TS, th.w);
-      px(g, 2, 1, 12, 14, 3);
-      px(g, 3, 2, 10, 12, 2);
-      px(g, 5, 4, 6, 6, 0);
-      px(g, 7, 5, 2, 4, 3);
-      px(g, 4, 12, 8, 2, 1);
+      px(g, 0, 0, TS, TS, th.wall);
+      px(g, 1, 0, 14, 16, '#1a1424');
+      px(g, 2, 1, 12, 14, '#4a3a6a');
+      px(g, 3, 2, 10, 12, '#2a2040');
+      px(g, 4, 3, 8, 8, '#8a6ad8');
+      px(g, 5, 4, 6, 6, '#c8a8f8');
+      px(g, 6, 5, 4, 4, '#f8f0ff');
+      px(g, 3, 12, 10, 2, '#6a5490');
       break;
 
     default:
@@ -1287,12 +1508,12 @@ const DEX = {};
 for (const s of SPECIES) {
   s.family = s.fam;
   s.thing = s.th;
-  /* Catch rates. The three legendaries are the hardest thing in the building
-     to jar, but the last one is also how the game ends, so it is a real number
-     and not a lottery: worn down to a sliver, a Vault Jar takes it about a
-     third of the time. */
-  s.catchRate = s.rarity === 'LEGEND' ? 30 : s.rarity === 'ULTRA' ? 45
-    : s.stage === 1 ? 190 : s.stage === 2 ? 110 : 62;
+  /* Catch rates. This game would rather you had the creature than the war
+     story: a common goes in better than a third of the time at full health,
+     and everything gets much easier once it is worn down. Even a legendary,
+     softened up with the right jar, is a coin flip in your favour. */
+  s.catchRate = s.rarity === 'LEGEND' ? 60 : s.rarity === 'ULTRA' ? 80
+    : s.stage === 1 ? 230 : s.stage === 2 ? 170 : 120;
   s.xpBase = s.rarity === 'LEGEND' ? 230 : s.rarity === 'ULTRA' ? 165
     : s.stage === 1 ? 46 : s.stage === 2 ? 78 : 118;
   s.moves = learnset(s);
@@ -1353,9 +1574,9 @@ function healMon(m) {
 /* ------------------------------------------------------------------- the bag */
 
 const ITEMS = {
-  'JAR':        { kind: 'jar',  mult: 1.0, cost: 40,  info: 'AN EMPTY PRESERVE JAR. GHOSTS FIT.' },
-  'GHOST JAR':  { kind: 'jar',  mult: 1.7, cost: 120, info: 'LEAD-LINED. HOLDS THE STRONGER ONES.' },
-  'VAULT JAR':  { kind: 'jar',  mult: 2.8, cost: 400, info: 'OUT OF THE HOTEL SAFE. HOLDS ANYTHING.' },
+  'JAR':        { kind: 'jar',  mult: 1.2, cost: 40,  info: 'AN EMPTY PRESERVE JAR. GHOSTS FIT.' },
+  'GHOST JAR':  { kind: 'jar',  mult: 2.0, cost: 120, info: 'LEAD-LINED. HOLDS THE STRONGER ONES.' },
+  'VAULT JAR':  { kind: 'jar',  mult: 3.2, cost: 400, info: 'OUT OF THE HOTEL SAFE. HOLDS ANYTHING.' },
   'POULTICE':   { kind: 'heal', amount: 25, cost: 50,  info: 'MENDS 25 HP OF A ROAMINAL.' },
   'TONIC':      { kind: 'heal', amount: 60, cost: 140, info: 'MENDS 60 HP OF A ROAMINAL.' },
   'FULL KIT':   { kind: 'heal', amount: 999, cost: 500, info: 'MENDS EVERYTHING, INCLUDING NERVES.' },
@@ -1378,7 +1599,7 @@ const SHOP_STOCK = ['JAR', 'GHOST JAR', 'POULTICE', 'TONIC', 'SMELLING SALTS', '
 const FLOORS = [
   {
     label: '1F', name: 'THE LOBBY', seed: 1101,
-    theme: { id: 'lobby', f: 0, acc: 1, w: 2, wl: 1, dust: 2, pattern: 'carpet' },
+    theme: { id: 'lobby', pattern: 'carpet', floor: '#b8544c', accent: '#8f3a36', wall: '#6d4536', wallTop: '#96674c', dust: '#e8c088', prop: '#9c6b3c' },
     lv: [2, 4],
     table: [[1, 12], [10, 10], [13, 9], [25, 8], [38, 1]],
     items: ['JAR', 'JAR', 'POULTICE'],
@@ -1403,7 +1624,7 @@ const FLOORS = [
 
   {
     label: 'B1', name: 'LAUNDRY', seed: 2202,
-    theme: { id: 'laundry', f: 1, acc: 0, w: 3, wl: 2, dust: 3, pattern: 'tiles' },
+    theme: { id: 'laundry', pattern: 'tiles', floor: '#aebccb', accent: '#8b9cae', wall: '#4f6076', wallTop: '#7185a0', dust: '#eef4fa', prop: '#7f8fa6' },
     lv: [5, 8],
     table: [[31, 12], [7, 11], [1, 9], [13, 7], [37, 1]],
     items: ['POULTICE', 'GHOST JAR', 'JAR'],
@@ -1424,7 +1645,7 @@ const FLOORS = [
 
   {
     label: 'B2', name: 'BOILER ROOM', seed: 3303,
-    theme: { id: 'boiler', f: 1, acc: 2, w: 3, wl: 2, dust: 3, pattern: 'grate' },
+    theme: { id: 'boiler', pattern: 'grate', floor: '#6d564b', accent: '#c8702c', wall: '#392924', wallTop: '#5a4038', dust: '#e08a3c', prop: '#7a4a2a' },
     lv: [8, 12],
     table: [[4, 13], [33, 10], [13, 8], [35, 8], [38, 1]],
     items: ['TONIC', 'GHOST JAR', 'JAR', 'BRIGHT PENNY'],
@@ -1448,7 +1669,7 @@ const FLOORS = [
 
   {
     label: '2F', name: 'KITCHENS', seed: 4404,
-    theme: { id: 'kitchen', f: 0, acc: 1, w: 2, wl: 1, dust: 2, pattern: 'tiles' },
+    theme: { id: 'kitchen', pattern: 'tiles', floor: '#dcdccb', accent: '#b2b2a0', wall: '#5f6b62', wallTop: '#87958a', dust: '#efe6bb', prop: '#9aa3a8' },
     lv: [12, 16],
     table: [[19, 12], [13, 9], [14, 8], [33, 8], [39, 1]],
     items: ['TONIC', 'GHOST JAR', 'SMELLING SALTS'],
@@ -1469,7 +1690,7 @@ const FLOORS = [
 
   {
     label: '3F', name: 'GUEST ROOMS', seed: 5505,
-    theme: { id: 'rooms', f: 1, acc: 2, w: 3, wl: 2, dust: 3, pattern: 'carpet' },
+    theme: { id: 'rooms', pattern: 'carpet', floor: '#6f4f96', accent: '#523874', wall: '#3f2b56', wallTop: '#62457f', dust: '#d0aae8', prop: '#8a5f3a' },
     lv: [16, 21],
     table: [[8, 12], [2, 10], [11, 9], [25, 7], [37, 1]],
     items: ['TONIC', 'GHOST JAR', 'GHOST JAR', 'DUST SHEET'],
@@ -1490,7 +1711,7 @@ const FLOORS = [
 
   {
     label: '4F', name: 'BALLROOM', seed: 6606,
-    theme: { id: 'ball', f: 0, acc: 1, w: 2, wl: 1, dust: 2, pattern: 'boards' },
+    theme: { id: 'ball', pattern: 'boards', floor: '#c69a5e', accent: '#a17342', wall: '#6f4f2f', wallTop: '#9c7448', dust: '#f0d8a4', prop: '#8f6134' },
     lv: [21, 26],
     table: [[26, 12], [9, 9], [36, 8], [17, 8], [40, 1]],
     items: ['FULL KIT', 'GHOST JAR', 'TONIC'],
@@ -1511,7 +1732,7 @@ const FLOORS = [
 
   {
     label: '5F', name: 'OFFICES', seed: 7707,
-    theme: { id: 'office', f: 1, acc: 2, w: 3, wl: 2, dust: 3, pattern: 'tiles' },
+    theme: { id: 'office', pattern: 'tiles', floor: '#95a276', accent: '#77855a', wall: '#465038', wallTop: '#6a7658', dust: '#d2d8ab', prop: '#8a6a42' },
     lv: [26, 31],
     table: [[11, 12], [12, 8], [14, 9], [34, 8], [38, 1]],
     items: ['FULL KIT', 'VAULT JAR', 'SUGAR CUBE'],
@@ -1532,7 +1753,7 @@ const FLOORS = [
 
   {
     label: '6F', name: 'NURSERY', seed: 8808,
-    theme: { id: 'nursery', f: 0, acc: 1, w: 2, wl: 1, dust: 2, pattern: 'carpet' },
+    theme: { id: 'nursery', pattern: 'carpet', floor: '#e59fbb', accent: '#c07792', wall: '#9a5170', wallTop: '#c1748f', dust: '#fbd8e8', prop: '#d88a5a' },
     lv: [31, 36],
     table: [[29, 12], [28, 9], [30, 7], [36, 8], [41, 1]],
     items: ['FULL KIT', 'VAULT JAR', 'FULL KIT'],
@@ -1553,7 +1774,7 @@ const FLOORS = [
 
   {
     label: '7F', name: 'CONSERVATORY', seed: 9909,
-    theme: { id: 'garden', f: 1, acc: 2, w: 2, wl: 1, dust: 3, pattern: 'stone' },
+    theme: { id: 'garden', pattern: 'stone', floor: '#7fae6f', accent: '#5f8f52', wall: '#44633c', wallTop: '#63895a', dust: '#bfe4a6', prop: '#6f8f4a' },
     lv: [36, 42],
     table: [[23, 12], [24, 8], [32, 9], [9, 8], [41, 1]],
     items: ['FULL KIT', 'VAULT JAR', 'SUGAR CUBE', 'MASTER RING'],
@@ -1574,7 +1795,7 @@ const FLOORS = [
 
   {
     label: 'R', name: 'THE ROOF', seed: 1313,
-    theme: { id: 'roof', f: 1, acc: 2, w: 3, wl: 2, dust: 3, pattern: 'stone' },
+    theme: { id: 'roof', pattern: 'stone', floor: '#526086', accent: '#3b4767', wall: '#242c42', wallTop: '#3d4a68', dust: '#9fb0d0', prop: '#4a5470' },
     lv: [42, 48],
     table: [[27, 10], [9, 9], [21, 9], [18, 9], [37, 1]],
     items: ['FULL KIT', 'VAULT JAR', 'VAULT JAR'],
@@ -2183,7 +2404,7 @@ function drawWorld() {
     }
   }
 
-  /* Everybody standing about, then you, in whatever order keeps feet in front
+  /* Everybody standing about, then Max, in whatever order keeps feet in front
      of heads. */
   const actors = [];
   for (const f of S.map.folk) {
@@ -2191,46 +2412,66 @@ function drawWorld() {
     if (f.y < t0y - 1 || f.y > t0y + VIEW_H + 1) continue;
     actors.push({ y: f.y, draw: () => drawFolk(f, f.x * TS - camX, f.y * TS - camY) });
   }
-  actors.push({ y: S.p.y, draw: () => drawPorter(pp.x - camX, pp.y - camY) });
+  actors.push({ y: S.p.y, draw: () => drawMax(pp.x - camX, pp.y - camY) });
   actors.sort((a, b) => a.y - b.y);
   for (const a of actors) a.draw();
+
+  /* A strip along the top saying where in the building you are. */
+  const fl = FLOORS[S.floor];
+  const w = textWidth(fl.label + '  ' + fl.name, 1) + 12;
+  fillRect(3, 3, w, 13, UI.shadow);
+  fillRect(2, 2, w, 13, UI.edge);
+  fillRect(3, 3, w - 2, 11, UI.frame);
+  fillRect(3, 3, w - 2, 1, UI.frameHi);
+  text(fl.label + '  ' + fl.name, 7, 5, UI.panel);
 }
 
-function drawPorter(x, y) {
+function shadowUnder(x, y) {
+  fillRect(x + 4, y + 14, 8, 2, 'rgba(20,16,30,0.30)');
+}
+
+function drawMax(x, y) {
   const dir = S.p.dir;
-  const base = dir === 1 ? PORTER_UP : dir === 0 ? PORTER_DOWN : PORTER_SIDE;
-  let spr = makeSprite(base, '0123');
+  const base = dir === 1 ? MAX_UP : dir === 0 ? MAX_DOWN : MAX_SIDE;
+  let spr = makeSprite(base, MAX_PAL);
   if (S.p.moving) {
     const f = Math.floor(S.p.anim / 6) % 2;
     if (f) spr = walkFrame(spr, dir === 3 ? 1 : -1);
   }
+  shadowUnder(x, y);
   blit(spr, x, y, dir === 2);
 }
 
 function drawFolk(f, x, y) {
   const art = f.art === 'guest' ? NPC_GUEST : f.art === 'ghost' ? NPC_GHOST : NPC_STAFF;
-  const spr = makeSprite(art, f.art === 'ghost' ? '0112' : '0123');
+  const spr = makeSprite(art, NPC_PAL[f.art] || NPC_PAL.staff);
   /* The dead ones bob. It is how you tell across a dark room. */
   const bob = f.art === 'ghost' ? Math.round(Math.sin(S.t * 2 + f.x) * 1) : 0;
+  if (f.art !== 'ghost') shadowUnder(x, y);
   blit(spr, x, y + bob);
+  /* Staff you have not beaten yet wear a mark, so a floor reads at a glance. */
+  if ((f.kind === 'boss' || f.kind === 'fight') && !f.beaten) {
+    const bl = Math.sin(S.t * 4) > 0;
+    fillRect(x + 6, y - 6 + (bl ? 0 : 1), 4, 4, f.kind === 'boss' ? UI.pick : UI.bad);
+    fillRect(x + 6, y - 6 + (bl ? 0 : 1), 4, 1, UI.panel);
+  }
 }
 
 /* --------------------------------------------------------------- dialogue box */
 
 function drawDialog(ui) {
-  panel(0, 96, BW, 48);
+  panel(4, 104, BW - 8, 52);
   const start = ui.page * 3;
   for (let i = 0; i < 3; i++) {
     const line = ui.lines[start + i];
     if (line === undefined) break;
-    text(line, 8, 104 + i * 12, 3);
+    text(line, 14, 114 + i * 13, UI.ink);
   }
   if (Math.floor(S.t * 3) % 2 === 0) {
-    const last = ui.page >= dialogPages(ui) - 1;
-    fillRect(BW - 12, 133, 5, 1, 3);
-    fillRect(BW - 11, 134, 3, 1, 3);
-    fillRect(BW - 10, 135, 1, 1, 3);
-    if (!last) fillRect(BW - 12, 131, 5, 1, 2);
+    const x = BW - 20, y = 143;
+    fillRect(x, y, 7, 2, UI.pickLo);
+    fillRect(x + 1, y + 2, 5, 2, UI.pickLo);
+    fillRect(x + 2, y + 4, 3, 2, UI.pickLo);
   }
 }
 
@@ -2285,29 +2526,32 @@ function updateList(ui) {
 }
 
 function drawList(ui) {
-  const w = ui.w || 76;
-  const x = ui.x === undefined ? BW - w : ui.x;
-  const y = ui.y === undefined ? 0 : ui.y;
-  const h = ui.items.length * 11 + (ui.title ? 22 : 12);
+  const w = ui.w || 84;
+  const x = ui.x === undefined ? BW - w - 4 : ui.x;
+  const y = ui.y === undefined ? 4 : ui.y;
+  const h = ui.items.length * 13 + (ui.title ? 26 : 14);
   panel(x, y, w, h);
-  let ty = y + 7;
-  if (ui.title) { text(ui.title, x + 7, ty, 2); ty += 11; }
+  let ty = y + 8;
+  if (ui.title) { text(ui.title, x + 10, ty, UI.inkSoft); ty += 13; }
   ui.items.forEach((it, i) => {
-    const yy = ty + i * 11;
-    if (i === ui.idx) cursorMark(x + 5, yy, 3);
-    text(it.label, x + 11, yy, 3);
-    if (it.right) text(it.right, x + w - 7, yy, 3, 1, 'right');
+    const yy = ty + i * 13;
+    if (i === ui.idx) {
+      fillRect(x + 5, yy - 2, w - 10, 11, '#dce6fa');
+      cursorMark(x + 6, yy, UI.pickLo);
+    }
+    text(it.label, x + 15, yy, UI.ink);
+    if (it.right) text(it.right, x + w - 9, yy, UI.inkSoft, 1, 'right');
   });
 }
 
 function openMainMenu() {
   listMenu({
-    x: BW - 78, y: 2, w: 76,
+    x: BW - 88, y: 4, w: 84, title: 'MAX',
     items: [
       { label: 'ROAMINALS', on: openParty },
       { label: 'BAG', on: () => openBag(null) },
       { label: 'LEDGER', on: openLedger },
-      { label: 'PORTER', on: openPorter },
+      { label: 'TRAINER', on: openTrainerCard },
       { label: 'SAVE', on: () => {
         const ok = saveGame();
         say(ok ? ['THE NIGHT BOOK IS WRITTEN.', 'YOUR ROUND IS SAVED.']
@@ -2318,10 +2562,10 @@ function openMainMenu() {
   });
 }
 
-function openPorter() {
+function openTrainerCard() {
   const mins = Math.floor(S.playFrames / 3600);
   say([
-    'NIGHT PORTER',
+    'MAX, NIGHT PORTER. AGE 15.',
     'FLOOR KEYS  ' + S.keys + '/10',
     'TOKENS      ' + S.tokens,
     'CAUGHT      ' + Object.keys(S.caught).length + '/44',
@@ -2356,34 +2600,44 @@ function updateParty(ui) {
   }
 }
 
-function hpBar(x, y, w, cur, max, shade) {
-  fillRect(x, y, w, 3, 3);
-  fillRect(x + 1, y + 1, w - 2, 1, 0);
-  const fillW = Math.max(cur > 0 ? 1 : 0, Math.round((w - 2) * cur / Math.max(1, max)));
-  fillRect(x + 1, y + 1, fillW, 1, shade === undefined ? 2 : shade);
+/* Health colour says how worried to be without reading a number. */
+function hpColour(cur, max) {
+  const f = cur / Math.max(1, max);
+  return f > 0.5 ? UI.good : f > 0.2 ? UI.warn : UI.bad;
+}
+
+function screen(title, right) {
+  fillRect(0, 0, BW, BH, '#2b3450');
+  for (let y = 0; y < BH; y += 4) fillRect(0, y, BW, 1, '#313b5c');
+  panel(2, 2, BW - 4, BH - 4);
+  fillRect(6, 6, BW - 12, 13, UI.frame);
+  fillRect(6, 6, BW - 12, 1, UI.frameHi);
+  text(title, 11, 8, UI.panel);
+  if (right) text(right, BW - 11, 8, UI.panel, 1, 'right');
 }
 
 function drawParty(ui) {
-  clear(1);
-  panel(0, 0, BW, BH);
-  text(ui.pick ? 'CHOOSE A ROAMINAL' : 'YOUR ROAMINALS', 8, 6, 2);
-  if (!S.party.length) text('THE SATCHEL IS EMPTY.', 8, 22, 3);
+  screen(ui.pick ? 'CHOOSE A ROAMINAL' : 'YOUR ROAMINALS',
+    S.party.length + '/' + MAX_PARTY);
+  if (!S.party.length) text('THE SATCHEL IS EMPTY.', 12, 30, UI.ink);
 
   S.party.forEach((m, i) => {
-    const y = 18 + i * 20;
+    const y = 23 + i * 22;
     const sp = spec(m.no);
     if (i === ui.idx) {
-      fillRect(4, y - 2, BW - 8, 19, 1);
-      cursorMark(5, y + 5, 3);
+      fillRect(6, y - 2, BW - 12, 21, '#dce6fa');
+      fillRect(6, y - 2, BW - 12, 1, UI.frameHi);
+      cursorMark(8, y + 6, UI.pickLo);
     }
-    drawCreature(sp, 10, y, 1, m.shiny, S.t);
-    text(sp.name, 30, y + 1, 3);
-    if (m.shiny) text('*', 26, y + 1, 3);
-    text('L' + m.lv, BW - 46, y + 1, 3);
-    text(sp.type, 30, y + 10, 2);
-    hpBar(BW - 46, y + 12, 40, m.hp, monMaxHp(m));
-    text(m.hp + '/' + monMaxHp(m), BW - 6, y + 8, 3, 1, 'right');
+    drawCreature(sp, 16, y + 1, 1, m.shiny, S.t);
+    text(sp.name, 36, y + 1, m.hp > 0 ? UI.ink : UI.bad);
+    if (m.shiny) text('*', 36 + textWidth(sp.name, 1) + 3, y + 1, UI.pickLo);
+    typeBadge(sp.type, 36, y + 10);
+    text('L' + m.lv, 118, y + 1, UI.ink);
+    meter(140, y + 3, 62, m.hp, monMaxHp(m), hpColour(m.hp, monMaxHp(m)));
+    text(m.hp + '/' + monMaxHp(m), 202, y + 10, UI.inkSoft);
   });
+  text('A: LOOK   B: BACK', 12, BH - 13, UI.inkSoft);
 }
 
 function updateSummary(ui) {
@@ -2397,36 +2651,40 @@ function drawSummary(ui) {
   const m = S.party[ui.idx];
   if (!m) { S.ui = null; return; }
   const sp = spec(m.no);
-  clear(1);
-  panel(0, 0, BW, BH);
-  drawCreature(sp, 8, 12, 2, m.shiny, S.t);
-  text(sp.name, 48, 8, 3);
-  if (m.shiny) text('SHINY COAT', 48, 17, 2);
-  text('NO ' + String(sp.no).padStart(3, '0'), 48, 26, 2);
-  text('LEVEL ' + m.lv, 48, 35, 3);
-  text(sp.type, 48, 44, 3);
-  text(sp.rarity, 100, 44, 2);
+  screen('NO ' + String(sp.no).padStart(3, '0'), sp.rarity);
 
-  text('HP ' + m.hp + '/' + monMaxHp(m), 8, 54, 3);
-  hpBar(8, 63, 60, m.hp, monMaxHp(m));
-  text('ATK ' + monAtk(m), 80, 54, 3);
-  text('DEF ' + monDef(m), 80, 63, 3);
-  text('SPD ' + monSpd(m), 80, 72, 3);
+  fillRect(10, 24, 56, 56, '#1e2740');
+  fillRect(11, 25, 54, 54, TYPE_RAMP[sp.type][3]);
+  drawCreature(sp, 14, 28, 3, m.shiny, S.t);
+
+  text(sp.name, 74, 26, UI.ink);
+  if (m.shiny) text('SHINY COAT', 74, 36, UI.pickLo);
+  typeBadge(sp.type, 74, 46);
+  text('LEVEL ' + m.lv, 140, 48, UI.ink);
+
+  text('HP', 74, 62, UI.inkSoft);
+  meter(88, 62, 80, m.hp, monMaxHp(m), hpColour(m.hp, monMaxHp(m)));
+  text(m.hp + '/' + monMaxHp(m), 172, 62, UI.ink);
 
   const need = xpForLevel(m.lv + 1) - xpForLevel(m.lv);
   const has = m.xp - xpForLevel(m.lv);
-  text('NEXT', 8, 72, 2);
-  hpBar(30, 75, 40, clamp(has, 0, need), Math.max(1, need), 1);
+  text('XP', 74, 72, UI.inkSoft);
+  meter(88, 72, 80, clamp(has, 0, need), Math.max(1, need), '#5a9cf0');
 
-  fillRect(6, 82, BW - 12, 1, 2);
+  text('ATK ' + monAtk(m), 12, 86, UI.ink);
+  text('DEF ' + monDef(m), 74, 86, UI.ink);
+  text('SPD ' + monSpd(m), 136, 86, UI.ink);
+
+  fillRect(10, 96, BW - 20, 1, '#c8cfe0');
   m.moves.forEach((mv, i) => {
-    const y = 87 + i * 12;
-    text(mv.k, 8, y, 3);
-    text(MOVES[mv.k].t, 92, y, 2);
-    text(mv.pp + '/' + mv.max, BW - 8, y, 3, 1, 'right');
+    const x = 12 + (i % 2) * 112, y = 102 + (i >> 1) * 16;
+    const ramp = TYPE_RAMP[MOVES[mv.k].t];
+    fillRect(x, y, 4, 9, ramp[1]);
+    text(mv.k, x + 8, y + 1, UI.ink);
+    text(mv.pp + '/' + mv.max, x + 104, y + 1, UI.inkSoft, 1, 'right');
   });
-  if (sp.ev) text('EVOLVES AT ' + sp.ev[0], 8, 136, 2);
-  else text('THIS IS AS FAR AS IT GOES', 8, 136, 2);
+  text(sp.ev ? 'EVOLVES AT LEVEL ' + sp.ev[0] : 'THIS IS AS FAR AS IT GOES',
+    12, BH - 13, UI.inkSoft);
 }
 
 /* --------------------------------------------------------------------- bag */
@@ -2454,27 +2712,30 @@ function useItem(name, inBattle) {
   }
 
   /* Everything else is used on one of your own. */
-  openParty({
+  const opts = {
     pick: (i, m) => {
       if (it.kind === 'heal') {
         if (m.hp >= monMaxHp(m)) { say(['IT IS ALREADY FULL.'], () => openBag(inBattle)); return; }
         const before = m.hp;
         m.hp = Math.min(monMaxHp(m), m.hp + it.amount);
         bagTake(name);
-        const done = () => { if (inBattle) { S.ui = null; battleAfterItem(); } else S.ui = null; };
+        const done = () => { S.ui = null; if (inBattle) battleAfterItem(); };
         say([monName(m) + ' TOOK THE ' + name + '.', 'IT MENDED ' + (m.hp - before) + ' HP.'], done);
       } else if (it.kind === 'cure') {
         bagTake(name);
         m.rattled = 0;
-        const done = () => { if (inBattle) { S.ui = null; battleAfterItem(); } else S.ui = null; };
+        const done = () => { S.ui = null; if (inBattle) battleAfterItem(); };
         say([monName(m) + ' SETTLES DOWN.'], done);
       } else if (it.kind === 'level') {
         bagTake(name);
-        gainXp(m, Math.max(1, xpForLevel(m.lv + 1) - m.xp), () => { S.ui = null; });
+        gainXp(m, Math.max(1, xpForLevel(m.lv + 1) - m.xp), lines => {
+          say(lines.length ? lines : ['NOTHING CHANGED.'], () => { S.ui = null; });
+        });
       }
     },
     back: () => openBag(inBattle),
-  });
+  };
+  openParty(opts);
 }
 
 function updateBag(ui) {
@@ -2488,33 +2749,32 @@ function updateBag(ui) {
 }
 
 function drawBag(ui) {
-  clear(1);
-  panel(0, 0, BW, BH);
-  text('BAG', 8, 6, 2);
-  text(S.tokens + ' TOKENS', BW - 8, 6, 2, 1, 'right');
+  screen('BAG', S.tokens + ' TOKENS');
   const items = bagList();
-  if (!items.length) text('NOTHING BUT LINT.', 8, 24, 3);
-  const view = 7;
-  const start = clamp(ui.idx - 3, 0, Math.max(0, items.length - view));
+  if (!items.length) text('NOTHING BUT LINT.', 12, 30, UI.ink);
+  const view = 8;
+  const start = clamp(ui.idx - 4, 0, Math.max(0, items.length - view));
   for (let i = 0; i < Math.min(view, items.length); i++) {
     const idx = start + i;
     const name = items[idx];
-    const y = 20 + i * 12;
-    if (idx === ui.idx) cursorMark(6, y, 3);
-    text(name, 12, y, 3);
-    text('x' + S.bag[name], BW - 10, y, 3, 1, 'right');
+    const y = 24 + i * 12;
+    if (idx === ui.idx) {
+      fillRect(8, y - 2, 150, 11, '#dce6fa');
+      cursorMark(9, y, UI.pickLo);
+    }
+    text(name, 18, y, UI.ink);
+    text('x' + S.bag[name], 152, y, UI.inkSoft, 1, 'right');
   }
-  fillRect(6, 106, BW - 12, 1, 2);
+  fillRect(10, 122, BW - 20, 1, '#c8cfe0');
   const sel = items[ui.idx];
   if (sel) {
-    const info = ITEMS[sel].info;
-    const words = info.split(' ');
+    const words = ITEMS[sel].info.split(' ');
     let line = '', ln = 0;
     for (const w of words) {
-      if ((line + ' ' + w).trim().length > 25) { text(line, 8, 112 + ln * 10, 3); line = w; ln++; }
+      if ((line + ' ' + w).trim().length > 37) { text(line, 12, 128 + ln * 11, UI.ink); line = w; ln++; }
       else line = (line + ' ' + w).trim();
     }
-    text(line, 8, 112 + ln * 10, 3);
+    text(line, 12, 128 + ln * 11, UI.ink);
   }
 }
 
@@ -2532,63 +2792,65 @@ function updateLedger(ui) {
   }
   if (d === 'up') ui.idx = (ui.idx + 43) % 44;
   if (d === 'down') ui.idx = (ui.idx + 1) % 44;
-  if (d === 'left') ui.idx = clamp(ui.idx - 7, 0, 43);
-  if (d === 'right') ui.idx = clamp(ui.idx + 7, 0, 43);
+  if (d === 'left') ui.idx = clamp(ui.idx - 8, 0, 43);
+  if (d === 'right') ui.idx = clamp(ui.idx + 8, 0, 43);
   if (hit.a) ui.detail = true;
   else if (hit.b) S.ui = null;
 }
 
 function drawLedger(ui) {
-  clear(1);
-  panel(0, 0, BW, BH);
   const no = ui.idx + 1;
   const sp = spec(no);
   const seen = S.seen[no], caught = S.caught[no];
 
   if (ui.detail) {
-    text('LEDGER  NO ' + String(no).padStart(3, '0'), 8, 6, 2);
-    if (seen) drawCreature(sp, 10, 18, 2, false, S.t);
-    else blitSolid(makeSprite(BODY[sp.family]), 10, 18, 2, 2);
-    text(seen ? sp.name : '- - - - -', 50, 20, 3);
-    text(seen ? sp.type : '?', 50, 32, 3);
-    text(sp.rarity, 50, 42, 2);
-    text(caught ? 'IN YOUR JARS' : seen ? 'SEEN, NOT HELD' : 'NOT MET', 50, 52, 2);
-    fillRect(6, 66, BW - 12, 1, 2);
+    screen('LEDGER  NO ' + String(no).padStart(3, '0'), sp.rarity);
+    fillRect(10, 24, 56, 56, '#1e2740');
+    fillRect(11, 25, 54, 54, seen ? TYPE_RAMP[sp.type][3] : '#333c58');
+    if (seen) drawCreature(sp, 14, 28, 3, false, S.t);
+    else blitSolid(makeSprite(BODY[sp.family]), 14, 28, '#4c5878', 3);
+
+    text(seen ? sp.name : '- - - - - -', 74, 26, UI.ink);
+    if (seen) typeBadge(sp.type, 74, 38);
+    text(caught ? 'IN YOUR JARS' : seen ? 'SEEN, NOT HELD' : 'NOT MET',
+      74, 52, caught ? UI.good : UI.inkSoft);
     if (seen) {
-      text('HP ' + sp.b[0] + '  ATK ' + sp.b[1], 8, 72, 3);
-      text('DEF ' + sp.b[2] + '  SPD ' + sp.b[3], 8, 84, 3);
-      text('STAGE ' + sp.stage + ' OF ITS LINE', 8, 96, 2);
-      text(sp.ev ? 'EVOLVES AT LEVEL ' + sp.ev[0] : 'FULLY GROWN', 8, 108, 2);
-      text('POSSESSED A ' + sp.thing.toUpperCase(), 8, 120, 2);
+      text('HP ' + sp.b[0] + '   ATK ' + sp.b[1], 74, 64, UI.ink);
+      text('DEF ' + sp.b[2] + '   SPD ' + sp.b[3], 74, 74, UI.ink);
+      fillRect(10, 88, BW - 20, 1, '#c8cfe0');
+      text('STAGE ' + sp.stage + ' OF ITS LINE', 12, 94, UI.inkSoft);
+      text(sp.ev ? 'EVOLVES AT LEVEL ' + sp.ev[0] : 'FULLY GROWN', 12, 106, UI.inkSoft);
+      text('THE GHOST IN IT POSSESSED', 12, 118, UI.inkSoft);
+      text('A ' + sp.thing.toUpperCase() + '.', 12, 130, UI.ink);
     } else {
-      text('THE PAGE IS BLANK.', 8, 80, 3);
+      text('THE PAGE IS BLANK.', 74, 66, UI.inkSoft);
     }
-    text('< >  A CLOSE', 8, 134, 2);
+    text('< >  A: CLOSE', BW - 12, BH - 13, UI.inkSoft, 1, 'right');
     return;
   }
 
-  text('LEDGER', 8, 6, 2);
-  text(Object.keys(S.caught).length + '/44 HELD', BW - 8, 6, 2, 1, 'right');
-  const view = 8;
+  screen('LEDGER', Object.keys(S.caught).length + '/44 HELD');
+  const view = 9;
   const start = clamp(ui.idx - 4, 0, 44 - view);
   for (let i = 0; i < view; i++) {
     const n = start + i + 1;
     const s = spec(n);
-    const y = 18 + i * 13;
-    if (n - 1 === ui.idx) { fillRect(4, y - 2, BW - 8, 12, 1); cursorMark(6, y + 1, 3); }
-    text(String(n).padStart(3, '0'), 12, y, 2);
-    text(S.seen[n] ? s.name : '- - - - - -', 34, y, 3);
-    if (S.caught[n]) text('*', BW - 12, y, 3);
-    else if (S.seen[n]) text('.', BW - 12, y, 2);
+    const y = 24 + i * 13;
+    if (n - 1 === ui.idx) {
+      fillRect(8, y - 2, BW - 16, 12, '#dce6fa');
+      cursorMark(9, y, UI.pickLo);
+    }
+    text(String(n).padStart(3, '0'), 18, y, UI.inkSoft);
+    text(S.seen[n] ? s.name : '- - - - - -', 44, y, S.seen[n] ? UI.ink : UI.inkSoft);
+    if (S.seen[n]) typeBadge(s.type, 130, y - 1);
+    if (S.caught[n]) text('HELD', BW - 18, y, UI.good, 1, 'right');
   }
-  text('A: PAGE   B: BACK', 8, 134, 2);
+  text('A: PAGE   B: BACK', 12, BH - 13, UI.inkSoft);
 }
 
 /* -------------------------------------------------------------------- shop */
 
-function openShop() {
-  S.ui = { kind: 'shop', idx: 0 };
-}
+function openShop() { S.ui = { kind: 'shop', idx: 0 }; }
 
 function updateShop(ui) {
   const d = menuDir();
@@ -2601,33 +2863,32 @@ function updateShop(ui) {
     if (S.tokens < cost) { say(['THE MACHINE CLUNKS.', 'NOT ENOUGH TOKENS.'], openShop); return; }
     S.tokens -= cost;
     bagAdd(name);
-    say([name + ' DROPS INTO', 'THE TRAY. -' + cost + ' TOKENS.'], openShop);
+    say([name + ' DROPS INTO THE TRAY.', '-' + cost + ' TOKENS.'], openShop);
     return;
   }
   if (hit.b) S.ui = null;
 }
 
 function drawShop(ui) {
-  clear(1);
-  panel(0, 0, BW, BH);
-  text('VENDING MACHINE', 8, 6, 2);
-  text(S.tokens + ' TOKENS', BW - 8, 6, 2, 1, 'right');
+  screen('VENDING MACHINE', S.tokens + ' TOKENS');
   SHOP_STOCK.forEach((name, i) => {
-    const y = 22 + i * 13;
-    if (i === ui.idx) { fillRect(4, y - 2, BW - 8, 12, 1); cursorMark(6, y + 1, 3); }
-    text(name, 12, y, 3);
-    text(ITEMS[name].cost, BW - 10, y, 3, 1, 'right');
+    const y = 26 + i * 14;
+    if (i === ui.idx) {
+      fillRect(8, y - 3, BW - 16, 13, '#dce6fa');
+      cursorMark(9, y, UI.pickLo);
+    }
+    text(name, 18, y, UI.ink);
+    const cost = ITEMS[name].cost;
+    text(cost, BW - 18, y, S.tokens >= cost ? UI.ink : UI.bad, 1, 'right');
   });
-  fillRect(6, 106, BW - 12, 1, 2);
-  text(ITEMS[SHOP_STOCK[ui.idx]].info.slice(0, 25), 8, 112, 3);
-  text('A: BUY    B: LEAVE', 8, 128, 2);
+  fillRect(10, 116, BW - 20, 1, '#c8cfe0');
+  text(ITEMS[SHOP_STOCK[ui.idx]].info, 12, 124, UI.ink);
+  text('A: BUY    B: LEAVE', 12, BH - 13, UI.inkSoft);
 }
 
 /* ------------------------------------------------------------------ the lift */
 
-function openElevator() {
-  S.ui = { kind: 'elevator', idx: S.floor };
-}
+function openElevator() { S.ui = { kind: 'elevator', idx: S.floor }; }
 
 function updateElevator(ui) {
   const d = menuDir();
@@ -2646,18 +2907,25 @@ function updateElevator(ui) {
 
 function drawElevator(ui) {
   const top = Math.min(S.keys, FLOORS.length - 1);
-  const h = (top + 1) * 12 + 26;
-  panel(20, Math.max(4, 70 - h / 2), BW - 40, h);
-  const x = 26, y0 = Math.max(4, 70 - h / 2) + 7;
-  text('THE LIFT', x, y0, 2);
+  const rows = top + 1;
+  const h = rows * 12 + 30;
+  const y0 = clamp(80 - h / 2, 4, BH - h - 4);
+  const x = 66, w = 108;
+  panel(x, y0, w, h);
+  fillRect(x + 4, y0 + 4, w - 8, 12, UI.frame);
+  fillRect(x + 4, y0 + 4, w - 8, 1, UI.frameHi);
+  text('THE LIFT', x + 9, y0 + 6, UI.panel);
   for (let i = 0; i <= top; i++) {
-    const y = y0 + 14 + i * 12;
-    if (i === ui.idx) cursorMark(x - 1, y, 3);
-    text(FLOORS[i].label, x + 5, y, 3);
-    text(FLOORS[i].name, x + 22, y, i === S.floor ? 2 : 3);
+    const y = y0 + 20 + i * 12;
+    if (i === ui.idx) {
+      fillRect(x + 5, y - 2, w - 10, 11, '#dce6fa');
+      cursorMark(x + 6, y, UI.pickLo);
+    }
+    text(FLOORS[i].label, x + 15, y, i === S.floor ? UI.pickLo : UI.ink);
+    text(FLOORS[i].name, x + 33, y, i === S.floor ? UI.inkSoft : UI.ink);
   }
   if (S.keys < FLOORS.length - 1) {
-    text('LOCKED ABOVE', x + 5, y0 + 14 + (top + 1) * 12, 2);
+    text('LOCKED ABOVE', x + 15, y0 + 20 + rows * 12, UI.inkSoft);
   }
 }
 
@@ -2679,19 +2947,12 @@ function updateFade() {
   return true;
 }
 
-/* The screen does not dim on a Game Boy — it fills in, darkest shade first,
-   in a checker that gets denser. */
 function drawFade() {
   if (S.fade <= 0) return;
-  const level = Math.min(3, Math.floor(S.fade * 4));
-  if (level >= 3) { fillRect(0, 0, BW, BH, 3); return; }
-  const step = level === 0 ? 4 : level === 1 ? 3 : 2;
-  bx.fillStyle = PAL[3];
-  for (let y = 0; y < BH; y += 2) {
-    for (let x = (y / 2) % 2 ? 0 : step; x < BW; x += step) {
-      bx.fillRect(x, y, 2, 2);
-    }
-  }
+  bx.save();
+  bx.globalAlpha = clamp(S.fade, 0, 1);
+  fillRect(0, 0, BW, BH, '#0b0f1c');
+  bx.restore();
 }
 
 /* ============================================================================
@@ -3034,12 +3295,14 @@ function enemyFreeTurn() {
 
 /* ------------------------------------------------------------------ the jar */
 
+/* How well a jar goes on. Health is the big lever — a creature at full
+   strength still goes in a fair share of the time, and one worn down to a
+   sliver almost always does — with the jar and a rattled nerve on top. */
 function catchChance(m, mult) {
   const sp = spec(m.no);
-  const max = monMaxHp(m);
-  const hpPart = (3 * max - 2 * m.hp) / (3 * max);
-  const p = hpPart * (sp.catchRate / 255) * mult * (m.rattled ? 1.4 : 1);
-  return clamp(p, 0.02, 0.92);
+  const hpPart = 1 - 0.6 * clamp(m.hp / Math.max(1, monMaxHp(m)), 0, 1);
+  const p = hpPart * (sp.catchRate / 255) * mult * (m.rattled ? 1.35 : 1);
+  return clamp(p, 0.08, 0.96);
 }
 
 function throwJar(name) {
@@ -3196,19 +3459,35 @@ function updateEvolve() {
 
 function drawEvolve() {
   const e = S.evo;
-  clear(0);
   const flick = e.done ? 1 : (Math.sin(e.t * e.t * 3) > 0 ? 1 : 0);
   const sp = spec(flick ? e.to : e.from);
   const m = S.party[e.i];
-  drawCreature(sp, BW / 2 - 16, 34, 2, m && m.shiny, S.t);
-  panel(0, 96, BW, 48);
+  const ramp = TYPE_RAMP[sp.type];
+
+  /* The light behind it comes up as the change takes hold. */
+  fillRect(0, 0, BW, BH, darken(ramp[3], 0.4));
+  const glow = clamp(e.t / 3.2, 0, 1);
+  for (let i = 5; i > 0; i--) {
+    const r = 18 + i * 9 * (0.5 + glow);
+    fillRect(BW / 2 - r, 46 - r * 0.6, r * 2, r * 1.2,
+      mix(darken(ramp[3], 0.4), ramp[1], 0.10 * (6 - i) * glow));
+  }
+  for (let i = 0; i < 10; i++) {
+    const a = e.t * 2 + i * 0.63;
+    fillRect(BW / 2 + Math.cos(a) * (40 + i * 3) - 1,
+      48 + Math.sin(a) * (26 + i * 2) - 1, 2, 2, ramp[0]);
+  }
+
+  drawCreature(sp, BW / 2 - 24, 22, 3, m && m.shiny, S.t);
+
+  panel(2, 104, BW - 4, 54);
   if (!e.done) {
-    text('WHAT? SOMETHING IS', 8, 106, 3);
-    text('HAPPENING TO IT...', 8, 118, 3);
+    text('WHAT? SOMETHING IS', 14, 118, UI.ink);
+    text('HAPPENING TO IT...', 14, 134, UI.ink);
   } else {
-    text(spec(e.from).name + ' BECAME', 8, 106, 3);
-    text(spec(e.to).name + '!', 8, 118, 3);
-    if (Math.floor(S.t * 3) % 2 === 0) text('A', BW - 14, 130, 2);
+    text(spec(e.from).name + ' BECAME', 14, 118, UI.ink);
+    text(spec(e.to).name + '!', 14, 134, UI.ink);
+    if (Math.floor(S.t * 3) % 2 === 0) text('A', BW - 18, 142, UI.pickLo);
   }
 }
 
@@ -3331,149 +3610,198 @@ function updateBattle() {
 const JAR_ART = [
 "..333333..",
 ".3111113..",
-"3111111 3.",
+"3111111.3.",
 "31111113..",
 "31111113..",
 "31111113..",
 "31111113..",
 "31111113..",
 ".3111113..",
-"..3333 3..",
+"..3333.3..",
 ];
+const JAR_RAMP = ['#ffffff', '#bfe8f4', '#5aa8c8', '#1b3448'];
 
 function drawHpBox(x, y, w, m, disp, mine) {
-  panel(x, y, w, mine ? 32 : 26);
+  const h = mine ? 40 : 32;
+  panel(x, y, w, h);
   const sp = spec(m.no);
-  text(sp.name, x + 6, y + 5, 3);
-  if (m.shiny) text('*', x + w - 20, y + 5, 3);
-  text('L' + m.lv, x + w - 6, y + 5, 3, 1, 'right');
-  text('HP', x + 6, y + 15, 2);
-  hpBar(x + 20, y + 17, w - 28, Math.max(0, disp), monMaxHp(m));
+  text(sp.name, x + 8, y + 7, UI.ink);
+  if (m.shiny) text('*', x + 8 + textWidth(sp.name, 1) + 3, y + 7, UI.pickLo);
+  text('L' + m.lv, x + w - 8, y + 7, UI.ink, 1, 'right');
+  typeBadge(sp.type, x + 8, y + 17);
+  meter(x + 8, y + 29, w - 16, Math.max(0, disp), monMaxHp(m),
+    hpColour(disp, monMaxHp(m)));
   if (mine) {
-    text(Math.max(0, Math.round(disp)) + '/' + monMaxHp(m), x + w - 6, y + 22, 3, 1, 'right');
+    text(Math.max(0, Math.round(disp)) + '/' + monMaxHp(m), x + w - 8, y + h - 10,
+      UI.inkSoft, 1, 'right');
   }
+}
+
+/* The room the fight happens in, coloured by the floor you are on. */
+function battleBackdrop() {
+  const th = resolve(themeOf(S.floor));
+  fillRect(0, 0, BW, BH, darken(th.wall, 0.25));
+  fillRect(0, 0, BW, 46, th.wall);
+  fillRect(0, 44, BW, 2, th.wallTop);
+  for (let x = 0; x < BW; x += 24) fillRect(x, 8, 2, 34, darken(th.wall, 0.3));
+  fillRect(0, 46, BW, BH - 46, th.floor);
+  fillRect(0, 46, BW, 2, lighten(th.floor, 0.2));
+  for (let y = 54; y < BH; y += 10) {
+    fillRect(0, y, BW, 1, darken(th.floor, 0.12));
+  }
+  /* Two ledges to stand on. */
+  const pad = (cx, cy, w) => {
+    fillRect(cx - w / 2, cy, w, 5, darken(th.floor, 0.3));
+    fillRect(cx - w / 2 + 2, cy - 2, w - 4, 3, lighten(th.floor, 0.12));
+    fillRect(cx - w / 2 + 4, cy - 3, w - 8, 2, lighten(th.floor, 0.28));
+  };
+  pad(176, 66, 68);
+  pad(52, 102, 78);
 }
 
 function drawBattle() {
   const bt = S.bt;
-  clear(0);
-
-  /* Two strips of floor, one for each side. On a Game Boy this is all the
-     staging a fight ever got. */
-  fillRect(0, 46, 108, 2, 2);
-  fillRect(84, 44, 24, 2, 2);
-  fillRect(4, 92, 96, 2, 2);
-  fillRect(4, 90, 20, 2, 2);
+  battleBackdrop();
 
   const foe = foeMon(), me = myMon();
 
   if (foe) {
-    const sx = bt.shakeF > 0 ? (bt.shakeF % 4 < 2 ? 2 : -2) : 0;
+    const sx = bt.shakeF > 0 ? (bt.shakeF % 4 < 2 ? 3 : -3) : 0;
     if (!bt.jar && (bt.flashF <= 0 || bt.flashF % 4 < 2)) {
-      drawCreature(spec(foe.no), 104 + sx, 12, 2, foe.shiny, S.t);
+      drawCreature(spec(foe.no), 152 + sx, 20, 3, foe.shiny, S.t);
     }
-    drawHpBox(4, 4, 84, foe, bt.dispF, false);
+    drawHpBox(6, 8, 104, foe, bt.dispF, false);
   }
 
   if (me) {
-    const sy = bt.shakeM > 0 ? (bt.shakeM % 4 < 2 ? 1 : -1) : 0;
+    const sy = bt.shakeM > 0 ? (bt.shakeM % 4 < 2 ? 2 : -2) : 0;
     if (bt.flashM <= 0 || bt.flashM % 4 < 2) {
-      /* Your own is drawn from behind: the same grid, mirrored and set low. */
-      drawCreature(spec(me.no), 14, 58 + sy, 2, me.shiny, S.t);
+      drawCreature(spec(me.no), 28, 54 + sy, 3, me.shiny, S.t);
     }
-    drawHpBox(72, 62, 84, me, bt.dispM, true);
+    drawHpBox(128, 56, 106, me, bt.dispM, true);
   }
 
   if (bt.jar) {
     const j = bt.jar;
-    const spr = makeSprite(JAR_ART, '0123');
-    const wob = j.t < 26 ? 0 : Math.round(Math.sin(j.t / 5) * 3);
+    const spr = makeSprite(JAR_ART, JAR_RAMP);
     const fly = Math.min(1, j.t / 26);
-    const jx = 20 + (108 - 20) * fly + wob;
-    const jy = 70 - Math.sin(fly * Math.PI) * 42 - (28 * fly);
-    blit(spr, jx, jy, false, 2);
+    const wob = j.t < 26 ? 0 : Math.round(Math.sin(j.t / 5) * 3);
+    const jx = 40 + (160 - 40) * fly + wob;
+    const jy = 80 - Math.sin(fly * Math.PI) * 46 - (30 * fly);
+    blit(spr, jx, jy, false, 3);
   }
 
   /* The bottom of the screen is either what just happened, or what you do
      about it. */
   if (bt.msg) {
-    panel(0, 96, BW, 48);
-    text(bt.msg[0] || '', 8, 108, 3);
-    if (bt.msg[1]) text(bt.msg[1], 8, 122, 3);
+    panel(2, 104, BW - 4, 54);
+    text(bt.msg[0] || '', 14, 118, UI.ink);
+    if (bt.msg[1]) text(bt.msg[1], 14, 134, UI.ink);
     return;
   }
 
   if (bt.sub === 'moves' && me) {
-    panel(0, 96, BW, 48);
+    panel(2, 104, BW - 4, 54);
     const moves = me.moves;
     for (let i = 0; i < 4; i++) {
       const mv = moves[i];
-      const cx2 = 10 + (i % 2) * 76, cy = 104 + (i >> 1) * 13;
-      if (!mv) { text('-', cx2 + 6, cy, 2); continue; }
-      if (i === bt.moveIdx) cursorMark(cx2, cy, 3);
-      text(mv.k, cx2 + 6, cy, mv.pp > 0 ? 3 : 2);
+      const x = 14 + (i % 2) * 112, y = 112 + (i >> 1) * 15;
+      if (!mv) { text('-', x + 10, y, UI.inkSoft); continue; }
+      if (i === bt.moveIdx) {
+        fillRect(x - 2, y - 3, 106, 13, '#dce6fa');
+        cursorMark(x - 1, y, UI.pickLo);
+      }
+      const ramp = TYPE_RAMP[MOVES[mv.k].t];
+      fillRect(x + 8, y, 3, 8, ramp[1]);
+      text(mv.k, x + 14, y, mv.pp > 0 ? UI.ink : UI.bad);
     }
     const sel = moves[bt.moveIdx];
     if (sel) {
-      text(MOVES[sel.k].t, 10, 131, 2);
-      text('PP ' + sel.pp + '/' + sel.max, BW - 10, 131, 2, 1, 'right');
+      const mv = MOVES[sel.k];
+      typeBadge(mv.t, 14, 142);
+      text('POWER ' + (mv.pow || '-'), 80, 144, UI.inkSoft);
+      text('PP ' + sel.pp + '/' + sel.max, BW - 14, 144, UI.inkSoft, 1, 'right');
     }
     return;
   }
 
-  panel(0, 96, BW, 48);
-  if (bt.sub === 'main') {
+  if (bt.sub === 'main' && me) {
+    panel(2, 104, 116, 54);
+    text('WHAT WILL', 14, 118, UI.ink);
+    text(monName(me), 14, 132, UI.ink);
+    text('DO?', 14, 146, UI.ink);
+    panel(120, 104, 118, 54);
     const labels = ['FIGHT', 'BAG', 'SWAP', bt.kind === 'trainer' ? 'STAY' : 'RUN'];
     for (let i = 0; i < 4; i++) {
-      const cx2 = 12 + (i % 2) * 74, cy = 108 + (i >> 1) * 16;
-      if (i === bt.menu) cursorMark(cx2 - 8, cy, 3);
-      text(labels[i], cx2, cy, 3);
+      const x = 138 + (i % 2) * 54, y = 118 + (i >> 1) * 20;
+      if (i === bt.menu) {
+        fillRect(x - 10, y - 4, 50, 15, '#dce6fa');
+        cursorMark(x - 9, y, UI.pickLo);
+      }
+      text(labels[i], x, y, UI.ink);
     }
-  } else {
-    text('...', 8, 116, 2);
+    return;
   }
+
+  panel(2, 104, BW - 4, 54);
+  text('...', 14, 120, UI.inkSoft);
 }
 
 /* ------------------------------------------------------------------- title */
 
 const TITLE_LINES = [
-  'THE ROTHSAY GRAND HOTEL',
-  'CLOSED FORTY YEARS.',
+  'THE ROTHSAY GRAND HOTEL. CLOSED FORTY YEARS.',
   '',
-  'THE GHOSTS COULD NOT STAY',
-  'GHOSTS, SO EACH ONE MOVED',
-  'INTO SOMETHING SOLID: A MOP,',
-  'A BOILER, A LEDGER, A BELL.',
+  'THE GHOSTS COULD NOT STAY GHOSTS, SO EACH ONE',
+  'MOVED INTO SOMETHING SOLID: A MOP, A BOILER,',
+  'A LEDGER, A BELL.',
   '',
-  'THE OBJECTS MOVED INTO THE',
-  'ANIMALS THAT CAME IN OUT OF',
-  'THE COLD. THAT IS A ROAMINAL.',
+  'THEN THE OBJECTS MOVED INTO THE ANIMALS THAT',
+  'CAME IN OUT OF THE COLD. THAT IS A ROAMINAL.',
   '',
-  'YOU ARE THE NEW NIGHT PORTER.',
-  'YOU HAVE A SATCHEL OF JARS',
-  'AND TEN FLOORS TO GET THROUGH.',
+  'YOU ARE MAX. FIFTEEN, AND THE ONLY APPLICANT',
+  'FOR NIGHT PORTER.',
+  '',
+  'YOU GET A SATCHEL OF JARS, A LIFT THAT ONLY',
+  'STOPS WHERE YOU HAVE A KEY, AND TEN FLOORS.',
 ];
 
 function drawTitle() {
-  clear(0);
   const t = S.t;
-  /* The clock creature looms behind the letters. */
-  drawCreature(spec(44), BW / 2 - 16, 22 + Math.round(Math.sin(t) * 2), 2, false, t);
-  fillRect(0, 0, BW, 18, 1);
-  fillRect(0, 18, BW, 1, 3);
-  text('ROAMINALS', BW / 2, 4, 3, 2, 'center');
+  /* Night sky over the hotel, with one window still lit. */
+  fillRect(0, 0, BW, BH, '#141a34');
+  for (let i = 0; i < 40; i++) {
+    const r = mulberry(i * 71 + 3);
+    const x = Math.floor(r() * BW), y = Math.floor(r() * 70);
+    if ((i + Math.floor(t * 2)) % 7) fillRect(x, y, 1, 1, '#5a6a9c');
+  }
+  fillRect(0, 96, BW, BH - 96, '#1d2444');
+  fillRect(40, 40, 160, 60, '#26304f');
+  fillRect(40, 40, 160, 2, '#38446c');
+  for (let wy = 46; wy < 96; wy += 12) {
+    for (let wx = 48; wx < 194; wx += 14) {
+      const lit = ((wx * 7 + wy * 13) % 11) === 0;
+      fillRect(wx, wy, 8, 7, lit ? '#f8d05c' : '#1a2140');
+    }
+  }
+  drawCreature(spec(44), BW / 2 - 24, 44 + Math.round(Math.sin(t) * 2), 3, false, t);
 
-  panel(6, 60, BW - 12, 30);
-  text('ONE GENERATION.', BW / 2, 66, 3, 1, 'center');
-  text('ONE VERY LARGE BUILDING.', BW / 2, 78, 2, 1, 'center');
+  textShadow('ROAMINALS', BW / 2, 12, '#f8f0d0', 3, 'center');
+  fillRect(BW / 2 - 78, 34, 156, 1, '#f8d05c');
+  textShadow('THE ROTHSAY GRAND', BW / 2, 100, '#c8d4f0', 1, 'center');
 
   const ui = S.titleUI;
+  const h = ui.items.length * 14 + 12;
+  panel(BW / 2 - 52, 112, 104, h);
   ui.items.forEach((it, i) => {
-    const y = 100 + i * 13;
-    if (i === ui.idx) cursorMark(BW / 2 - 44, y, 3);
-    text(it, BW / 2 - 34, y, 3);
+    const y = 119 + i * 14;
+    if (i === ui.idx) {
+      fillRect(BW / 2 - 47, y - 3, 94, 13, '#dce6fa');
+      cursorMark(BW / 2 - 46, y, UI.pickLo);
+    }
+    text(it, BW / 2 - 34, y, UI.ink);
   });
-  text('THIRSTY BEAR STUDIOS', BW / 2, 136, 2, 1, 'center');
+  text('THIRSTY BEAR STUDIOS', BW - 6, BH - 10, '#6a78a8', 1, 'right');
 }
 
 function updateTitle() {
@@ -3483,36 +3811,31 @@ function updateTitle() {
   if (d === 'up') ui.idx = (ui.idx + n - 1) % n;
   if (d === 'down') ui.idx = (ui.idx + 1) % n;
   if (hit.a || hit.start) {
-    const pickName = ui.items[ui.idx];
-    if (pickName === 'CONTINUE') {
-      if (loadGame()) { S.mode = 'world'; }
-      return;
-    }
-    if (pickName === 'NEW ROUND') {
-      S.mode = 'intro';
-      S.introPage = 0;
-      return;
-    }
-    if (pickName === 'LEDGER') { openLedger(); S.mode = 'titledex'; }
+    const chosen = ui.items[ui.idx];
+    if (chosen === 'CONTINUE') { if (loadGame()) S.mode = 'world'; return; }
+    if (chosen === 'NEW ROUND') { S.mode = 'intro'; S.introPage = 0; return; }
+    if (chosen === 'LEDGER') { openLedger(); S.mode = 'titledex'; }
   }
 }
 
 function drawIntro() {
-  clear(0);
+  fillRect(0, 0, BW, BH, '#141a34');
   panel(4, 4, BW - 8, BH - 8);
-  const start = S.introPage * 6;
-  for (let i = 0; i < 6; i++) {
+  const start = S.introPage * 7;
+  for (let i = 0; i < 7; i++) {
     const line = TITLE_LINES[start + i];
     if (line === undefined) break;
-    text(line, 10, 16 + i * 13, 3);
+    text(line, 12, 16 + i * 16, UI.ink);
   }
-  if (Math.floor(S.t * 3) % 2 === 0) text('A', BW - 16, 126, 2);
+  if (Math.floor(S.t * 3) % 2 === 0) {
+    text('A', BW - 18, BH - 20, UI.pickLo);
+  }
 }
 
 function updateIntro() {
   if (hit.a || hit.start) {
     S.introPage++;
-    if (S.introPage * 6 >= TITLE_LINES.length) {
+    if (S.introPage * 7 >= TITLE_LINES.length) {
       S.mode = 'starter';
       S.starter = { idx: 1 };
     }
@@ -3524,33 +3847,40 @@ function updateIntro() {
 const STARTERS = [4, 19, 22];
 
 function drawStarter() {
-  clear(0);
-  panel(0, 0, BW, 92);
-  text('LOST PROPERTY', 8, 6, 2);
-  text('THREE JARS NOBODY CLAIMED.', 8, 18, 3);
+  fillRect(0, 0, BW, BH, '#2b3450');
+  panel(2, 2, BW - 4, 96);
+  fillRect(6, 6, BW - 12, 13, UI.frame);
+  fillRect(6, 6, BW - 12, 1, UI.frameHi);
+  text('LOST PROPERTY', 11, 8, UI.panel);
+  text('THREE JARS NOBODY EVER CLAIMED.', 11, 24, UI.ink);
+
   STARTERS.forEach((no, i) => {
-    const x = 12 + i * 48;
+    const x = 22 + i * 70;
     const sel = i === S.starter.idx;
-    if (sel) fillRect(x - 4, 30, 40, 44, 1);
-    drawCreature(spec(no), x, 32, 2, false, S.t);
-    if (sel) cursorMark(x + 14, 76, 3);
+    const sp = spec(no);
+    fillRect(x - 6, 34, 60, 60, sel ? TYPE_RAMP[sp.type][2] : '#1e2740');
+    fillRect(x - 5, 35, 58, 58, sel ? TYPE_RAMP[sp.type][3] : '#252e48');
+    drawCreature(sp, x, 40, 3, false, S.t);
+    if (sel) {
+      fillRect(x - 6, 34, 60, 2, UI.pick);
+      fillRect(x - 6, 92, 60, 2, UI.pick);
+    }
   });
+
   const sp = spec(STARTERS[S.starter.idx]);
-  panel(0, 92, BW, 52);
-  text(sp.name, 8, 100, 3);
-  text(sp.type + '  LEVEL 5', 8, 112, 2);
-  text('POSSESSED A ' + sp.thing.toUpperCase() + '.', 8, 124, 3);
-  text('A: TAKE IT', BW - 8, 134, 2, 1, 'right');
+  panel(2, 100, BW - 4, 58);
+  text(sp.name, 14, 110, UI.ink);
+  typeBadge(sp.type, 14, 122);
+  text('LEVEL 5', 90, 124, UI.inkSoft);
+  text('THE GHOST IN IT POSSESSED A ' + sp.thing.toUpperCase() + '.', 14, 138, UI.ink);
+  text('< >   A: TAKE IT', BW - 14, 148, UI.inkSoft, 1, 'right');
 }
 
 function updateStarter() {
   const d = menuDir();
   if (d === 'left') S.starter.idx = (S.starter.idx + 2) % 3;
   if (d === 'right') S.starter.idx = (S.starter.idx + 1) % 3;
-  if (hit.a) {
-    const no = STARTERS[S.starter.idx];
-    newGame(no);
-  }
+  if (hit.a) newGame(STARTERS[S.starter.idx]);
 }
 
 function newGame(starterNo) {
@@ -3563,15 +3893,15 @@ function newGame(starterNo) {
   S.started = true;
   enterFloor(0);
   S.mode = 'world';
-  say(['ARROWS WALK. Z OR SPACE IS',
-    'A: TALK, OPEN, CONFIRM.',
-    'X IS B. ENTER IS START.',
-    'THE LIFT IS THE ONLY WAY',
-    'BETWEEN FLOORS, AND IT ONLY',
-    'STOPS WHERE YOU HAVE A KEY.',
-    'BEAT THE STAFF GHOST ON A',
-    'FLOOR AND THE NEXT ONE',
-    'OPENS UP. GOOD LUCK.']);
+  say(['ARROWS WALK. Z OR SPACE IS A:',
+    'TALK, OPEN, CONFIRM. X IS B.',
+    'ENTER OPENS MAX\'S MENU.',
+    'THE LIFT IS THE ONLY WAY BETWEEN',
+    'FLOORS, AND IT ONLY STOPS WHERE',
+    'YOU HAVE A KEY.',
+    'BEAT THE STAFF GHOST ON A FLOOR',
+    'AND THE NEXT ONE OPENS UP.',
+    'GOOD LUCK, MAX.']);
 }
 
 /* ----------------------------------------------------------------- credits */
@@ -3579,12 +3909,11 @@ function newGame(starterNo) {
 const CREDIT_LINES = [
   'THE CLOCK IS IN A JAR.',
   '',
-  'THE ROTHSAY GRAND IS QUIET',
-  'FOR THE FIRST TIME SINCE',
-  'THE NIGHT IT SHUT.',
+  'THE ROTHSAY GRAND IS QUIET FOR THE',
+  'FIRST TIME SINCE THE NIGHT IT SHUT.',
   '',
-  'THE STAFF STAY ON. THEY LIKE',
-  'THE WORK. SO DO YOU.',
+  'THE STAFF STAY ON. THEY LIKE THE WORK.',
+  'SO DOES MAX.',
   '',
   'ROAMINALS',
   '',
@@ -3595,27 +3924,32 @@ const CREDIT_LINES = [
   'JULIAN CANFIELD',
   'AND COREY CANFIELD',
   '',
-  'NIGHT PORTER: YOU',
+  'NIGHT PORTER: MAX',
 ];
 
 function drawCredits() {
-  clear(0);
+  fillRect(0, 0, BW, BH, '#141a34');
+  for (let i = 0; i < 30; i++) {
+    const r = mulberry(i * 91 + 7);
+    fillRect(Math.floor(r() * BW), Math.floor(r() * BH), 1, 1, '#3a4670');
+  }
   const y0 = BH - S.credits.t * 22;
   CREDIT_LINES.forEach((l, i) => {
-    const y = y0 + i * 12;
-    if (y > -10 && y < BH) text(l, BW / 2, y, 3, 1, 'center');
+    const y = y0 + i * 14;
+    if (y > -12 && y < BH) textShadow(l, BW / 2, y, '#f0f4ff', 1, 'center');
   });
-  const end = y0 + CREDIT_LINES.length * 12;
-  if (end < 40) {
-    text('CAUGHT ' + Object.keys(S.caught).length + '/44', BW / 2, 60, 3, 1, 'center');
-    text('A: TITLE', BW / 2, 80, 2, 1, 'center');
+  const end = y0 + CREDIT_LINES.length * 14;
+  if (end < 50) {
+    panel(BW / 2 - 60, 50, 120, 46);
+    text('CAUGHT ' + Object.keys(S.caught).length + '/44', BW / 2, 62, UI.ink, 1, 'center');
+    text('A: TITLE', BW / 2, 78, UI.inkSoft, 1, 'center');
   }
 }
 
 function updateCredits() {
   S.credits.t += 1 / 60;
-  const end = BH - S.credits.t * 22 + CREDIT_LINES.length * 12;
-  if (end < 40 && (hit.a || hit.start)) toTitle();
+  const end = BH - S.credits.t * 22 + CREDIT_LINES.length * 14;
+  if (end < 50 && (hit.a || hit.start)) toTitle();
 }
 
 /* --------------------------------------------------------------------- loop */

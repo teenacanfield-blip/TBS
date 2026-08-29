@@ -1,8 +1,7 @@
 # Roaminals
 
-A monster-catching game in the shape of the original Game Boy ones, set
-entirely inside one very large building: the Rothsay Grand Hotel, shut for
-forty years.
+A monster-catching game in the shape of the handheld ones, set entirely inside
+one very large building: the Rothsay Grand Hotel, shut for forty years.
 
 The ghosts in it could not stay ghosts, so each one moved into an **object** — a
 mop, a boiler, a ledger, a chandelier, a bell — and the object moved into an
@@ -10,13 +9,31 @@ mop, a boiler, a ledger, a chandelier, a bell — and the object moved into an
 what the ghost possessed is the creature's type. It is why the type chart is a
 wheel of household things instead of fire and water.
 
-You are the new night porter. Ten floors, a satchel of jars, and a lift that
-only stops where you have a key.
+You are **Max**, fifteen, and the only applicant for night porter. Ten floors, a
+satchel of jars, and a lift that only stops where you have a key.
 
 Plain HTML, CSS and JavaScript — no build step, no dependencies, no image, font
 or audio files. Every sprite, tile and letter is drawn from character grids
-inside `game.js` into a 160&times;144 buffer — a Game Boy screen — and blown up
-whole.
+inside `game.js` into a 240&times;160 buffer — a Game Boy Advance screen — and
+blown up whole.
+
+## The colour
+
+Art is written as four-tone character grids pointed at a **ramp**, which is how
+the hardware this imitates actually worked: one grid, many palettes. It means a
+creature is drawn twice over — its animal in a real fur, feather or shell
+colour, and the object possessing it glowing in that object's own material, so
+a brass ghost glows brass whatever animal it is riding.
+
+Everything else falls out of that for free. A line's three stages are the same
+coat lifted towards the light or pushed down into it. An ultra rare is that
+coat nudged round the colour wheel; a legendary the other way; a **shiny** is
+the whole thing walked most of the way round it. Ten floors each carry their
+own palette, so the red lobby carpet, the cold laundry tiling and the boiler
+room's hot grating are one small object apart.
+
+People get a longer ramp than a creature, because a face needs skin, hair and
+cloth that do not share a colour.
 
 This is a **separate game** from the others in the folders alongside it.
 Nothing here touches those files.
@@ -34,7 +51,7 @@ visit <http://localhost:8123/roaminals/index.html>.
 | Arrows or `WASD` | Walk, and move any cursor |
 | `Z` / `Space` | A — talk, open, confirm |
 | `X` / `Esc` | B — back |
-| `Enter` | Start — the menu |
+| `Enter` | Start — Max's menu |
 
 Touch controls appear automatically on phones and tablets.
 
@@ -54,10 +71,9 @@ Forty-four species, numbered 001 to 044, all catchable.
   the dust: the desk bell in the lobby (six floor keys), the furnace door in the
   boiler room (three keys), and the clock face on the roof (all ten). Beat one
   or run from it and it goes back into the fitting, so it is never lost.
-* **Shinies** roll on every wild creature, about one in 220. On a four-shade
-  screen a shiny has to announce itself with shade alone, so ours wears the
-  whole grid turned inside out. The Bright Penny, in the boiler room, doubles
-  the odds.
+* **Shinies** roll on every wild creature, about one in 200 — the same coat
+  walked most of the way round the colour wheel. The Bright Penny, in the boiler
+  room, doubles the odds.
 
 Every species has its own silhouette: the family shape it is drawn from, plus a
 mark nothing else in the generation wears — bristles, a horn, drawer fronts, a
@@ -102,8 +118,12 @@ up.
   defence, a same-type bonus, criticals and the wheel.
 * Attack and defence stages from BRACE, SNARL, SHARPEN and the moves that carry
   them; RATTLED costs a turn about a quarter of the time.
-* Three jars — Jar, Ghost Jar, Vault Jar. A worn-down, rattled creature goes in
-  far more easily than a fresh one.
+* Three jars — Jar, Ghost Jar, Vault Jar. This game would rather you had the
+  creature than the war story: a plain Jar takes a common at **full health**
+  about two times in five, and better than nine in ten once it is worn down to
+  a quarter. Rarer creatures are harder, but the same curve applies — even a
+  legendary, softened up and hit with a Vault Jar, goes in about three times in
+  four. Health is the big lever; the jar and a rattled nerve multiply it.
 * Levelling to 60, moves learned on the way, evolution when a line's level
   comes up.
 * Staff ghosts to fight on every floor, a boss on each holding that floor's

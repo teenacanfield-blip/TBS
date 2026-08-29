@@ -358,9 +358,164 @@ const Art = (() => {
     return s;
   };
 
+  /* ---- scene 3: Roaminals ------------------------------------------ */
+  /* The Rothsay Grand at night, shut forty years, with one ghost hanging in
+     the foreground — and the brass hotel key it moved into hanging with it,
+     because in this game that is what a ghost is. */
+
+  // A pixel ghost: domed head, a body that catches the light down one side,
+  // and a hem that never quite touches the floor.
+  const ghostShape = (cx, footY, u) => {
+    const lit = '#f4f7ff', mid = '#ccd6f8', dim = '#94a2d8', ink = '#141a34';
+    const W = 14 * u;
+    const left = cx - 7 * u;
+    const top = footY - 17 * u;
+    let s = '';
+
+    s += R(cx - 4 * u, top, 8 * u, u, lit);
+    s += R(cx - 6 * u, top + u, 12 * u, u, lit);
+    s += R(left, top + 2 * u, W, 2 * u, lit);
+    s += R(left, top + 4 * u, W, 11 * u, mid);
+    s += R(left, top + 4 * u, 3 * u, 11 * u, lit);
+    s += R(cx + 4 * u, top + 4 * u, 3 * u, 11 * u, dim);
+
+    // The hem, in blocks, so it reads as cloth rather than a bag.
+    for (let i = 0; i < 5; i++) {
+      s += R(left + i * 3 * u, top + 15 * u, 2 * u, 2 * u, i % 2 ? mid : lit);
+    }
+
+    s += R(cx - 4.5 * u, top + 5 * u, 2 * u, 3 * u, ink);
+    s += R(cx + 2.5 * u, top + 5 * u, 2 * u, 3 * u, ink);
+    s += R(cx - 4.5 * u, top + 5 * u, 2 * u, u, '#6f7fc8');
+    s += R(cx + 2.5 * u, top + 5 * u, 2 * u, u, '#6f7fc8');
+    s += R(cx - u, top + 10 * u, 2 * u, 2 * u, ink);
+    return s;
+  };
+
+  // The brass room key it possessed, hanging at its middle.
+  const roomKey = (cx, cy, u) => {
+    const gold = '#e4ac44', hi = '#ffecb6', dark = '#8f5f16';
+    let s = '';
+    s += R(cx - 3 * u, cy - 3 * u, 6 * u, 6 * u, dark);
+    s += R(cx - 2 * u, cy - 2 * u, 4 * u, 4 * u, gold);
+    s += R(cx - u, cy - u, 2 * u, 2 * u, dark);
+    s += R(cx - 2 * u, cy - 2 * u, 4 * u, u, hi);
+    s += R(cx - u, cy + 3 * u, 2 * u, 7 * u, gold);
+    s += R(cx - u, cy + 3 * u, u, 7 * u, hi);
+    s += R(cx + u, cy + 7 * u, 3 * u, 2 * u, gold);
+    s += R(cx + u, cy + 10 * u, 2 * u, 2 * u, gold);
+    return s;
+  };
+
+  const roaminalsScene = (w, h, focal, ns) => {
+    const rand = rng(1313);
+    let s = '';
+
+    s += R(0, 0, w, h, `url(#${ns}-roam-sky)`);
+
+    // Stars over the roof, and dust hanging in the air closer in.
+    for (let i = 0; i < 70; i++) {
+      const x = rand() * w, y = rand() * h * 0.55;
+      s += R(x, y, 3, 3, '#6b7bb8',
+        ` opacity="${(0.2 + rand() * 0.6).toFixed(2)}" class="tw" style="animation-delay:${(rand() * 4).toFixed(2)}s"`);
+    }
+
+    // The hotel: a slab of a building, a clock tower on top, and a hundred
+    // windows with almost nobody behind them.
+    const bx0 = w * 0.10, bx1 = w * 0.90, by = h * 0.22, bh = h * 0.66;
+    s += R(bx0 - 10, by - 10, (bx1 - bx0) + 20, 12, '#39456e');
+    s += R(bx0, by, bx1 - bx0, bh, '#26304f');
+    s += R(bx0, by, bx1 - bx0, 4, '#4a5686');
+
+    // Clock tower — the thing on the roof you have to face last.
+    const tw = w * 0.13, tx = w * 0.5 - tw / 2, th2 = h * 0.16;
+    s += R(tx - 6, by - th2 - 12, tw + 12, 10, '#39456e');
+    s += R(tx, by - th2, tw, th2 + 6, '#2c3760');
+    s += R(tx, by - th2, tw, 3, '#4a5686');
+    const cx2 = w * 0.5, cy2 = by - th2 * 0.52, cr = Math.min(tw, th2) * 0.34;
+    s += `<circle cx="${cx2}" cy="${cy2}" r="${cr + 4}" fill="#141a34"/>`;
+    s += `<circle cx="${cx2}" cy="${cy2}" r="${cr}" fill="#f2ead0"/>`;
+    s += R(cx2 - 2, cy2 - cr * 0.8, 4, cr * 0.8, '#141a34');
+    s += R(cx2, cy2 - 2, cr * 0.62, 4, '#141a34');
+
+    // Windows. A handful are lit, one flickers, and the rest gave up.
+    const cols = Math.max(6, Math.round((bx1 - bx0) / (w * 0.062)));
+    const rows = Math.max(4, Math.round(bh / (h * 0.105)));
+    const gapX = (bx1 - bx0) / cols, gapY = bh / rows;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = bx0 + c * gapX + gapX * 0.22;
+        const y = by + r * gapY + gapY * 0.24;
+        const ww = gapX * 0.56, wh = gapY * 0.5;
+        const roll = rand();
+        const lit = roll > 0.82;
+        s += R(x, y, ww, wh, lit ? '#f8d05c' : '#1a2140');
+        if (lit) {
+          s += R(x, y, ww, wh * 0.3, '#fff0b0',
+            roll > 0.96 ? ' class="pulse-slow"' : '');
+        } else if (roll < 0.06) {
+          s += R(x, y, ww, wh, '#8f7fd0', ' opacity="0.5" class="pulse"');
+        }
+      }
+    }
+
+    // The doors, lit from inside, at the foot of the building.
+    const dw = w * 0.09, dx = w * 0.5 - dw / 2, dy = by + bh - h * 0.13;
+    s += R(dx - 5, dy - 5, dw + 10, h * 0.135, '#141a34');
+    s += R(dx, dy, dw, h * 0.13, '#f0c86a');
+    s += R(dx + dw * 0.47, dy, dw * 0.06, h * 0.13, '#141a34');
+
+    // Ground: the red carpet that goes all the way out to the street.
+    const gy = by + bh;
+    s += R(0, gy, w, h - gy, '#1b2142');
+    s += R(w * 0.34, gy, w * 0.32, h - gy, '#8f3a36');
+    s += R(w * 0.34, gy, w * 0.32, 4, '#b8544c');
+
+    // The ghost, out in front of all of it, with its key. A tall cover fades
+    // to black across its bottom half, so on those it stands higher up the
+    // building instead of down on the carpet where it would be swallowed.
+    const gx = w * focal;
+    const tall = h > w;
+    const u = Math.max(4, Math.round((tall ? w : h) / 44));
+    // A wide cover carries a vignette that eats anything near an edge, so on
+    // those the ghost stands at the foot of the building rather than out on
+    // the carpet, where the corners would swallow it.
+    const footY = tall ? by + bh * 0.60 : gy + (h - gy) * 0.14;
+    s += `<g class="bob">`;
+    s += `<ellipse cx="${gx}" cy="${footY - u * 8}" rx="${u * 15}" ry="${u * 13}"
+      fill="url(#${ns}-roam-glow)"/>`;
+    s += ghostShape(gx, footY, u);
+    s += roomKey(gx + u * 9, footY - u * 11, u * 0.8);
+    s += `</g>`;
+
+    // Two more of them, small, further back — the building is full of these.
+    s += `<g opacity="0.45" class="bob" style="animation-delay:0.8s">`;
+    s += ghostShape(w * 0.17, gy + (h - gy) * 0.42, u * 0.45);
+    s += `</g>`;
+    s += `<g opacity="0.32" class="bob" style="animation-delay:1.6s">`;
+    s += ghostShape(w * 0.86, gy + (h - gy) * 0.5, u * 0.38);
+    s += `</g>`;
+
+    return s;
+  };
+
   /* ---- shared defs ------------------------------------------------- */
 
-  const defs = (id, ns) => id === 'the-13-dynasties' ? `
+  const roamDefs = (ns) => `
+    <defs>
+      <linearGradient id="${ns}-roam-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#080c1c"/>
+        <stop offset="45%" stop-color="#141a34"/>
+        <stop offset="100%" stop-color="#2a2350"/>
+      </linearGradient>
+      <radialGradient id="${ns}-roam-glow">
+        <stop offset="0%" stop-color="#cdd6f8" stop-opacity="0.55"/>
+        <stop offset="60%" stop-color="#8f7fd0" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="#8f7fd0" stop-opacity="0"/>
+      </radialGradient>
+    </defs>`;
+
+  const defs = (id, ns) => id === 'roaminals' ? roamDefs(ns) : id === 'the-13-dynasties' ? `
     <defs>
       <linearGradient id="${ns}-dyn-sky" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#08101f"/>
@@ -404,8 +559,18 @@ const Art = (() => {
       </radialGradient>
     </defs>`;
 
+  /* One scene per game, looked up by id. A game with no scene of its own would
+     otherwise wear somebody else's — which is exactly what happened to
+     Roaminals before it had this entry. Add a game here when you add it to
+     games.js. */
+  const SCENES = {
+    'the-13-dynasties': dynastiesScene,
+    'ugg-and-the-undersaucer': uggScene,
+    'roaminals': roaminalsScene,
+  };
+
   const scene = (id, w, h, focal, ns) =>
-    id === 'the-13-dynasties' ? dynastiesScene(w, h, focal, ns) : uggScene(w, h, focal, ns);
+    (SCENES[id] || uggScene)(w, h, focal, ns);
 
   /* ---- demo covers -------------------------------------------------- */
   /* Demos do not get a hand-painted scene. They get a lit stage — accent
@@ -585,6 +750,25 @@ const Art = (() => {
   // Square emblem, for the sidebar list and the play overlay.
   const icon = (id) => {
     const s = 64;
+    if (id === 'roaminals') {
+      /* A ghost in a jar: the whole game in sixty-four pixels. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#141a34"/>
+        <rect x="14" y="10" width="36" height="4" fill="#5aa8c8"/>
+        <rect x="16" y="14" width="32" height="40" fill="#1d2444"/>
+        <rect x="16" y="14" width="4" height="40" fill="#7fd0e8" opacity="0.5"/>
+        <rect x="44" y="14" width="4" height="40" fill="#3a6a88" opacity="0.6"/>
+        <rect x="26" y="20" width="12" height="4" fill="#f4f7ff"/>
+        <rect x="23" y="24" width="18" height="4" fill="#f4f7ff"/>
+        <rect x="22" y="28" width="20" height="14" fill="#ccd6f8"/>
+        <rect x="22" y="28" width="6" height="14" fill="#f4f7ff"/>
+        <rect x="26" y="31" width="4" height="5" fill="#141a34"/>
+        <rect x="35" y="31" width="4" height="5" fill="#141a34"/>
+        <rect x="22" y="42" width="5" height="5" fill="#f4f7ff"/>
+        <rect x="32" y="42" width="5" height="5" fill="#f4f7ff"/>
+        <rect x="16" y="52" width="32" height="4" fill="#5aa8c8"/>
+      </svg>`;
+    }
     if (id === 'the-13-dynasties') {
       return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
         <rect width="${s}" height="${s}" rx="10" fill="#16321f"/>

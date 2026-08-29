@@ -7,7 +7,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #0b1410;
+  background: #0b0f1c;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -22,15 +22,15 @@ html, body {
   justify-content: center;
 }
 
-/* Keeps the 10:9 Game Boy shape, scales to the window, never smooths the art. */
+/* Keeps the 3:2 Game Boy Advance shape, scales to the window, never smooths the art. */
 #c {
   display: block;
-  width: min(100vw, calc(100vh * 10 / 9));
-  height: min(100vh, calc(100vw * 9 / 10));
+  width: min(100vw, calc(100vh * 3 / 2));
+  height: min(100vh, calc(100vw * 2 / 3));
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  background: #e0f8cf;
-  box-shadow: 0 0 0 3px #1d2c22, 0 0 60px rgba(120, 200, 120, 0.18);
+  background: #141a34;
+  box-shadow: 0 0 0 3px #232c48, 0 0 60px rgba(90, 130, 240, 0.22);
 }
 
 /* ---------- touch controls ---------- */
@@ -47,9 +47,9 @@ html, body {
 .tb {
   pointer-events: auto;
   position: absolute;
-  border: 2px solid #2c4034;
-  background: rgba(19, 32, 25, 0.72);
-  color: #cfe8bc;
+  border: 2px solid #3a4670;
+  background: rgba(20, 26, 52, 0.72);
+  color: #d6def4;
   font: inherit;
   font-size: 3.4vh;
   line-height: 1;
@@ -58,7 +58,7 @@ html, body {
   user-select: none;
 }
 
-.tb:active { background: rgba(134, 192, 108, 0.55); color: #0b1410; }
+.tb:active { background: rgba(120, 160, 240, 0.6); color: #0b0f1c; }
 
 .dpad, .face { position: absolute; bottom: 4vh; }
 .dpad { left: 3vw; width: 24vh; height: 24vh; }

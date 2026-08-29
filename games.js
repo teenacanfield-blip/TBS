@@ -229,25 +229,29 @@ const GAMES = [
     released: '2026',
     accent: '#86c06c',
     accentDark: '#1d3320',
-    genres: ['Monster catching', 'Turn-based', 'Game Boy', 'Top-down'],
+    genres: ['Monster catching', 'Turn-based', 'Pixel art', 'Top-down'],
     short:
-      'A monster-catching game in the shape of the original Game Boy ones, set ' +
-      'entirely inside one very large building: a hotel shut for forty years.',
+      'A monster-catching game in the shape of the handheld ones, set entirely ' +
+      'inside one very large building: a hotel shut for forty years.',
     about: [
       'The ghosts in the Rothsay Grand could not stay ghosts, so each one moved into ' +
       'an object — a mop, a boiler, a ledger, a chandelier, a bell — and the object ' +
       'moved into an animal that had wandered in out of the cold. That fusion is a ' +
       'Roaminal, and what the ghost possessed is the creature’s type. It is why the ' +
       'type chart is a wheel of household things instead of fire and water.',
-      'You are the new night porter: ten floors, a satchel of jars, and a lift that ' +
-      'only stops where you have a key. Beat the staff ghost holding a floor and the ' +
-      'next one opens up.',
+      'You are Max, fifteen, and the only applicant for night porter: ten floors, a ' +
+      'satchel of jars, and a lift that only stops where you have a key. Beat the ' +
+      'staff ghost holding a floor and the next one opens up.',
       'One generation, forty-four species, all catchable. Commons fill the floors in ' +
       'lines that evolve by level. Five ultra rares turn up about one encounter in ' +
       'forty and arrived already finished. Three legendaries exist once each, waiting ' +
       'on a fitting rather than in the dust — the desk bell, the furnace door, and the ' +
-      'clock on the roof. Every wild creature rolls for a shiny coat, which on a four ' +
-      'shade screen is the whole sprite turned inside out.',
+      'clock on the roof. Every wild creature rolls for a shiny coat.',
+      'Every sprite is a four-tone grid pointed at a palette, the way the handhelds did ' +
+      'it, so a creature is drawn twice over: the animal in a real fur or feather ' +
+      'colour, and the object possessing it glowing in that object’s own material. A ' +
+      'line’s stages are the same coat lifted or darkened, a shiny is that coat walked ' +
+      'round the colour wheel, and each of the ten floors carries its own palette.',
       'The floors are laid out by a seeded generator, so the hotel is big, is the same ' +
       'hotel for everybody, and no room, box or member of staff can ever be sealed off.',
     ],
@@ -266,7 +270,7 @@ const GAMES = [
       ['Arrows / WASD', 'Walk, and move any cursor'],
       ['Z / Space', 'A — talk, open, confirm'],
       ['X / Esc', 'B — back'],
-      ['Enter', 'Start — the menu'],
+      ['Enter', 'Start — Max’s menu'],
     ],
     stagesTitle: 'The building',
     stages: [
@@ -284,6 +288,7 @@ const GAMES = [
     notes: [
       'Each type beats the two that follow it on the Ledger Wheel and struggles against the two before it. It is printed on the lobby wall.',
       'Dust drifts are this game’s tall grass — walk through one and something in it wakes up.',
+      'Jars are generous. A common goes in about two times in five at full health, and better than nine in ten once it is worn down — health is the big lever, and the jar multiplies it.',
       'Faint your whole party and you come to at the housekeeping cart, minus half your tokens. Nothing else is lost.',
       'A legendary you beat or run from goes back into its fitting, so it can never be missed for good.',
     ],
