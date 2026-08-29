@@ -1298,13 +1298,8 @@ function writeSave() {
 }
 
 
-/* The source a level should load from: an edit if one exists, else the
-   generated original. */
+/* Every level is composed fresh from its stage's rooms. */
 function levelSource(stage, idx) {
-  const built = sourceFromChunks(composeLevel(stage, idx));
-  built.signs = {};
-  return built;
-}
   const built = sourceFromChunks(composeLevel(stage, idx));
   built.signs = {};
   return built;

@@ -27,7 +27,6 @@ visit <http://localhost:8123/ufo-caveman/index.html>.
 | `R` | Back to the last checkpoint |
 | `B` | Open the Mother Board (upgrades) from the map |
 | `C` | Open the Character Lab (skin editor) |
-| `E` | Open the level editor |
 | `Esc` | Level → map → title |
 | `M` | Mute |
 
@@ -157,42 +156,6 @@ The last two chips are the interesting ones: the Scanner and the Stabilizer
 switch off lies the cave tells you. That is deliberate — the cave is allowed to
 cheat, and the board is how you cheat back.
 
-## The level editor
-
-Press `E` on the world map to open the highlighted level in the editor, or `E`
-while playing to edit the level you are standing in.
-
-| Control | Action |
-| --- | --- |
-| Left mouse | Paint the selected tool (drag to draw) |
-| Right mouse | Erase |
-| `[` `]` | Previous / next tool, or click a tool in the bottom bar |
-| `1`–`9` | Jump to one of the first nine tools |
-| `WASD` / arrows | Pan the camera |
-| `Z` | Cycle the effect on the room under the cursor |
-| `T` | Type a message on the sign under the cursor |
-| `S` | Save |
-| `X` | Revert this level to its generated original |
-| `Enter` | Test play from the spawn |
-| `E` / `Esc` | Leave the editor |
-
-Everything the game places is a character in a grid, so the editor paints all of
-it the same way: rock and platforms, fake and phantom platforms, blinkers,
-conveyors, bounce pads, spikes and goo, sawblades, crushers, homing sparks,
-critters, boulder spawns, echo triggers, signs, shiny rocks, checkpoints, the
-spawn point, and both the real and decoy motherships. Painting a spawn, goal or
-decoy moves the existing one rather than adding a second.
-
-`Z` sets the whole-room lie — reversed, mirrored, delayed, flipped gravity,
-darkness, wind, and the rest — one room at a time, matching how the generated
-levels are built. `T` replaces a sign's message with your own text, which is
-what makes it worth lying on.
-
-Edits are saved per level in `localStorage`. A level with an edit loads from
-that edit forever after, and the map marks it `EDITED`; `X` throws the edit away
-and puts the generated level back. The generated levels are produced from a
-fixed seed, so reverting always returns exactly the original.
-
 ## The beard
 
 Ugg's beard hangs from his chin, tucks behind the UFO, and comes back out below
@@ -268,9 +231,9 @@ may tell; `composeLevel` stitches a level out of them with a seeded RNG. To add
 a room, write a chunk and drop its name into a stage pool.
 
 A level is a plain character grid plus a zone list — `sourceFromChunks` builds
-that grid, `buildLevel` turns it into a playable level by extracting the entity
-markers out of it, and the editor writes to the same grid. That is why anything
-the generator can place, the editor can place too.
+that grid and `buildLevel` turns it into a playable level by extracting the
+entity markers out of it. Every level is composed fresh from its stage's rooms
+each time it loads.
 
 Keep every chunk's walking surface on the same row as its neighbours' — a
 mismatch there becomes an invisible wall at the seam.
@@ -279,5 +242,5 @@ mismatch there becomes an invisible wall at the seam.
 
 Progress (cleared nodes, best rock haul per level, installed chips, rocks spent,
 furthest unlocked level, total deaths) lives in `localStorage` on the player's
-own device, alongside any edited levels. Clearing browser data resets it. If
-storage is blocked, the game still runs, it just will not remember anything.
+own device. Clearing browser data resets it. If storage is blocked, the game
+still runs, it just will not remember anything.

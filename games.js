@@ -193,7 +193,6 @@ const GAMES = [
       'World map',
       '14 upgrade chips',
       'Character Lab skin editor',
-      'Built-in level editor',
       'Touch controls',
     ],
     controls: [
@@ -203,7 +202,6 @@ const GAMES = [
       ['R', 'Back to the last checkpoint'],
       ['B', 'Mother Board (upgrades), from the map'],
       ['C', 'Character Lab (skin editor)'],
-      ['E', 'Level editor'],
       ['M', 'Mute'],
       ['Esc', 'Level → map → title'],
     ],
