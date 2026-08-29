@@ -229,6 +229,8 @@ const GAMES = [
     released: '2026',
     accent: '#86c06c',
     accentDark: '#1d3320',
+    // Extra buttons on the game's page, beside Play and Pin.
+    extras: [{ label: 'Art book', url: './roaminals/art-book.html' }],
     genres: ['Monster catching', 'Turn-based', 'Pixel art', 'Top-down'],
     short:
       'A monster-catching game in the shape of the handheld ones, set entirely ' +

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<title>Roaminals — the art book</title>
+<meta name="description" content="Every colour in Roaminals: the ten type ramps, all forty-four species, the shiny coats, Max and the staff, and the ten floor palettes — drawn from the game's own art data." />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Thirsty Bear Hub" />
+<meta property="og:title" content="Roaminals — the art book" />
+<meta property="og:description" content="Ten type ramps, forty-four species, and ten floor palettes, drawn from the game's own code." />
+<meta name="twitter:card" content="summary" />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%23141a34'/%3E%3Crect x='5' y='2' width='6' height='2' fill='%23f4f7ff'/%3E%3Crect x='3' y='4' width='10' height='8' fill='%23ccd6f8'/%3E%3Crect x='3' y='4' width='3' height='8' fill='%23f4f7ff'/%3E%3Crect x='5' y='6' width='2' height='3' fill='%23141a34'/%3E%3Crect x='9' y='6' width='2' height='3' fill='%23141a34'/%3E%3Crect x='3' y='12' width='3' height='3' fill='%23f4f7ff'/%3E%3Crect x='9' y='12' width='3' height='3' fill='%23f4f7ff'/%3E%3C/svg%3E" />
+
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f1c;
+    --panel: #151c33;
+    --line: #29314f;
+    --ink: #eef2ff;
+    --soft: #8593bd;
+    --gold: #f8d05c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 0 72px;
+    background: var(--bg);
+    color: #c8d2ee;
+    font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+  header.top {
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(#141a34, #0b0f1c);
+    padding: 34px 0 26px;
+    margin-bottom: 30px;
+  }
+  h1 {
+    font-size: 30px; letter-spacing: .22em; margin: 0 0 10px;
+    color: #f8f0d0; text-shadow: 2px 2px 0 #2a2350;
+  }
+  .lede { margin: 0; color: var(--soft); max-width: 78ch; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .crumbs { margin: 0 0 14px; font-size: 12px; letter-spacing: .12em; }
+  .crumbs a { color: var(--gold); text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+  .crumbs span { color: #56618c; }
+
+  h2 {
+    font-size: 13px; letter-spacing: .2em; margin: 40px 0 6px;
+    color: var(--gold); border-top: 1px solid var(--line); padding-top: 16px;
+  }
+  h2:first-of-type { margin-top: 10px; }
+  .note { margin: 0 0 16px; color: var(--soft); max-width: 78ch; font-size: 13px; }
+
+  .grid { display: grid; gap: 12px; }
+  .roster { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); }
+  .people { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+  .ramps  { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+  .floors { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 10px 11px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .card img { image-rendering: pixelated; border-radius: 4px; }
+  .card .mon { width: 116px; height: 116px; }
+  .card .person { width: 96px; height: 96px; background: #1e2740; }
+  .card b { font-size: 11px; letter-spacing: .07em; color: var(--ink); font-weight: 600; }
+  .card em { font-size: 10px; letter-spacing: .06em; font-style: normal; }
+  .card.ultra  { border-color: #6a5aa8; }
+  .card.legend { border-color: var(--gold); background: #1b1a2e; }
+  .card.shiny  { border-color: #4fc9a0; background: #102220; }
+
+  .ramp { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  .ramp h3 { margin: 0 0 2px; font-size: 12px; letter-spacing: .16em; color: var(--ink); }
+  .ramp .beats { font-size: 11px; color: var(--soft); margin: 0 0 9px; }
+  .swatches { display: flex; gap: 0; border-radius: 4px; overflow: hidden; border: 1px solid #0b0f1c; }
+  .sw { flex: 1; height: 46px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; }
+  .sw code { font-size: 9px; letter-spacing: .02em; opacity: .9; }
+
+  .floor { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  .floor h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: .14em; color: var(--ink); }
+  .floor h3 span { color: var(--gold); margin-right: 8px; }
+  .floor img.strip { width: 100%; max-width: 288px; height: auto; image-rendering: pixelated; border-radius: 3px; display: block; margin-bottom: 8px; }
+  .floor .swatches { border: none; }
+  .floor .sw { height: 26px; }
+  .tilekeys { font-size: 10px; color: #56618c; letter-spacing: .08em; margin: 0 0 8px; }
+
+  footer { margin-top: 44px; border-top: 1px solid var(--line); padding-top: 18px; color: #56618c; font-size: 12px; }
+  footer a { color: var(--gold); text-decoration: none; }
+  #c { display: none; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <p class="crumbs"><a href="../index.html#/game/roaminals">&larr; ROAMINALS</a> <span>/</span> THE ART BOOK</p>
+    <h1>THE ART BOOK</h1>
+    <p class="lede">Every colour in the game, pulled live out of <b>game.js</b> as you load this page — nothing here is a copy, so none of it can drift from what you actually see when you play.<br><br>
+    Sprites are four-tone character grids pointed at a <b>ramp</b>, the way the handhelds did it: one grid, many palettes. So a creature is drawn twice over — the animal in a real fur, feather or shell colour, and the object possessing it glowing in that object's own material. A line's three stages are the same coat lifted towards the light or pushed down into it; an ultra rare is that coat nudged round the colour wheel, a legendary the other way, and a <b>shiny</b> is the whole thing walked most of the way round.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <h2>THE LEDGER WHEEL</h2>
+  <p class="note">Ten types, ten ramps. Each type overpowers the two that follow it on the wheel and struggles against the two before it — the same four colours are used for that type's moves, badges, marks and the glow coming off anything it possessed.</p>
+  <div class="grid ramps" id="ramps"></div>
+
+  <h2>THE ROSTER</h2>
+  <p class="note">Forty-four species, one generation, all catchable.</p>
+  <div class="grid roster" id="roster"></div>
+
+  <h2>SHINY COATS</h2>
+  <p class="note">Rolled on every wild Roaminal, about one in two hundred — doubled by the Bright Penny in the boiler room.</p>
+  <div class="grid roster" id="shinies"></div>
+
+  <h2>MAX, AND THE STAFF</h2>
+  <p class="note">People get a seven-slot ramp instead of a creature's four, because a face needs skin, hair and cloth that do not share a colour.</p>
+  <div class="grid people" id="folk"></div>
+  <div class="grid ramps" id="maxramp" style="margin-top:12px"></div>
+
+  <h2>THE TEN FLOORS</h2>
+  <p class="note">One palette per floor, and every tile on it drawn from that palette rather than stored as a picture.</p>
+  <div class="grid floors" id="floors"></div>
+
+  <footer>
+    <p>Roaminals — produced by Claude and Thirsty Bear Studios.<br>
+    <a href="index.html">Play the game</a> &middot; <a href="../index.html#/game/roaminals">Back to the hub</a></p>
+  </footer>
+</div>
+
+<!-- game.js needs a canvas to attach to; the flag stops it from booting. -->
+<canvas id="c" width="960" height="640"></canvas>
+<script>window.ROAMINALS_ART = true;</script>
+<script src="game.js?v=4"></script>
+<script>
+(() => {
+  const A = window.RoaminalsArt;
+  if (!A) {
+    document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+      '<p style="color:#e05848">The art data did not load.</p>');
+    return;
+  }
+
+  /* Cut whatever was just drawn into the game's own buffer out to an <img>. */
+  const cut = (w, h) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(A.buf, 0, 0, w, h, 0, 0, w, h);
+    return c.toDataURL();
+  };
+
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  /* Light or dark ink, whichever can be read on the swatch. */
+  const readable = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    const lum = (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000;
+    return lum > 140 ? '#101828' : '#e8eeff';
+  };
+
+  const swatches = (ramp) => {
+    const row = el('div', 'swatches');
+    for (const colour of ramp) {
+      const sw = el('div', 'sw');
+      sw.style.background = colour;
+      const code = el('code', null, colour.toUpperCase());
+      code.style.color = readable(colour);
+      sw.appendChild(code);
+      row.appendChild(sw);
+    }
+    return row;
+  };
+
+  /* ---- the wheel ---- */
+  const rampHost = document.getElementById('ramps');
+  A.WHEEL.forEach((type, i) => {
+    const beats = A.WHEEL[(i + 1) % 10] + ' & ' + A.WHEEL[(i + 2) % 10];
+    const box = el('div', 'ramp');
+    box.appendChild(el('h3', null, type));
+    box.appendChild(el('p', 'beats', 'BEATS ' + beats));
+    box.appendChild(swatches(A.TYPE_RAMP[type]));
+    rampHost.appendChild(box);
+  });
+
+  /* ---- creatures ---- */
+  const monCard = (sp, shiny, host, label, sub) => {
+    A.bx.clearRect(0, 0, A.BW, A.BH);
+    A.drawCreature(sp, 12, 12, 3, shiny, 0.6);
+    const card = el('div', 'card ' + (shiny ? 'shiny' : sp.rarity.toLowerCase()));
+    const img = el('img', 'mon');
+    img.src = cut(72, 72);
+    img.alt = sp.name;
+    img.style.background = A.TYPE_RAMP[sp.type][3];
+    card.appendChild(img);
+    card.appendChild(el('b', null, label));
+    const meta = el('em', null, sub);
+    meta.style.color = A.TYPE_RAMP[sp.type][1];
+    card.appendChild(meta);
+    host.appendChild(card);
+  };
+
+  const roster = document.getElementById('roster');
+  for (const sp of A.SPECIES) {
+    monCard(sp, false, roster,
+      String(sp.no).padStart(3, '0') + '  ' + sp.name,
+      sp.type + ' · STAGE ' + sp.stage + (sp.rarity === 'COMMON' ? '' : ' · ' + sp.rarity));
+  }
+
+  const shinies = document.getElementById('shinies');
+  for (const no of [1, 6, 12, 21, 27, 30, 37, 40, 42, 43, 44]) {
+    monCard(A.spec(no), true, shinies, '★ ' + A.spec(no).name, 'SHINY COAT');
+  }
+
+  /* ---- people ---- */
+  const folk = document.getElementById('folk');
+  const people = [
+    [A.MAX_DOWN, A.MAX_PAL, 'MAX', 'NIGHT PORTER, 15'],
+    [A.MAX_SIDE, A.MAX_PAL, 'MAX', 'WALKING'],
+    [A.MAX_UP, A.MAX_PAL, 'MAX', 'FROM BEHIND'],
+    [A.NPC_STAFF, A.NPC_PAL.staff, 'STAFF', 'NEVER CLOCKED OFF'],
+    [A.NPC_GUEST, A.NPC_PAL.guest, 'GUEST', 'NEVER CHECKED OUT'],
+    [A.NPC_GHOST, A.NPC_PAL.ghost, 'GHOST', 'STOPPED PRETENDING'],
+  ];
+  for (const [art, pal, name, sub] of people) {
+    A.bx.clearRect(0, 0, A.BW, A.BH);
+    A.blit(A.makeSprite(art, pal), 4, 4, false, 3);
+    const card = el('div', 'card');
+    const img = el('img', 'person');
+    img.src = cut(56, 56);
+    img.alt = name;
+    card.appendChild(img);
+    card.appendChild(el('b', null, name));
+    card.appendChild(el('em', null, sub));
+    folk.appendChild(card);
+  }
+
+  const maxHost = document.getElementById('maxramp');
+  const maxBox = el('div', 'ramp');
+  maxBox.appendChild(el('h3', null, "MAX'S RAMP"));
+  maxBox.appendChild(el('p', 'beats', 'OUTLINE / SKIN / SHADOW / HOODIE / FOLD / HAIR / BRASS'));
+  maxBox.appendChild(swatches(A.MAX_PAL));
+  maxHost.appendChild(maxBox);
+
+  /* ---- floors ---- */
+  const floorHost = document.getElementById('floors');
+  const kinds = ['floor', 'dust', 'wall', 'prop', 'elev', 'shop', 'heal', 'item', 'plant'];
+  for (const fl of A.FLOORS) {
+    const th = A.resolve(fl.theme);
+    const strip = document.createElement('canvas');
+    strip.width = 16 * kinds.length; strip.height = 16;
+    const g = strip.getContext('2d');
+    kinds.forEach((k, i) => g.drawImage(A.tile(k, th), i * 16, 0));
+
+    const box = el('div', 'floor');
+    const head = el('h3');
+    head.appendChild(el('span', null, fl.label));
+    head.appendChild(document.createTextNode(fl.name));
+    box.appendChild(head);
+    const img = el('img', 'strip');
+    img.src = strip.toDataURL();
+    img.alt = fl.name + ' tiles';
+    box.appendChild(img);
+    box.appendChild(el('p', 'tilekeys', 'FLOOR · DUST · WALL · FURNITURE · LIFT · MACHINE · CART · BOX · PLANT'));
+    box.appendChild(swatches([th.floor, th.accent, th.wall, th.wallTop, th.dust]));
+    floorHost.appendChild(box);
+  }
+})();
+</script>
+</body>
+</html>

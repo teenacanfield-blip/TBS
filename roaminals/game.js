@@ -4018,7 +4018,20 @@ function frame(now) {
   draw();
 }
 
-toTitle();
-requestAnimationFrame(frame);
+/* The art book page loads this very file rather than a copy of its palettes:
+   it raises a flag first, takes the drawing tools, and the game never starts.
+   That way the swatches on the site can never drift from the ones the game
+   actually uses. */
+if (window.ROAMINALS_ART) {
+  window.RoaminalsArt = {
+    BW, BH, buf, bx, clear, fillRect, blit, makeSprite, drawCreature, typeBadge,
+    SPECIES, spec, DEX, WHEEL, TYPE_RAMP, THING_RAMP, FAMILY, coatFor, thingFor,
+    MAX_PAL, MAX_DOWN, MAX_UP, MAX_SIDE, NPC_PAL, NPC_STAFF, NPC_GUEST, NPC_GHOST,
+    FLOORS, tile, resolve, MOVES, ITEMS, effect,
+  };
+} else {
+  toTitle();
+  requestAnimationFrame(frame);
+}
 
 })();

@@ -704,6 +704,10 @@ function viewGame(id) {
             ${ICON.star} ${st.favorite ? 'Pinned' : 'Pin'}
           </button>
           <a class="btn ghost" href="${g.url}" target="_blank" rel="noopener" title="Open in its own tab">${ICON.pop}</a>
+          ${/* Anything else a game wants a button for — an art book, a manual.
+                Optional: a game with no `extras` in games.js gets nothing. */ ''}
+          ${(g.extras || []).map((x) => `
+            <a class="btn ghost" href="${x.url}"${x.blank ? ' target="_blank" rel="noopener"' : ''}>${esc(x.label)}</a>`).join('')}
         </div>
       </div>
     </section>
