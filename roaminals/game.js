@@ -36,7 +36,9 @@ const FW = 40, FH = 32;        // every floor of the hotel is this many tiles
 const STEP_FRAMES = 8;         // frames to walk one tile (2px a frame)
 const TURN_FRAMES = 5;         // frames spent turning on the spot
 
-const MAX_PARTY = 6;
+const MAX_PARTY = 10;      // the satchel
+const BOX_COUNT = 5;       // dusty boxes in the housekeeping cart
+const BOX_SIZE = 10;       // and what each one holds
 const MAX_LEVEL = 60;
 const SHINY_ODDS = 200;        // one wild creature in this many, halved by the penny
 
@@ -2219,7 +2221,9 @@ const S = {
   floor: 0,
   map: null,
   p: { x: 0, y: 0, dir: 0, sub: 0, moving: 0, anim: 0 },
-  party: [], box: [],
+  party: [],
+  /* Five dusty boxes in the cart, ten to a box. */
+  boxes: [[], [], [], [], []],
   bag: {},
   tokens: 500,
   keys: 0,               // floors of the hotel the lift will admit you to
@@ -2248,7 +2252,7 @@ function saveGame() {
   try {
     const data = {
       v: 1, floor: S.floor, p: { x: S.p.x, y: S.p.y, dir: S.p.dir },
-      party: S.party, box: S.box, bag: S.bag, tokens: S.tokens, keys: S.keys,
+      party: S.party, boxes: S.boxes, bag: S.bag, tokens: S.tokens, keys: S.keys,
       seen: S.seen, caught: S.caught, taken: S.taken, beaten: S.beaten,
       shrines: S.shrines, machines: S.machines, steps: S.steps, playFrames: S.playFrames,
       finished: S.finished,
@@ -2268,7 +2272,17 @@ function loadGame() {
     if (!d) return false;
     S.floor = d.floor || 0;
     S.party = d.party || [];
-    S.box = d.box || [];
+    /* Saves from before the boxes existed kept one flat drawer; pour it into
+       the new ones so nobody loses what they had handed in. */
+    S.boxes = [[], [], [], [], []];
+    if (d.boxes) {
+      for (let i = 0; i < BOX_COUNT; i++) S.boxes[i] = (d.boxes[i] || []).slice(0, BOX_SIZE);
+    } else if (d.box) {
+      for (const m of d.box) {
+        const room = S.boxes.find(b => b.length < BOX_SIZE);
+        if (room) room.push(m);
+      }
+    }
     S.bag = d.bag || {};
     S.tokens = d.tokens || 0;
     S.keys = d.keys || 0;
@@ -2468,7 +2482,7 @@ function interact() {
             'HOUSEKEEPING CART.',
             'EVERY JAR IS FULL AGAIN.']);
         } },
-        { label: 'LOST PROPERTY', right: String(S.box.length), on: openBox },
+        { label: 'DUSTY BOXES', right: boxTotal() + '/' + (BOX_COUNT * BOX_SIZE), on: openBox },
         { label: 'LEAVE', on: closeUI },
       ],
     });
@@ -2837,8 +2851,14 @@ function openParty(opts) {
 function updateParty(ui) {
   const d = menuDir();
   const n = Math.max(1, S.party.length);
+  /* Ten of them, in two columns of five. Up and down run a column, left and
+     right hop across. */
   if (d === 'up') ui.idx = (ui.idx + n - 1) % n;
   if (d === 'down') ui.idx = (ui.idx + 1) % n;
+  if (d === 'left' || d === 'right') {
+    const other = ui.idx < 5 ? ui.idx + 5 : ui.idx - 5;
+    if (other < S.party.length) ui.idx = other;
+  }
 
   if (hit.a && S.party.length) {
     const m = S.party[ui.idx];
@@ -2874,23 +2894,25 @@ function drawParty(ui) {
     S.party.length + '/' + MAX_PARTY);
   if (!S.party.length) text('THE SATCHEL IS EMPTY.', 12, 30, UI.ink);
 
+  /* Two columns of five. */
   S.party.forEach((m, i) => {
-    const y = 23 + i * 22;
+    const x = 5 + (i < 5 ? 0 : 116);
+    const y = 22 + (i % 5) * 25;
     const sp = spec(m.no);
     if (i === ui.idx) {
-      fillRect(6, y - 2, BW - 12, 21, '#dce6fa');
-      fillRect(6, y - 2, BW - 12, 1, UI.frameHi);
-      cursorMark(8, y + 6, UI.pickLo);
+      fillRect(x, y - 2, 114, 24, '#dce6fa');
+      fillRect(x, y - 2, 114, 1, UI.frameHi);
+      fillRect(x, y + 21, 114, 1, UI.pickLo);
+      cursorMark(x + 1, y + 7, UI.pickLo);
     }
-    drawCreature(sp, 16, y + 1, 1, m.shiny, S.t);
-    text(sp.name, 36, y + 1, m.hp > 0 ? UI.ink : UI.bad);
-    if (m.shiny) text('*', 36 + textWidth(sp.name, 1) + 3, y + 1, UI.pickLo);
-    typeBadge(sp.type, 36, y + 10);
-    text('L' + m.lv, 118, y + 1, UI.ink);
-    meter(140, y + 3, 62, m.hp, monMaxHp(m), hpColour(m.hp, monMaxHp(m)));
-    text(m.hp + '/' + monMaxHp(m), 202, y + 10, UI.inkSoft);
+    drawCreature(sp, x + 8, y, 1, m.shiny, S.t);
+    text(sp.name, x + 27, y, m.hp > 0 ? UI.ink : UI.bad);
+    if (m.shiny) text('*', x + 27 + textWidth(sp.name, 1) + 3, y, UI.pickLo);
+    text('L' + m.lv, x + 111, y, UI.ink, 1, 'right');
+    typeBadge(sp.type, x + 27, y + 10);
+    meter(x + 76, y + 12, 35, m.hp, monMaxHp(m), hpColour(m.hp, monMaxHp(m)));
   });
-  text('A: LOOK   B: BACK', 12, BH - 13, UI.inkSoft);
+  text('A: LOOK   B: BACK', 8, BH - 12, UI.inkSoft);
 }
 
 function updateSummary(ui) {
@@ -3145,36 +3167,62 @@ function drawShop(ui) {
    right. Left and right move between them, A moves the creature under the
    cursor to the other side. */
 
+const BOX_NAMES = ['DUSTY BOX 1', 'DUSTY BOX 2', 'DUSTY BOX 3', 'DUSTY BOX 4', 'DUSTY BOX 5'];
+
+function boxTotal() { return S.boxes.reduce((n, b) => n + b.length, 0); }
+function firstFreeBox() { return S.boxes.find(b => b.length < BOX_SIZE) || null; }
+
 function openBox() {
-  S.ui = { kind: 'box', side: S.box.length ? 1 : 0, idx: 0, scroll: 0, msg: '', msgT: 0 };
+  S.ui = { kind: 'box', side: 0, idx: 0, box: 0, msg: '', msgT: 0 };
 }
 
-function boxToast(ui, m) { ui.msg = m; ui.msgT = 100; }
+function boxToast(ui, m) { ui.msg = m; ui.msgT = 110; }
 
+/* Both halves are a five by two grid of slots, so the cursor moves the same
+   way on either side and crossing between them is just walking off the edge. */
 function updateBox(ui) {
   if (ui.msgT > 0) ui.msgT--;
-  const lists = [S.party, S.box];
+  const list = ui.side === 0 ? S.party : S.boxes[ui.box];
   const d = menuDir();
-  if (d === 'left') { ui.side = 0; ui.idx = Math.min(ui.idx, Math.max(0, S.party.length - 1)); }
-  if (d === 'right') { ui.side = 1; ui.idx = Math.min(ui.idx, Math.max(0, S.box.length - 1)); }
-  const list = lists[ui.side];
-  if (d === 'up') ui.idx = (ui.idx + Math.max(1, list.length) - 1) % Math.max(1, list.length);
-  if (d === 'down') ui.idx = (ui.idx + 1) % Math.max(1, list.length);
+  let col = ui.idx % 5, row = (ui.idx / 5) | 0;
 
-  if (hit.a && list.length) {
+  if (d === 'left') {
+    if (col > 0) col--;
+    else { ui.side ^= 1; col = 4; }
+  }
+  if (d === 'right') {
+    if (col < 4) col++;
+    else { ui.side ^= 1; col = 0; }
+  }
+  if (d === 'up') row = row === 0 ? 1 : 0;
+  if (d === 'down') row = row === 1 ? 0 : 1;
+  if (d) ui.idx = row * 5 + col;
+
+  /* START walks along the shelf of boxes. */
+  if (hit.start) {
+    ui.box = (ui.box + 1) % BOX_COUNT;
+    ui.side = 1;
+    boxToast(ui, BOX_NAMES[ui.box]);
+    return;
+  }
+
+  if (hit.a) {
+    const here = ui.side === 0 ? S.party : S.boxes[ui.box];
+    const m = here[ui.idx];
+    if (!m) { boxToast(ui, 'NOTHING IN THAT SLOT.'); return; }
     if (ui.side === 1) {
       if (S.party.length >= MAX_PARTY) { boxToast(ui, 'THE SATCHEL IS FULL.'); return; }
-      const m = S.box.splice(ui.idx, 1)[0];
+      S.boxes[ui.box].splice(ui.idx, 1);
       S.party.push(m);
       boxToast(ui, monName(m) + ' IS IN THE SATCHEL.');
-      ui.idx = clamp(ui.idx, 0, Math.max(0, S.box.length - 1));
     } else {
       /* You are never allowed to walk out of here with nothing. */
-      if (S.party.length <= 1) { boxToast(ui, 'YOU CANNOT HAND OVER YOUR LAST ONE.'); return; }
-      const m = S.party.splice(ui.idx, 1)[0];
-      S.box.push(m);
-      boxToast(ui, monName(m) + ' IS IN THE DRAWER.');
-      ui.idx = clamp(ui.idx, 0, Math.max(0, S.party.length - 1));
+      if (S.party.length <= 1) { boxToast(ui, 'YOU CANNOT BOX YOUR LAST ONE.'); return; }
+      const room = S.boxes[ui.box].length < BOX_SIZE ? S.boxes[ui.box] : firstFreeBox();
+      if (!room) { boxToast(ui, 'EVERY BOX IS FULL.'); return; }
+      S.party.splice(ui.idx, 1);
+      room.push(m);
+      boxToast(ui, monName(m) + ' IS IN A BOX.');
     }
     saveGame();
     return;
@@ -3182,50 +3230,68 @@ function updateBox(ui) {
   if (hit.b) { S.ui = null; }
 }
 
-function boxRow(m, x, y, on, dim) {
-  const sp = spec(m.no);
-  if (on) {
-    fillRect(x - 2, y - 2, 108, 16, '#dce6fa');
-    cursorMark(x - 1, y + 3, UI.pickLo);
+/* One slot: the creature, or an empty dusty square. */
+function boxSlot(m, x, y, on) {
+  fillRect(x, y, 21, 21, on ? '#dce6fa' : '#e8ecf6');
+  fillRect(x, y, 21, 1, on ? UI.pick : '#c8cfe0');
+  fillRect(x, y + 20, 21, 1, '#c8cfe0');
+  if (m) {
+    drawCreature(spec(m.no), x + 3, y + 3, 1, m.shiny, S.t);
+    if (m.hp <= 0) fillRect(x + 1, y + 1, 19, 19, 'rgba(224,88,72,0.30)');
+  } else {
+    fillRect(x + 8, y + 9, 5, 3, '#c8cfe0');
   }
-  drawCreature(sp, x + 6, y, 1, m.shiny, S.t);
-  text(sp.name, x + 25, y + 1, dim ? UI.inkSoft : UI.ink);
-  text('L' + m.lv, x + 102, y + 1, UI.inkSoft, 1, 'right');
-  meter(x + 25, y + 10, 60, m.hp, monMaxHp(m), hpColour(m.hp, monMaxHp(m)));
+  if (on) {
+    fillRect(x - 1, y - 1, 23, 2, UI.pickLo);
+    fillRect(x - 1, y + 20, 23, 2, UI.pickLo);
+    fillRect(x - 1, y - 1, 2, 23, UI.pickLo);
+    fillRect(x + 20, y - 1, 2, 23, UI.pickLo);
+  }
+}
+
+function boxGrid(list, x, y, live, ui) {
+  for (let i = 0; i < BOX_SIZE; i++) {
+    const cx2 = x + (i % 5) * 22, cy = y + ((i / 5) | 0) * 22;
+    boxSlot(list[i], cx2, cy, live && i === ui.idx);
+  }
 }
 
 function drawBox(ui) {
-  screen('LOST PROPERTY', S.party.length + '/' + MAX_PARTY + '  DRAWER ' + S.box.length);
+  screen('THE CART', 'HELD ' + boxTotal() + '/' + (BOX_COUNT * BOX_SIZE));
 
-  fillRect(4, 22, 114, 10, ui.side === 0 ? UI.frame : '#3a4668');
-  text('SATCHEL', 10, 24, UI.panel);
-  fillRect(122, 22, 114, 10, ui.side === 1 ? UI.frame : '#3a4668');
-  text('THE DRAWER', 128, 24, UI.panel);
+  fillRect(6, 22, 110, 10, ui.side === 0 ? UI.frame : '#3a4668');
+  text('SATCHEL ' + S.party.length + '/' + MAX_PARTY, 11, 24, UI.panel);
+  fillRect(124, 22, 110, 10, ui.side === 1 ? UI.frame : '#3a4668');
+  text(BOX_NAMES[ui.box] + '  ' + S.boxes[ui.box].length + '/' + BOX_SIZE, 129, 24, UI.panel);
 
-  if (!S.party.length) text('EMPTY', 14, 40, UI.inkSoft);
-  S.party.forEach((m, i) => {
-    boxRow(m, 8, 36 + i * 17, ui.side === 0 && i === ui.idx, false);
-  });
+  boxGrid(S.party, 6, 34, ui.side === 0, ui);
+  boxGrid(S.boxes[ui.box], 124, 34, ui.side === 1, ui);
 
-  if (!S.box.length) text('NOTHING HANDED IN', 132, 40, UI.inkSoft);
-  const view = 6;
-  const start = clamp(ui.idx - 3, 0, Math.max(0, S.box.length - view));
-  for (let i = 0; i < Math.min(view, S.box.length); i++) {
-    const idx = start + i;
-    boxRow(S.box[idx], 126, 36 + i * 17, ui.side === 1 && idx === ui.idx, false);
+  /* Which of the five you are looking at. */
+  for (let i = 0; i < BOX_COUNT; i++) {
+    const x = 124 + i * 12;
+    fillRect(x, 80, 10, 4, i === ui.box ? UI.pickLo : '#c8cfe0');
   }
-  /* A nub down the side of the drawer showing where in it you are, rather
-     than a line of text fighting the hint row for the bottom of the screen. */
-  if (S.box.length > view) {
-    const trackH = view * 17 - 4;
-    fillRect(233, 36, 2, trackH, '#c8cfe0');
-    const nub = Math.max(6, trackH * view / S.box.length);
-    const at = (trackH - nub) * (start / Math.max(1, S.box.length - view));
-    fillRect(233, 36 + at, 2, nub, UI.pickLo);
+
+  /* A readout for whatever the cursor is on. */
+  const m = (ui.side === 0 ? S.party : S.boxes[ui.box])[ui.idx];
+  fillRect(6, 88, 228, 1, '#c8cfe0');
+  if (m) {
+    const sp = spec(m.no);
+    drawCreature(sp, 10, 94, 2, m.shiny, S.t);
+    text(sp.name, 50, 94, m.hp > 0 ? UI.ink : UI.bad);
+    if (m.shiny) text('*', 50 + textWidth(sp.name, 1) + 4, 94, UI.pickLo);
+    typeBadge(sp.type, 50, 105);
+    text('L' + m.lv, 120, 94, UI.ink);
+    text('NO ' + String(sp.no).padStart(3, '0'), 150, 94, UI.inkSoft);
+    meter(120, 108, 100, m.hp, monMaxHp(m), hpColour(m.hp, monMaxHp(m)));
+    text(m.hp + '/' + monMaxHp(m), 232, 118, UI.inkSoft, 1, 'right');
+  } else {
+    text('EMPTY SLOT', 10, 96, UI.inkSoft);
   }
 
   if (ui.msgT > 0) text(ui.msg, 8, BH - 13, UI.pickLo);
-  else text('< > SIDE   A: MOVE IT ACROSS   B: DONE', 8, BH - 13, UI.inkSoft);
+  else text('A: MOVE IT ACROSS   START: NEXT BOX   B: DONE', 8, BH - 13, UI.inkSoft);
 }
 
 /* ------------------------------------------------------------------ the lift */
@@ -4064,13 +4130,20 @@ function throwJar(name) {
         S.party.push(foe);
         qsay(monName(foe) + ' IS IN THE JAR!', 'THE LEDGER IS UPDATED.');
       } else {
-        /* Actually kept, not quietly binned — the cart's bottom drawer on any
-           floor will hand it back. */
-        S.box.push(foe);
-        qsay(monName(foe) + ' IS IN THE JAR!',
-          'THE SATCHEL IS FULL, SO IT WENT',
-          'TO LOST PROPERTY - THE DRAWER',
-          'IN ANY HOUSEKEEPING CART.');
+        /* Actually kept, not quietly binned — the dusty boxes in any
+           housekeeping cart will hand it back. */
+        const room = firstFreeBox();
+        if (room) {
+          room.push(foe);
+          qsay(monName(foe) + ' IS IN THE JAR!',
+            'THE SATCHEL IS FULL, SO IT WENT',
+            'INTO A DUSTY BOX IN THE CART.');
+        } else {
+          qsay(monName(foe) + ' IS IN THE JAR!',
+            'BUT THE SATCHEL AND EVERY BOX',
+            'ARE FULL, SO IT WRIGGLES OUT',
+            'AND GOES BACK TO WORK.');
+        }
       }
       qpush({ f: () => endBattle('caught') });
     } else {
@@ -4629,10 +4702,12 @@ function updateStarter() {
 
 function newGame(starterNo) {
   S.party = [makeMon(starterNo, 5)];
+  S.boxes = [[], [], [], [], []];
+  S.seen = {}; S.caught = {};
   S.seen[starterNo] = 1; S.caught[starterNo] = 1;
   S.bag = {}; bagAdd('JAR', 5); bagAdd('POULTICE', 3);
   S.tokens = 500; S.keys = 0;
-  S.taken = {}; S.beaten = {}; S.shrines = {};
+  S.taken = {}; S.beaten = {}; S.shrines = {}; S.machines = {};
   S.steps = 0; S.playFrames = 0; S.finished = false;
   S.started = true;
   enterFloor(0);

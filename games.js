@@ -262,6 +262,7 @@ const GAMES = [
       '44 species, all catchable',
       'Shiny, ultra rare and legendary',
       'Evolution by level',
+      'Team of 10, plus 5 storage boxes',
       'Ten floors',
       '10 staff-ghost bosses',
       'Ten-type wheel',

@@ -106,6 +106,22 @@ Their coats are theirs alone, and those you can do anything to — a repainted
 line still darkens as it evolves, and its shiny is still its own colour turned
 round.
 
+## The satchel and the dusty boxes
+
+Max carries **ten**. Beyond that, everything goes into the **five dusty boxes**
+in the bottom of any housekeeping cart — ten to a box, fifty in all — and there
+is a cart on every floor, so you are never walking back to the lobby for one.
+
+Jar something with a full satchel and it goes straight into the first box with
+room in it. Rest at a cart and choose DUSTY BOXES to get it back: the satchel is
+the grid on the left, the box on the right, `A` moves whatever the cursor is on
+across, and `Start` walks along the shelf of five. It will not let you overfill
+the satchel and it will not let you box your last Roaminal.
+
+If the satchel and all five boxes are full, a catch wriggles out and goes back
+to work rather than vanishing — the game will not take something from you and
+put it nowhere.
+
 ## The laundry machines
 
 Three of them stand against a wall in B1. The first has no back to it and is
