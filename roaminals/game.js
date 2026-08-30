@@ -2219,7 +2219,7 @@ const S = {
   floor: 0,
   map: null,
   p: { x: 0, y: 0, dir: 0, sub: 0, moving: 0, anim: 0 },
-  party: [],
+  party: [], box: [],
   bag: {},
   tokens: 500,
   keys: 0,               // floors of the hotel the lift will admit you to
@@ -2248,7 +2248,7 @@ function saveGame() {
   try {
     const data = {
       v: 1, floor: S.floor, p: { x: S.p.x, y: S.p.y, dir: S.p.dir },
-      party: S.party, bag: S.bag, tokens: S.tokens, keys: S.keys,
+      party: S.party, box: S.box, bag: S.bag, tokens: S.tokens, keys: S.keys,
       seen: S.seen, caught: S.caught, taken: S.taken, beaten: S.beaten,
       shrines: S.shrines, machines: S.machines, steps: S.steps, playFrames: S.playFrames,
       finished: S.finished,
@@ -2268,6 +2268,7 @@ function loadGame() {
     if (!d) return false;
     S.floor = d.floor || 0;
     S.party = d.party || [];
+    S.box = d.box || [];
     S.bag = d.bag || {};
     S.tokens = d.tokens || 0;
     S.keys = d.keys || 0;
@@ -2454,11 +2455,23 @@ function interact() {
 
   if (t === 'E') { openElevator(); return; }
 
+  /* The cart mends everything, and its bottom drawer is where the hotel's
+     lost property ends up — including whatever you jarred with a full
+     satchel. There is one on every floor. */
   if (t === 'H') {
-    for (const m of S.party) healMon(m);
-    say(['YOU REST AGAINST THE',
-      'HOUSEKEEPING CART.',
-      'EVERY JAR IS FULL AGAIN.']);
+    listMenu({
+      x: BW - 100, y: 26, w: 96, title: 'HOUSEKEEPING',
+      items: [
+        { label: 'REST', on: () => {
+          for (const m of S.party) healMon(m);
+          say(['YOU REST AGAINST THE',
+            'HOUSEKEEPING CART.',
+            'EVERY JAR IS FULL AGAIN.']);
+        } },
+        { label: 'LOST PROPERTY', right: String(S.box.length), on: openBox },
+        { label: 'LEAVE', on: closeUI },
+      ],
+    });
     return;
   }
 
@@ -2729,6 +2742,7 @@ function updateMenu(ui) {
     case 'ledger': return updateLedger(ui);
     case 'shop': return updateShop(ui);
     case 'elevator': return updateElevator(ui);
+    case 'box': return updateBox(ui);
     case 'dialog': return updateDialog(ui);
   }
 }
@@ -2742,6 +2756,7 @@ function drawUI(ui) {
     case 'ledger': return drawLedger(ui);
     case 'shop': return drawShop(ui);
     case 'elevator': return drawElevator(ui);
+    case 'box': return drawBox(ui);
     case 'dialog': return drawDialog(ui);
   }
 }
@@ -3122,6 +3137,95 @@ function drawShop(ui) {
   fillRect(10, 116, BW - 20, 1, '#c8cfe0');
   text(ITEMS[SHOP_STOCK[ui.idx]].info, 12, 124, UI.ink);
   text('A: BUY    B: LEAVE', 12, BH - 13, UI.inkSoft);
+}
+
+/* --------------------------------------------------------- lost property */
+/* Jar something with a full satchel and it ends up in here. Two columns: what
+   you are carrying on the left, what the hotel is holding for you on the
+   right. Left and right move between them, A moves the creature under the
+   cursor to the other side. */
+
+function openBox() {
+  S.ui = { kind: 'box', side: S.box.length ? 1 : 0, idx: 0, scroll: 0, msg: '', msgT: 0 };
+}
+
+function boxToast(ui, m) { ui.msg = m; ui.msgT = 100; }
+
+function updateBox(ui) {
+  if (ui.msgT > 0) ui.msgT--;
+  const lists = [S.party, S.box];
+  const d = menuDir();
+  if (d === 'left') { ui.side = 0; ui.idx = Math.min(ui.idx, Math.max(0, S.party.length - 1)); }
+  if (d === 'right') { ui.side = 1; ui.idx = Math.min(ui.idx, Math.max(0, S.box.length - 1)); }
+  const list = lists[ui.side];
+  if (d === 'up') ui.idx = (ui.idx + Math.max(1, list.length) - 1) % Math.max(1, list.length);
+  if (d === 'down') ui.idx = (ui.idx + 1) % Math.max(1, list.length);
+
+  if (hit.a && list.length) {
+    if (ui.side === 1) {
+      if (S.party.length >= MAX_PARTY) { boxToast(ui, 'THE SATCHEL IS FULL.'); return; }
+      const m = S.box.splice(ui.idx, 1)[0];
+      S.party.push(m);
+      boxToast(ui, monName(m) + ' IS IN THE SATCHEL.');
+      ui.idx = clamp(ui.idx, 0, Math.max(0, S.box.length - 1));
+    } else {
+      /* You are never allowed to walk out of here with nothing. */
+      if (S.party.length <= 1) { boxToast(ui, 'YOU CANNOT HAND OVER YOUR LAST ONE.'); return; }
+      const m = S.party.splice(ui.idx, 1)[0];
+      S.box.push(m);
+      boxToast(ui, monName(m) + ' IS IN THE DRAWER.');
+      ui.idx = clamp(ui.idx, 0, Math.max(0, S.party.length - 1));
+    }
+    saveGame();
+    return;
+  }
+  if (hit.b) { S.ui = null; }
+}
+
+function boxRow(m, x, y, on, dim) {
+  const sp = spec(m.no);
+  if (on) {
+    fillRect(x - 2, y - 2, 108, 16, '#dce6fa');
+    cursorMark(x - 1, y + 3, UI.pickLo);
+  }
+  drawCreature(sp, x + 6, y, 1, m.shiny, S.t);
+  text(sp.name, x + 25, y + 1, dim ? UI.inkSoft : UI.ink);
+  text('L' + m.lv, x + 102, y + 1, UI.inkSoft, 1, 'right');
+  meter(x + 25, y + 10, 60, m.hp, monMaxHp(m), hpColour(m.hp, monMaxHp(m)));
+}
+
+function drawBox(ui) {
+  screen('LOST PROPERTY', S.party.length + '/' + MAX_PARTY + '  DRAWER ' + S.box.length);
+
+  fillRect(4, 22, 114, 10, ui.side === 0 ? UI.frame : '#3a4668');
+  text('SATCHEL', 10, 24, UI.panel);
+  fillRect(122, 22, 114, 10, ui.side === 1 ? UI.frame : '#3a4668');
+  text('THE DRAWER', 128, 24, UI.panel);
+
+  if (!S.party.length) text('EMPTY', 14, 40, UI.inkSoft);
+  S.party.forEach((m, i) => {
+    boxRow(m, 8, 36 + i * 17, ui.side === 0 && i === ui.idx, false);
+  });
+
+  if (!S.box.length) text('NOTHING HANDED IN', 132, 40, UI.inkSoft);
+  const view = 6;
+  const start = clamp(ui.idx - 3, 0, Math.max(0, S.box.length - view));
+  for (let i = 0; i < Math.min(view, S.box.length); i++) {
+    const idx = start + i;
+    boxRow(S.box[idx], 126, 36 + i * 17, ui.side === 1 && idx === ui.idx, false);
+  }
+  /* A nub down the side of the drawer showing where in it you are, rather
+     than a line of text fighting the hint row for the bottom of the screen. */
+  if (S.box.length > view) {
+    const trackH = view * 17 - 4;
+    fillRect(233, 36, 2, trackH, '#c8cfe0');
+    const nub = Math.max(6, trackH * view / S.box.length);
+    const at = (trackH - nub) * (start / Math.max(1, S.box.length - view));
+    fillRect(233, 36 + at, 2, nub, UI.pickLo);
+  }
+
+  if (ui.msgT > 0) text(ui.msg, 8, BH - 13, UI.pickLo);
+  else text('< > SIDE   A: MOVE IT ACROSS   B: DONE', 8, BH - 13, UI.inkSoft);
 }
 
 /* ------------------------------------------------------------------ the lift */
@@ -3960,8 +4064,13 @@ function throwJar(name) {
         S.party.push(foe);
         qsay(monName(foe) + ' IS IN THE JAR!', 'THE LEDGER IS UPDATED.');
       } else {
+        /* Actually kept, not quietly binned — the cart's bottom drawer on any
+           floor will hand it back. */
+        S.box.push(foe);
         qsay(monName(foe) + ' IS IN THE JAR!',
-          'THE SATCHEL IS FULL, SO IT', 'GOES TO LOST PROPERTY.');
+          'THE SATCHEL IS FULL, SO IT WENT',
+          'TO LOST PROPERTY - THE DRAWER',
+          'IN ANY HOUSEKEEPING CART.');
       }
       qpush({ f: () => endBattle('caught') });
     } else {
