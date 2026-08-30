@@ -987,61 +987,67 @@ const MAX_SLOTS = ['OUTLINE', 'SKIN', 'SHADOW', 'HOODIE', 'FOLD', 'HAIR', 'BRASS
    outlives any single round. */
 const SKINS = { max: null, grids: null, mons: {} };
 
+/* Anatomy first, then detail. The head is ten pixels across and the shoulders
+   twelve, so the body is the wider of the two and he stands like a person
+   rather than balancing. There is a collar between them, the arms are two
+   pixels wide with a hand on the end of each, and the legs get two rows —
+   knee and foot — instead of being stubs on the bottom line. */
+
 const MAX_DOWN = [
 "................",
-"....555555......",
-"...55555555.....",
-"..5555555555....",
-"..5511111155....",
-"..5111111115....",
-"..5101111015....",
-"..5111221115....",
-"...0111110......",
-"..6033333306....",
-".06333333333 0..",
-".013336633310...",
-".0134444444310..",
-".0133333333310..",
-"..0333333330....",
-"..0440..0440....",
+"....00000000....",
+"...0555555550...",
+"...0555555550...",
+"...0551111550...",
+"..605101101506..",
+"..605111111506..",
+"...0511221150...",
+"....01111110....",
+"..033333333330..",
+"..034336633430..",
+"..034333663430..",
+"..014344443410..",
+"..066333333440..",
+"....0330..0330..",
+"...0440...0440..",
 ];
 
 const MAX_UP = [
 "................",
-"....555555......",
-"...55555555.....",
-"..5555555555....",
-"..5555555555....",
-"..5555555555....",
-"..5555555555....",
-"..5155555515....",
-"...0111110......",
-"..6033333306....",
-".063333333330...",
-".013333333310...",
-".0133444433310..",
-".0133333333310..",
-"..0333333330....",
-"..0440..0440....",
+"....00000000....",
+"...0555555550...",
+"...0555555550...",
+"...0555555550...",
+"..605555555506..",
+"..605555555506..",
+"...0555555550...",
+"....05555550....",
+"..033333333330..",
+"..034333333430..",
+"..034336633430..",
+"..014333333410..",
+"..044333333660..",
+"....0330..0330..",
+"...0440...0440..",
 ];
 
 const MAX_SIDE = [
 "................",
-"....5555........",
-"...555555.......",
-"..55555555......",
-"..5551111550....",
-"..5511111110....",
-"..5510111110....",
-"..5511122110....",
-"...0111111 0....",
-"..60333333 0....",
-".0633333333 0...",
-".01333366331 0..",
-".0134444433 0...",
-".01333333310....",
-"..033333330.....",
-"..04400440......",
+"....00000000....",
+"...0555555550...",
+"...0555555550...",
+"...0555511110...",
+"..60555510110...",
+"..60555511110...",
+"...0555511210...",
+"....05511110....",
+"...0333333330...",
+"...0433663330...",
+"...0433663330...",
+"...0134444310...",
+"...0663333440...",
+"....0330.0330...",
+"...0440..0440...",
 ];
 
 /* The grids the lab paints on, and the originals to put back on RESET. */
@@ -3231,11 +3237,12 @@ const MON_SLOTS = ['HIGHLIGHT', 'COAT', 'SHADOW', 'OUTLINE'];
 /* ------------------------------------------------------------------ storage */
 
 const SKIN_KEY = 'roaminals-skins-v1';
+const SKIN_ART = 2;      // bumped whenever Max is redrawn
 
 function saveSkins() {
   try {
     localStorage.setItem(SKIN_KEY, JSON.stringify({
-      v: 1, max: SKINS.max, grids: SKINS.grids, mons: SKINS.mons,
+      v: 1, art: SKIN_ART, max: SKINS.max, grids: SKINS.grids, mons: SKINS.mons,
     }));
     return true;
   } catch (e) { return false; }
@@ -3246,7 +3253,9 @@ function loadSkins() {
     const d = JSON.parse(localStorage.getItem(SKIN_KEY));
     if (!d) return false;
     SKINS.max = d.max || null;
-    SKINS.grids = d.grids || null;
+    /* Pixels painted onto an older drawing of Max would land in the wrong
+       places on this one, so a redraw drops the paint and keeps the colours. */
+    SKINS.grids = d.art === SKIN_ART ? (d.grids || null) : null;
     SKINS.mons = d.mons || {};
     applySkins();
     return true;
