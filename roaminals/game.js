@@ -2035,9 +2035,21 @@ function buildFloor(fi) {
   let secret = null;
   if (f.machines) {
     const rm = rooms[3];
+
+    /* Three in a row along the top of the room, on a stretch with solid rock
+       behind it — otherwise a machine can end up parked in a doorway, which
+       both looks wrong and quietly walls off a corridor. */
+    let mx = clamp(rm.cx - 1, 1, FW - 4), my = clamp(rm.y, 1, FH - 3);
+    for (let x = rm.x; x <= rm.x + rm.w - 3; x++) {
+      let ok = true;
+      for (let i = 0; i < 3; i++) {
+        if (g[rm.y][x + i] !== '.' || g[rm.y - 1][x + i] !== '#') { ok = false; break; }
+      }
+      if (ok) { mx = x; my = rm.y; break; }
+    }
+
     for (let i = 0; i < 3; i++) {
-      const x = clamp(rm.cx - 1 + i, 1, FW - 2);
-      const y = clamp(rm.y, 1, FH - 3);
+      const x = mx + i, y = my;
       g[y][x] = 'W';
       g[y + 1][x] = '.';
       machines.push({ x, y, kind: i === 0 ? 'door' : 'rat' });
