@@ -92,6 +92,10 @@ const Accounts = (() => {
     if (/already registered|already been registered/i.test(m)) return 'That email already has an account. Try signing in instead.';
     if (/invalid login credentials/i.test(m)) return 'That email and password do not match.';
     if (/email not confirmed/i.test(m)) return 'Check your email and click the confirmation link first.';
+    // `reviews` has `unique (user_id, game_key)`, so a second review for the
+    // same game is *also* a duplicate-key error. It has to be caught before the
+    // username case below, or posting twice tells you your name is taken.
+    if (/reviews_user_id_game_key|game_key/i.test(m)) return 'You have already reviewed this one. Delete your old review first.';
     if (/duplicate key|profiles_username_key/i.test(m)) return 'That username is taken. Pick another.';
     if (/password should be at least/i.test(m)) return 'Password needs to be at least 6 characters.';
     if (/rate limit|too many/i.test(m)) return 'Too many tries. Wait a minute and try again.';
