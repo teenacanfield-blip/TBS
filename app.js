@@ -220,8 +220,16 @@ function authBox() {
   return `
   <form class="rv-auth" data-auth="${signingUp ? 'signup' : 'signin'}">
     <p class="rv-auth-lead">${signingUp
-      ? 'Make an account to post reviews. Your username is what everyone sees — your email is not shown to anyone.'
-      : 'Sign in to post a review.'}</p>
+      ? 'Make an account to post reviews and put your own games up. Your username is what everyone sees — your email is not shown to anyone.'
+      : 'Sign in to post a review or put a game up.'}</p>
+
+    <!-- One tap with a Google account. Nothing to remember, and the email is
+         already confirmed, so there is no link to go and click. -->
+    <button type="button" class="btn google" data-google>
+      <span class="g-mark" aria-hidden="true">G</span> Continue with Google
+    </button>
+    <p class="rv-or"><span>or use an email and password</span></p>
+
 
     <input name="email" class="rv-input" type="email" required
       maxlength="120" placeholder="Email" autocomplete="email" />
@@ -309,6 +317,219 @@ function reviewBlock(key, what) {
     <p class="rv-foot">${LIVE
       ? 'Reviews are public — everyone who visits sees them. You can delete your own at any time.'
       : 'Reviews are saved in this browser only — they are yours to read, not published anywhere.'}</p>
+  </div>`;
+}
+
+/* ------------------------------------------------------------- community */
+
+/* Games made by other people. Same two modes as the reviews above: without a
+ * Supabase project there is nothing to talk to, so the tab explains itself
+ * rather than pretending to work.
+ *
+ * Three lists, fetched separately because they answer different questions and
+ * have different audiences: what everyone can play, what you have put up, and
+ * what is waiting for the owner to look at. */
+const COM = typeof Community !== 'undefined' && Community.configured;
+
+// Whose approval it is. Set `ownerName` in supabase-config.js to change it.
+const OWNER_NAME =
+  (typeof SUPABASE !== 'undefined' && SUPABASE.ownerName) || 'Thirsty Bear Studios';
+
+const com = {
+  approved: { state: 'idle', list: [], error: '' },
+  mine:     { state: 'idle', list: [], error: '' },
+  queue:    { state: 'idle', list: [], error: '' },
+};
+
+const COM_FETCH = {
+  approved: () => Community.listApproved(),
+  mine:     () => Community.listMine(),
+  queue:    () => Community.listPending(),
+};
+
+// Same shape as ensureReviews: only an idle slot starts a request, so calling
+// this from the render pass cannot loop.
+function ensureCommunity(which) {
+  const slot = com[which];
+  if (!COM || slot.state !== 'idle') return;
+  slot.state = 'loading';
+  COM_FETCH[which]()
+    .then((list) => { slot.state = 'ready'; slot.list = list; })
+    .catch((err) => { slot.state = 'error'; slot.error = err.message; })
+    .then(() => render());
+}
+
+function invalidateCommunity() {
+  Object.keys(com).forEach((k) => { com[k] = { state: 'idle', list: [], error: '' }; });
+}
+
+// A submitted game, drawn like the demo cards so the tab does not look bolted
+// on. There is no cover art to draw, so the accent colour is the cover.
+function communityCard(g) {
+  return `
+  <button class="card" data-complay="${g.id}" style="--accent:${g.accent};--accent-ink:#0a0d13"
+          aria-label="${esc(g.title)}">
+    <div class="card-art com-art" style="background:
+      radial-gradient(circle at 50% 42%, ${g.accent}44, transparent 68%), var(--bg-2)">
+      <span class="com-initial" style="color:${g.accent}">${esc(g.title.slice(0, 1).toUpperCase())}</span>
+      <div class="card-play"><span>${ICON.play}</span></div>
+    </div>
+    <span class="card-badge">${g.featured ? 'Featured' : 'Community'}</span>
+    <div class="card-body">
+      <div class="card-title">${pixTitle(g.title, 3, 12)}</div>
+      <div class="card-tag">${esc(g.tagline || 'A game by ' + g.who)}</div>
+      <div class="card-meta"><span>by ${esc(g.who)}</span></div>
+    </div>
+  </button>`;
+}
+
+// The form for putting a game up. Deliberately short: a name, where it lives,
+// and enough words to tell someone whether they want to play it.
+function communityForm() {
+  return `
+  <form class="panel com-form" data-comsubmit>
+    <h3 style="margin:0 0 4px">Put a game up</h3>
+    <p class="com-lead">
+      Your game stays where it already lives — itch.io, Scratch, your own site.
+      Paste the link and it goes to ${esc(OWNER_NAME)} to look at before anyone else sees it.
+    </p>
+
+    <input name="title" class="rv-input" required maxlength="60" placeholder="Game name" />
+    <input name="tagline" class="rv-input" maxlength="90" placeholder="One line — what is it? (optional)" />
+    <input name="url" class="rv-input" required type="url" inputmode="url"
+      placeholder="https://… the link to your game" />
+    <textarea name="blurb" class="rv-input" rows="3" maxlength="600"
+      placeholder="Tell people about it (optional)"></textarea>
+
+    <div class="com-colour">
+      <label for="com-accent">Cover colour</label>
+      <input id="com-accent" name="accent" type="color" value="#5ce08a" />
+    </div>
+
+    <div class="row">
+      <button type="submit" class="btn play small">Send it in</button>
+      <span class="rv-error" hidden></span>
+    </div>
+  </form>`;
+}
+
+// One row in either "your games" or the moderation queue.
+function comRow(g, moderating) {
+  const badge =
+    g.status === 'approved' ? `<span class="com-pill ok">${g.featured ? 'On the front page' : 'Approved'}</span>` :
+    g.status === 'rejected' ? `<span class="com-pill no">Not this time</span>` :
+    `<span class="com-pill wait">Waiting to be looked at</span>`;
+
+  return `
+  <li class="com-item" style="--accent:${g.accent}">
+    <div class="com-item-head">
+      <b>${esc(g.title)}</b>
+      ${badge}
+      <span class="com-by">by ${esc(g.who)}</span>
+    </div>
+    ${g.tagline ? `<p class="com-tag">${esc(g.tagline)}</p>` : ''}
+    ${g.blurb ? `<p class="com-blurb">${esc(g.blurb)}</p>` : ''}
+    <p class="com-link"><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer nofollow">${esc(g.url)}</a></p>
+    ${g.note ? `<p class="com-note"><b>Note:</b> ${esc(g.note)}</p>` : ''}
+
+    <div class="row com-actions">
+      ${moderating ? `
+        <input class="rv-input com-note-in" data-note="${g.id}" maxlength="200"
+          placeholder="A line back to the author (optional)" />
+        <button class="btn play small" data-comdecide="${g.id}:approved">Approve</button>
+        <button class="btn ghost small" data-comdecide="${g.id}:rejected">Reject</button>` : ''}
+      ${!moderating && g.status === 'approved' && Accounts.isAdmin ? `
+        <button class="btn ghost small" data-comfeature="${g.id}:${g.featured ? '0' : '1'}">
+          ${g.featured ? 'Take off the front page' : 'Put on the front page'}
+        </button>` : ''}
+      ${g.mine || Accounts.isAdmin
+        ? `<button class="btn ghost small" data-comdelete="${g.id}">Delete</button>` : ''}
+    </div>
+  </li>`;
+}
+
+function viewCommunity(q) {
+  const head = `
+    <div class="sec-head" style="margin-bottom:6px">
+      <h2>${pixTitle('Community', 5)}</h2>
+      <span class="sub">games made by everyone else</span>
+    </div>`;
+
+  // Nothing to talk to yet. Say so plainly rather than showing a form that
+  // cannot possibly work.
+  if (!COM) {
+    return `
+    <div class="wrap">
+      ${head}
+      <div class="panel">
+        <p style="margin:0 0 10px">The Community area is built, but it is not switched on yet.</p>
+        <p style="margin:0;color:var(--text-dim)">
+          It needs a Supabase project before people can sign in and put games up —
+          <b>COMMUNITY-SETUP.md</b> in the project folder walks through it. Until then the
+          rest of the site works exactly as it always has.
+        </p>
+      </div>
+    </div>`;
+  }
+
+  ensureCommunity('approved');
+  const signedIn = Boolean(Accounts.session);
+  if (signedIn) ensureCommunity('mine');
+  if (Accounts.isAdmin) ensureCommunity('queue');
+
+  const all = com.approved.list;
+  const list = q
+    ? all.filter((g) => (g.title + ' ' + g.tagline + ' ' + g.blurb + ' ' + g.who)
+        .toLowerCase().includes(q.toLowerCase()))
+    : all;
+
+  return `
+  <div class="wrap">
+    ${head}
+    <p style="margin:0 0 22px;color:var(--text-dim);max-width:62ch">
+      Games other people made. Anyone with an account can put one up; they appear
+      here once ${esc(OWNER_NAME)} has played them.
+    </p>
+
+    ${Accounts.isAdmin && com.queue.list.length ? `
+    <section class="sec">
+      <div class="sec-head">
+        <h2>${pixTitle('Waiting for you', 3)}</h2>
+        <span class="sub">${com.queue.list.length} to look at</span>
+      </div>
+      <ul class="com-list">${com.queue.list.map((g) => comRow(g, true)).join('')}</ul>
+    </section>` : ''}
+
+    ${signedIn ? communityForm() : `
+    <div class="panel">
+      <p style="margin:0 0 10px"><b>Made a game? Put it up here.</b></p>
+      <p style="margin:0 0 14px;color:var(--text-dim)">
+        You need an account so people can see who made what, and so you can take
+        your own game down again.
+      </p>
+      ${authBox()}
+    </div>`}
+
+    ${signedIn && com.mine.list.length ? `
+    <section class="sec">
+      <div class="sec-head"><h2>${pixTitle('Your games', 3)}</h2></div>
+      <ul class="com-list">${com.mine.list.map((g) => comRow(g, false)).join('')}</ul>
+    </section>` : ''}
+
+    <section class="sec">
+      <div class="sec-head">
+        <h2>${pixTitle('Community games', 3)}</h2>
+        <span class="sub">${all.length} up so far</span>
+      </div>
+      ${com.approved.state === 'loading' ? `<p class="rv-loading">Loading games…</p>` : ''}
+      ${com.approved.state === 'error'
+        ? `<p class="rv-error-msg">Could not load the community games: ${esc(com.approved.error)}</p>` : ''}
+      ${list.length
+        ? `<div class="grid">${list.map(communityCard).join('')}</div>`
+        : com.approved.state === 'ready'
+          ? `<p style="color:var(--text-dim)">${q ? 'Nothing here matches that.' : 'Nobody has put a game up yet. Be first.'}</p>`
+          : ''}
+    </section>
   </div>`;
 }
 
@@ -824,6 +1045,20 @@ function play(id, entry) {
   player.pop.href = g.url;
   player.el.style.setProperty('--accent', g.accent);
   player.el.hidden = false;
+  /* Somebody else's game gets locked in a box. Without `allow-same-origin` the
+   * frame runs on a throwaway origin, so even if the link redirected onto this
+   * site the code inside could not read the signed-in visitor's token out of
+   * localStorage. Leaving out `allow-top-navigation` and `allow-popups` stops it
+   * dragging the whole page somewhere else or throwing up windows.
+   *
+   * The cost is that a community game cannot save your progress in the frame —
+   * the Open-in-its-own-tab link in the player bar is there for that, where the
+   * game runs normally on its author's own site. */
+  if (g.community) {
+    player.frame.setAttribute('sandbox', 'allow-scripts allow-pointer-lock');
+  } else {
+    player.frame.removeAttribute('sandbox');
+  }
   player.frame.src = g.url;
   document.body.style.overflow = 'hidden';
 
@@ -900,11 +1135,13 @@ function route() {
   if (h.startsWith('demo/')) return { name: 'demo', id: h.slice(5) };
   if (h === 'library') return { name: 'library' };
   if (h === 'demos') return { name: 'demos' };
+  if (h === 'community') return { name: 'community' };
   return { name: 'home' };
 }
 
 // Which top tab lights up for each view.
-const TAB_FOR = { game: 'library', library: 'library', demo: 'demos', demos: 'demos', home: 'home' };
+const TAB_FOR = { game: 'library', library: 'library', demo: 'demos', demos: 'demos',
+                  community: 'community', home: 'home' };
 
 function render() {
   const r = route();
@@ -915,6 +1152,7 @@ function render() {
     r.name === 'demo' ? viewDemo(r.id) :
     r.name === 'library' ? viewLibrary(q) :
     r.name === 'demos' ? viewDemos(q) :
+    r.name === 'community' ? viewCommunity(q) :
     viewHome(q);
 
   document.querySelectorAll('.tabs a').forEach((a) =>
@@ -974,12 +1212,61 @@ document.addEventListener('click', (e) => {
     return;
   }
 
+  if (e.target.closest('[data-google]')) {
+    // Leaves the page entirely; Supabase brings them back to #/community.
+    Accounts.signInWithGoogle();
+    return;
+  }
+
   if (e.target.closest('[data-signout]')) {
     Accounts.signOut();
     Object.keys(live).forEach(invalidateReviews); // drop the "mine" flags
+    invalidateCommunity();
     render();
     return;
   }
+
+  /* ------------------------------------------------------ community games */
+
+  const comPlay = e.target.closest('[data-complay]');
+  if (comPlay) {
+    const g = com.approved.list.find((x) => String(x.id) === comPlay.dataset.complay);
+    // `community: true` is what tells play() to put the frame in a sandbox.
+    if (g) play(`community:${g.id}`, { ...g, community: true });
+    return;
+  }
+
+  const decide = e.target.closest('[data-comdecide]');
+  if (decide) {
+    const [id, status] = decide.dataset.comdecide.split(':');
+    const noteBox = document.querySelector(`[data-note="${id}"]`);
+    decide.disabled = true;
+    Community.decide(id, status, noteBox ? noteBox.value : '')
+      .then(() => { invalidateCommunity(); render(); })
+      .catch((err) => { decide.disabled = false; alert(err.message); });
+    return;
+  }
+
+  const comFeat = e.target.closest('[data-comfeature]');
+  if (comFeat) {
+    const [id, on] = comFeat.dataset.comfeature.split(':');
+    comFeat.disabled = true;
+    Community.feature(id, on === '1')
+      .then(() => { invalidateCommunity(); render(); })
+      .catch((err) => { comFeat.disabled = false; alert(err.message); });
+    return;
+  }
+
+  const comDel = e.target.closest('[data-comdelete]');
+  if (comDel) {
+    if (!confirm('Take this game down? It cannot be undone.')) return;
+    comDel.disabled = true;
+    Community.remove(comDel.dataset.comdelete)
+      .then(() => { invalidateCommunity(); render(); })
+      .catch((err) => { comDel.disabled = false; alert(err.message); });
+    return;
+  }
+
 
   const demo = e.target.closest('[data-demo]');
   if (demo) { location.hash = `#/demo/${demo.dataset.demo}`; return; }
@@ -1025,6 +1312,45 @@ document.addEventListener('submit', (e) => {
   if (auth) {
     e.preventDefault();
     handleAuth(auth);
+    return;
+  }
+
+  const comForm = e.target.closest('[data-comsubmit]');
+  if (comForm) {
+    e.preventDefault();
+    const btn = comForm.querySelector('button[type="submit"]');
+    const slot = comForm.querySelector('.rv-error');
+    const fields = {
+      title: comForm.elements.title.value,
+      tagline: comForm.elements.tagline.value,
+      url: comForm.elements.url.value,
+      blurb: comForm.elements.blurb.value,
+      accent: comForm.elements.accent.value,
+    };
+
+    // Check before disabling anything, so a typo does not leave a dead button.
+    const bad = Community.check(fields);
+    if (bad) {
+      slot.textContent = bad;
+      slot.hidden = false;
+      return;
+    }
+
+    slot.hidden = true;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    Community.submit(fields)
+      .then(() => {
+        comForm.reset();
+        invalidateCommunity();
+        render();
+      })
+      .catch((err) => {
+        btn.disabled = false;
+        btn.textContent = 'Send it in';
+        slot.textContent = err.message;
+        slot.hidden = false;
+      });
     return;
   }
 

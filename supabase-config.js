@@ -15,4 +15,7 @@
 const SUPABASE = {
   url: '',      // e.g. 'https://abcdefghijklm.supabase.co'
   anonKey: '',  // the long "anon public" key from Project Settings -> API
+
+  // Whose name the Community tab uses when it says who checks submissions.
+  ownerName: 'Thirsty Bear Studios',
 };

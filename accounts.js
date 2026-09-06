@@ -188,6 +188,73 @@ const Accounts = (() => {
     return session;
   }
 
+  /* -------------------------------------------------------------- google */
+
+  /* "Join with your Gmail". Supabase does the OAuth dance; we only have to send
+   * them there and pick the tokens back up when Google bounces them home.
+   *
+   * The catch is the return trip: Supabase hands the tokens back in the URL
+   * *hash* (#access_token=...), and this site already uses the hash for its own
+   * routing. captureRedirect() below runs before the router and clears it. */
+
+  function signInWithGoogle() {
+    // Come back to the page they left from, minus any hash of our own.
+    const back = location.origin + location.pathname + '#/community';
+    location.href =
+      `${url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(back)}`;
+  }
+
+  // Reads a fresh OAuth session out of the URL hash, if one is sitting there.
+  // Returns true when it consumed one, so the caller knows the hash was ours.
+  function captureRedirect() {
+    const raw = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+    if (!raw.includes('access_token=')) return false;
+
+    const p = new URLSearchParams(raw);
+    const access = p.get('access_token');
+    if (!access) return false;
+
+    storeSession({
+      access_token: access,
+      refresh_token: p.get('refresh_token') || '',
+      expires_at: Date.now() + (Number(p.get('expires_in')) || 3600) * 1000,
+      user: { id: '', email: '' },
+      username: '',
+    });
+
+    // Wipe the tokens out of the address bar before anything can log or share
+    // them, and hand the hash back to the router.
+    history.replaceState(null, '', location.pathname + '#/community');
+    return true;
+  }
+
+  /* Google gives us a token but no profile, so fill in who they are. Also used
+   * after a password sign-in that arrived without a username. */
+  async function loadProfile() {
+    if (!session) return null;
+    try {
+      const me = await authed('/auth/v1/user');
+      storeSession({
+        ...session,
+        user: { id: me.id, email: me.email },
+      });
+      const rows = await authed(
+        `/rest/v1/profiles?select=username,is_admin&id=eq.${me.id}&limit=1`
+      );
+      if (rows && rows[0]) {
+        storeSession({
+          ...session,
+          username: rows[0].username,
+          isAdmin: Boolean(rows[0].is_admin),
+        });
+      }
+    } catch (e) {
+      // A dead token lands here. Better to be signed out than half signed in.
+      storeSession(null);
+    }
+    return session;
+  }
+
   function signOut() {
     // Best-effort server-side revoke; the local session goes either way.
     if (session) {
@@ -235,17 +302,30 @@ const Accounts = (() => {
     await authed(`/rest/v1/reviews?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
+  // Picked up before the router reads the hash, so an OAuth return never gets
+  // mistaken for a route. Safe to call when there is nothing to capture.
+  const cameBackFromGoogle = configured ? captureRedirect() : false;
+  if (cameBackFromGoogle) loadProfile();
+
   return {
     configured,
+    cameBackFromGoogle,
     get session() { return session; },
     get username() { return session ? session.username : ''; },
+    get isAdmin() { return Boolean(session && session.isAdmin); },
     onChange(fn) { listeners.add(fn); },
     checkUsername,
     signUp,
     signIn,
+    signInWithGoogle,
+    loadProfile,
     signOut,
     listReviews,
     postReview,
     deleteReview,
+    // Shared plumbing so community.js does not have to repeat the fetch,
+    // token-refresh and error-tidying logic.
+    rest: (path, opts) => api(path, { headers: { Authorization: `Bearer ${key}` }, ...(opts || {}) }),
+    restAuthed: authed,
   };
 })();

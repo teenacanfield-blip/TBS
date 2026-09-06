@@ -884,6 +884,128 @@ table.keys td:last-child { color: var(--text-dim); }
   min-width: 44px;
 }
 
+/* --------------------------------------------------------- community */
+
+/* Community covers have no art to draw, so the author's chosen colour and the
+   first letter of the title do the job the pixel capsules do elsewhere. */
+.com-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.com-initial {
+  font-family: var(--mono);
+  font-size: 62px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.85;
+  text-shadow: 0 3px 0 var(--ink);
+}
+
+.com-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px; }
+.com-lead { margin: 0 0 4px; color: var(--text-dim); font-size: 13px; max-width: 62ch; }
+
+.com-colour {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.com-colour input[type="color"] {
+  width: 46px;
+  height: 30px;
+  padding: 0;
+  background: none;
+  border: 3px solid var(--line);
+  cursor: pointer;
+}
+
+.com-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+
+.com-item {
+  border: 3px solid var(--line);
+  border-left-width: 6px;
+  border-left-color: var(--accent, var(--line));
+  background: var(--panel);
+  padding: 13px 15px;
+}
+
+.com-item-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.com-by { color: var(--text-mute); font-size: 12px; }
+
+.com-pill {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 2px solid;
+}
+.com-pill.ok   { color: var(--accent);  border-color: var(--accent); }
+.com-pill.no   { color: #ff8080;        border-color: #7a3030; }
+.com-pill.wait { color: var(--text-dim); border-color: var(--line); }
+
+.com-tag   { margin: 7px 0 0; color: var(--text); font-size: 14px; }
+.com-blurb { margin: 5px 0 0; color: var(--text-dim); font-size: 13px; max-width: 70ch; }
+
+.com-link { margin: 7px 0 0; font-size: 12px; overflow-wrap: anywhere; }
+.com-link a { color: var(--text-mute); }
+.com-link a:hover { color: var(--accent); }
+
+.com-note {
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  background: var(--bg-2);
+  border-left: 3px solid var(--line);
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.com-actions { margin-top: 11px; gap: 8px; flex-wrap: wrap; align-items: center; }
+.com-note-in { flex: 1 1 220px; min-width: 0; }
+
+/* ------------------------------------------------------ google button */
+
+.btn.google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--text);
+  color: var(--ink);
+  border-color: var(--text);
+}
+.btn.google:hover { background: #fff; border-color: #fff; }
+
+.g-mark {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  /* Google's four colours, on the one letter everyone recognises. */
+  background: conic-gradient(from -45deg, #ea4335, #fbbc05, #34a853, #4285f4, #ea4335);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* A rule with the words sitting in the gap. */
+.rv-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  color: var(--text-mute);
+  font-size: 11px;
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.rv-or::before,
+.rv-or::after { content: ""; flex: 1; height: 3px; background: var(--line-soft); }
+
 /* --------------------------------------------------------- responsive */
 
 @media (max-width: 1000px) {
@@ -930,6 +1052,11 @@ table.keys td:last-child { color: var(--text-dim); }
    every title anyway, so the bar keeps the nav and drops the box. */
 @media (max-width: 430px) {
   .search { display: none; }
+  /* Four tabs is one more than this bar was drawn for, so everything tightens
+     up a notch to keep Community on screen. */
+  .topbar { gap: 6px; padding: 0 8px; }
+  .tabs { gap: 2px; }
+  .tabs a { padding: 8px 6px; font-size: 10px; letter-spacing: 0.06em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
