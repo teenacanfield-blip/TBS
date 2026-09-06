@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="dark">
 <title>Scaly Roam — Island</title>
 <style>
   :root{
@@ -362,6 +364,75 @@
   }
   #startBtn:hover{ filter:brightness(1.08); }
   #startBtn:active{ transform:translateY(1px); }
+
+  /* ------------------------------------------------------------ touch pad */
+  /* Movement was keyboard- and gamepad-only, so the island could be looked at
+     on a phone but not walked around. These buttons hold the same entries in
+     `keys` that the keyboard sets, and the action buttons call the same
+     functions the keydown handler calls. */
+  #touch{ display:none; }
+  body.touch #touch{ display:block; }
+  body.touch #controls{ display:none; }
+  /* The pad belongs to the island, not the colour picker in front of it. */
+  #startScreen:not(.hidden) ~ #touch{ display:none; }
+
+  #touch .tb{
+    position:absolute;
+    display:flex; align-items:center; justify-content:center;
+    margin:0; padding:0;
+    font-family:inherit; font-size:20px; line-height:1;
+    color:var(--ui-text);
+    background:rgba(35,50,31,0.72);
+    border:2px solid rgba(232,177,63,0.45);
+    border-radius:12px;
+    user-select:none; -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:none;
+    z-index:40;
+  }
+  #touch .tb:active, #touch .tb.on{
+    background:rgba(232,177,63,0.38);
+    border-color:var(--accent);
+  }
+  #touch .tb.small{ font-size:11px; letter-spacing:.06em; }
+
+  /* Cross, bottom-left. 56px cells keep every target thumb-sized. */
+  #touch .up, #touch .down{ width:56px; height:56px; left:calc(14px + 56px); }
+  #touch .left, #touch .right{ width:56px; height:56px; bottom:calc(14px + 56px); }
+  #touch .up{ bottom:calc(14px + 112px); }
+  #touch .down{ bottom:14px; }
+  #touch .left{ left:14px; }
+  #touch .right{ left:calc(14px + 112px); }
+
+  /* Actions, bottom-right. */
+  #touch .act{ right:14px; width:58px; height:58px; border-radius:50%; font-size:12px; }
+  #touch .a-jump{ bottom:calc(14px + 68px); width:66px; height:66px; font-size:13px; }
+  #touch .a-lick{ bottom:14px; right:calc(14px + 68px); }
+  #touch .a-hide{ bottom:14px; }
+  #touch .a-more{ bottom:calc(14px + 140px); width:44px; height:44px; font-size:16px; }
+
+  /* The rest of the verbs, folded away behind the ⋯ button. */
+  #touchMore{
+    position:absolute; right:14px; bottom:calc(14px + 190px);
+    display:none; flex-direction:column; gap:8px; z-index:40;
+  }
+  #touchMore.open{ display:flex; }
+  #touchMore .tb{ position:static; width:74px; height:38px; font-size:11px; letter-spacing:.06em; }
+
+  @media (max-height:430px){
+    #touch .up, #touch .down, #touch .left, #touch .right{ width:46px; height:46px; }
+    #touch .up{ bottom:calc(10px + 92px); }
+    #touch .left{ left:10px; bottom:calc(10px + 46px); }
+    #touch .right{ left:calc(10px + 92px); bottom:calc(10px + 46px); }
+    #touch .down{ bottom:10px; }
+    #touch .up, #touch .down{ left:calc(10px + 46px); }
+    #touch .act{ width:48px; height:48px; right:10px; }
+    #touch .a-jump{ width:54px; height:54px; bottom:calc(10px + 56px); }
+    #touch .a-lick{ bottom:10px; right:calc(10px + 56px); }
+    #touch .a-hide{ bottom:10px; }
+    #touch .a-more{ bottom:calc(10px + 118px); }
+    #touchMore{ bottom:calc(10px + 166px); }
+  }
 </style>
 </head>
 <body>
@@ -407,6 +478,27 @@
     Sleep: <b>E</b> &nbsp;·&nbsp;
     Trade: <b>T</b> &nbsp;·&nbsp;
     Press <b>G</b> for controller debug info
+  </div>
+
+  <div id="touch" aria-hidden="true">
+    <button type="button" class="tb up"    data-key="ArrowUp"    aria-label="Walk forward">&#9650;</button>
+    <button type="button" class="tb left"  data-key="ArrowLeft"  aria-label="Turn left">&#9664;</button>
+    <button type="button" class="tb right" data-key="ArrowRight" aria-label="Turn right">&#9654;</button>
+    <button type="button" class="tb down"  data-key="ArrowDown"  aria-label="Walk back">&#9660;</button>
+
+    <button type="button" class="tb act a-jump" data-act="jump" aria-label="Jump">JUMP</button>
+    <button type="button" class="tb act a-lick" data-act="lick" aria-label="Lick">LICK</button>
+    <button type="button" class="tb act a-hide" data-act="hide" aria-label="Hide">HIDE</button>
+    <button type="button" class="tb act a-more" data-act="more" aria-label="More actions">&#8943;</button>
+
+    <div id="touchMore">
+      <button type="button" class="tb small" data-act="eat"   aria-label="Eat">EAT</button>
+      <button type="button" class="tb small" data-act="chop"  aria-label="Chop">CHOP</button>
+      <button type="button" class="tb small" data-act="farm"  aria-label="Farm">FARM</button>
+      <button type="button" class="tb small" data-act="bag"   aria-label="Inventory">BAG</button>
+      <button type="button" class="tb small" data-act="sleep" aria-label="Sleep">SLEEP</button>
+      <button type="button" class="tb small" data-act="trade" aria-label="Trade">TRADE</button>
+    </div>
   </div>
 
   <div id="inventoryOverlay">
@@ -1952,6 +2044,57 @@
 
   let gamepadIndex = null;
   let prevButtons = {};
+
+  /* ---------------------------------------------------------- touch pad */
+  /* Held buttons write the same `keys` entries the keyboard writes, so the
+     movement code below never learns that touch exists. The one-shot buttons
+     call the same functions the keydown handler calls. */
+  (function initTouch(){
+    const pad = document.getElementById('touch');
+    if (!pad) return;
+
+    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (!isTouch) return;
+    document.body.classList.add('touch');
+
+    const more = document.getElementById('touchMore');
+    const actions = {
+      jump:  tryJump,
+      hide:  tryToggleHide,
+      lick:  tryLick,
+      eat:   eatFood,
+      chop:  handleChopKeyPress,
+      farm:  tryFarm,
+      bag:   toggleInventory,
+      sleep: trySleep,
+      trade: toggleTrade,
+      more:  () => more && more.classList.toggle('open'),
+    };
+
+    for (const btn of pad.querySelectorAll('.tb')) {
+      const key = btn.dataset.key;
+      const act = btn.dataset.act;
+
+      const press = (e) => {
+        e.preventDefault();
+        btn.classList.add('on');
+        if (key) { keys[key] = true; return; }
+        const fn = actions[act];
+        if (fn) fn();
+      };
+      const release = (e) => {
+        e.preventDefault();
+        btn.classList.remove('on');
+        if (key) keys[key] = false;
+      };
+
+      btn.addEventListener('pointerdown', press);
+      btn.addEventListener('pointerup', release);
+      btn.addEventListener('pointercancel', release);
+      btn.addEventListener('pointerleave', release);
+      btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+  })();
   let gamepadApiBlocked = false;
 
   // Some browsers (e.g. Chrome opening a local file:// page) apply a

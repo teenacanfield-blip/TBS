@@ -26,7 +26,10 @@ html, body {
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  transform-origin: top center;
+  /* Scaled from the top-left, then centred by fitToScreen(). Centring with
+     `top center` looks right until the viewport is narrower than the 960px
+     box — at which point the scaled stage slides off to one side. */
+  transform-origin: top left;
 }
 
 canvas {

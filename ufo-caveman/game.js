@@ -3478,6 +3478,49 @@ function drawHud() {
   }
 }
 
+/* -------------------------------------------------------------- studio splash */
+
+function drawSplash() {
+  const t = game.splashT;
+
+  bx.fillStyle = '#07060c';
+  bx.fillRect(0, 0, BW, BH);
+
+  /* slow starfield so the plate is not dead still */
+  for (let i = 0; i < 40; i++) {
+    const sx = (i * 137) % BW, sy = (i * 89) % BH;
+    const tw = Math.sin(game.time * 1.4 + i) > 0.2;
+    bx.fillStyle = tw ? '#2a2440' : '#171325';
+    bx.fillRect(sx, sy, 1, 1);
+  }
+
+  /* the whole plate eases in, holds, and eases out */
+  const fadeIn = clamp(t / 0.6, 0, 1);
+  const fadeOut = clamp((SPLASH_TIME - t) / 0.6, 0, 1);
+  bx.globalAlpha = Math.min(fadeIn, fadeOut);
+
+  drawText('PRODUCED BY', BW / 2, 24, '#6f6a86', 1, 'center');
+  drawTextShadow('CLAUDE', BW / 2, 36, '#8fe6ff', 3, 'center');
+  drawText('AND', BW / 2, 64, '#6f6a86', 1, 'center');
+
+  /* studio mark at double size so it reads as a logo, not a sprite */
+  const bob = Math.round(Math.sin(game.time * 2) * 1);
+  bx.save();
+  bx.translate(BW / 2 - 24, 76 + bob);
+  bx.scale(2, 2);
+  blit(SPR.bear, 0, 0);
+  blit(SPR.mug, 15, 6);
+  bx.restore();
+
+  drawTextShadow('THIRSTY BEAR', BW / 2, 112, '#ffd479', 2, 'center');
+  drawTextShadow('STUDIOS', BW / 2, 128, '#ffd479', 2, 'center');
+
+  bx.globalAlpha = 1;
+  if (t > 1.2 && Math.floor(t * 2) % 2 === 0) {
+    drawText('PRESS SPACE', BW / 2, 166, '#4f4a63', 1, 'center');
+  }
+}
+
 /* ------------------------------------------------------------ character select */
 
 function drawChoose() {

@@ -1908,8 +1908,17 @@
       (window.innerHeight - pad) / VIEW_H,
       1
     );
-    gameWrap.style.transform = scale < 1 ? `scale(${scale})` : "";
-    document.body.style.height = scale < 1 ? `${VIEW_H * scale}px` : "";
+    if (scale < 1) {
+      // The wrap keeps its 960x600 layout box, so once it is scaled we place it
+      // by hand — `margin: auto` cannot centre a box wider than its container.
+      gameWrap.style.transform = `scale(${scale})`;
+      gameWrap.style.marginLeft = `${Math.max(0, (window.innerWidth - VIEW_W * scale) / 2)}px`;
+      gameWrap.style.marginTop = `${Math.max(0, (window.innerHeight - VIEW_H * scale) / 2)}px`;
+    } else {
+      gameWrap.style.transform = "";
+      gameWrap.style.marginLeft = "";
+      gameWrap.style.marginTop = "";
+    }
   }
   window.addEventListener("resize", fitToScreen);
   window.addEventListener("orientationchange", fitToScreen);

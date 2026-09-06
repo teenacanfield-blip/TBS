@@ -1,17 +1,209 @@
-<div style="display:flex;flex-direction:column;gap:8px">
-<h2 class="sr-only">Upgraded playable 3D RC Craze prototype with trees moved off the roads, a whip antenna on the car, boost and drift animations, and a bigger map</h2>
-<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text-secondary)">
-<div style="display:flex;gap:10px;align-items:center">
-<span id="modeLabel" style="background:var(--surface-1);padding:4px 10px;border-radius:6px">Free roam</span>
-<span id="timer" style="background:var(--surface-1);padding:4px 10px;border-radius:6px;min-width:32px;text-align:center"></span>
-</div>
-<div style="display:flex;gap:10px;align-items:center">
-<div style="width:80px;height:8px;background:var(--surface-1);border-radius:4px;overflow:hidden"><div id="boostbar" style="height:100%;width:100%;background:var(--fill-accent)"></div></div>
-<span id="score" style="background:var(--surface-1);padding:4px 10px;border-radius:6px">Wins 0 / 0</span>
-</div>
-</div>
-<div id="stage" style="border-radius:12px;overflow:hidden;border:0.5px solid var(--border);line-height:0"></div>
-<div style="font-size:12px;color:var(--text-muted)">Arrows or WASD to drive, shift to boost, space to drift, C to change car color. Drive into a colored zone to start a minigame.</div>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="color-scheme" content="dark" />
+<title>RC Craze</title>
+<style>
+/* This demo was written against the hub's design tokens but shipped without
+   them, so every colour resolved to nothing and the page rendered as black
+   serif text on black. They are defined here, keyed to the orange RC Craze
+   already uses on its cover in games.js. */
+:root {
+  --bg:             #0a0d13;
+  --surface-1:      #1d2534;
+  --border:         #303c54;
+  --text:           #e8edf6;
+  --text-secondary: #9aa6ba;
+  --text-muted:     #6d7a8f;
+  --fill-accent:    #ff9d3d;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* The page's real heading. The class was used but never defined, so the
+   description rendered as a wall of text above the game. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 8px;
+  padding-left: calc(8px + env(safe-area-inset-left));
+  padding-right: calc(8px + env(safe-area-inset-right));
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+#hudrow {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+#hudrow .group { display: flex; gap: 10px; align-items: center; }
+
+#hudrow .chip {
+  background: var(--surface-1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+#timer { min-width: 32px; text-align: center; }
+
+#boosttrack {
+  width: 80px;
+  height: 8px;
+  background: var(--surface-1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#boostbar { height: 100%; width: 100%; background: var(--fill-accent); }
+
+/* The stage takes whatever height is left over and the renderer is resized to
+   match it, so the car fills the screen instead of a fixed 820x520 letterbox. */
+#stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  line-height: 0;
+  touch-action: none;
+}
+
+#stage canvas { display: block; width: 100%; height: 100%; }
+
+#hint { flex: none; font-size: 12px; color: var(--text-muted); }
+
+/* ---------------------------------------------------------- touch controls */
+/* Shown only on a touch device. The buttons hold the same entries in `keys`
+   that the keyboard sets, so the driving code never learns about touch. */
+#touch { display: none; }
+body.touch #touch { display: block; }
+
+#touch .tb {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text);
+  background: rgba(21, 27, 38, 0.62);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(2px);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+#touch .tb:active,
+#touch .tb.on {
+  background: rgba(255, 157, 61, 0.32);
+  border-color: var(--fill-accent);
+}
+
+/* A cross, bottom-left. 56px cells keep every target at a thumb-sized 44px+. */
+#touch .up,
+#touch .down  { width: 56px; height: 56px; left: calc(14px + 56px); }
+#touch .left,
+#touch .right { width: 56px; height: 56px; bottom: calc(14px + 56px); }
+#touch .up    { bottom: calc(14px + 112px); }
+#touch .down  { bottom: 14px; }
+#touch .left  { left: 14px; }
+#touch .right { left: calc(14px + 112px); }
+
+/* Actions, bottom-right. */
+#touch .wide {
+  right: 14px;
+  width: 92px;
+  height: 44px;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+#touch .act-boost  { bottom: calc(14px + 104px); }
+#touch .act-drift  { bottom: calc(14px + 52px); }
+#touch .act-colour { bottom: 14px; }
+
+/* On a short landscape phone the cross would eat the view, so it shrinks. */
+@media (max-height: 420px) {
+  #touch .up, #touch .down, #touch .left, #touch .right { width: 46px; height: 46px; }
+  #touch .up    { bottom: calc(10px + 92px); }
+  #touch .left  { left: 10px; bottom: calc(10px + 46px); }
+  #touch .right { left: calc(10px + 92px); bottom: calc(10px + 46px); }
+  #touch .down  { bottom: 10px; }
+  #touch .up, #touch .down { left: calc(10px + 46px); }
+  #touch .wide { width: 78px; height: 38px; right: 10px; }
+  #touch .act-boost  { bottom: calc(10px + 88px); }
+  #touch .act-drift  { bottom: calc(10px + 44px); }
+  #touch .act-colour { bottom: 10px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="sr-only">RC Craze — a 3D remote-control car prototype</h1>
+
+  <div id="hudrow">
+    <div class="group">
+      <span id="modeLabel" class="chip">Free roam</span>
+      <span id="timer" class="chip"></span>
+    </div>
+    <div class="group">
+      <div id="boosttrack"><div id="boostbar"></div></div>
+      <span id="score" class="chip">Wins 0 / 0</span>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="touch">
+      <button type="button" class="tb up"    data-key="arrowup"    aria-label="Forward">&#9650;</button>
+      <button type="button" class="tb left"  data-key="arrowleft"  aria-label="Left">&#9664;</button>
+      <button type="button" class="tb right" data-key="arrowright" aria-label="Right">&#9654;</button>
+      <button type="button" class="tb down"  data-key="arrowdown"  aria-label="Reverse">&#9660;</button>
+      <button type="button" class="tb wide act-boost"  data-key="shift" aria-label="Boost">BOOST</button>
+      <button type="button" class="tb wide act-drift"  data-key=" "     aria-label="Drift">DRIFT</button>
+      <button type="button" class="tb wide act-colour" data-act="color" aria-label="Change car colour">COLOUR</button>
+    </div>
+  </div>
+
+  <div id="hint">Arrows or WASD to drive, shift to boost, space to drift, C to change car colour. Drive into a coloured zone to start a minigame.</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -30,8 +222,7 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 stage.appendChild(renderer.domElement);
-renderer.domElement.style.width = '100%';
-renderer.domElement.style.height = 'auto';
+// Sizing is the stylesheet's job now — see #stage canvas and fitRenderer().
 
 const camera = new THREE.PerspectiveCamera(58, W / H, 1, 4600);
 
@@ -329,14 +520,18 @@ let roundEndTime = 0;
 let wins = 0, rounds = 0;
 
 const keys = {};
+
+// Pulled out of the keydown handler so the on-screen COLOUR button can reuse it.
+function cycleCarColor() {
+  colorIdx = (colorIdx + 1) % carColors.length;
+  player.car.body.material.color.setHex(carColors[colorIdx]);
+}
+
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   keys[k] = true;
   if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
-  if (k === 'c') {
-    colorIdx = (colorIdx + 1) % carColors.length;
-    player.car.body.material.color.setHex(carColors[colorIdx]);
-  }
+  if (k === 'c') cycleCarColor();
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
@@ -634,6 +829,64 @@ function loop(now) {
   updateHud();
   requestAnimationFrame(loop);
 }
+
+/* ------------------------------------------------------------ fit to screen */
+/* The renderer was pinned to 820x520, which on a phone left the car in a small
+   letterbox. It now follows the stage, which is whatever the viewport has left
+   after the HUD rows. */
+function fitRenderer() {
+  const w = Math.max(1, stage.clientWidth);
+  const h = Math.max(1, stage.clientHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', fitRenderer);
+window.addEventListener('orientationchange', fitRenderer);
+fitRenderer();
+
+/* --------------------------------------------------------- touch controls */
+/* Each button holds down the same entry in `keys` that a keyboard would, so
+   nothing downstream needs to know whether it was a thumb or a key. */
+(function initTouch() {
+  const pad = document.getElementById('touch');
+  if (!pad) return;
+
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if (!isTouch) return;
+  document.body.classList.add('touch');
+
+  for (const btn of pad.querySelectorAll('.tb')) {
+    const key = btn.dataset.key;
+    const act = btn.dataset.act;
+
+    const press = (e) => {
+      e.preventDefault();
+      btn.classList.add('on');
+      if (act === 'color') cycleCarColor();
+      else if (key) keys[key] = true;
+      // A held button must not also count as a page gesture.
+      if (btn.setPointerCapture && e.pointerId !== undefined) {
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+    };
+    const release = (e) => {
+      e.preventDefault();
+      btn.classList.remove('on');
+      if (key) keys[key] = false;
+    };
+
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+})();
+
 requestAnimationFrame(loop);
 })();
 </script>
+</body>
+</html>

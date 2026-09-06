@@ -54,7 +54,9 @@ html, body {
 
 .tb {
   pointer-events: auto;
-  width: 14vh;
+  /* Sized off the viewport height alone, the four buttons needed more than a
+     phone is wide in portrait and the right arrow slid under the UFO pad. */
+  width: min(14vh, 20vw);
   height: 9vh;
   min-width: 62px;
   min-height: 48px;

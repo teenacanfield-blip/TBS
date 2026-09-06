@@ -59,9 +59,14 @@
   .title-block p{margin:0;color:var(--parchment-dark);font-size:.95rem;letter-spacing:.08em;text-transform:uppercase;}
 
   .subtitle{font-family:'Cinzel',serif;font-size:1.1rem;color:var(--gold);margin:10px 0 14px;letter-spacing:.04em;}
-
   .grid{
-    display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%;max-width:920px;
+    /* `1fr` bottoms out at a card's min-content, so on a phone the third racer
+       hung off the side. `minmax(0,1fr)` lets the columns actually shrink;
+       below 560px there is only room for two of them. */
+    display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:14px;width:100%;max-width:920px;
+  }
+  @media (max-width:560px){
+    .grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
   }
   .card{
     background:linear-gradient(160deg, var(--parchment) 0%, var(--parchment-dark) 100%);
