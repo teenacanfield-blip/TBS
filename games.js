@@ -49,9 +49,11 @@ const DEMOS = [
     accent: '#ff5f6d',
     accentDark: '#2a0409',
     url: '',
-    // Not built yet — only the sprite sheet on the Desktop exists so far. It
-    // turns playable the moment demos/ninja-wing-wing/index.html is there.
-    blurb: 'A ninja, a pair of wings, and a lot of shuriken.',
+    blurb:
+      'A ninja with a pair of wings and a pouch of shuriken. Every throw shoves ' +
+      'you the opposite way, so throwing downward is how you climb — the wings ' +
+      'are only ever a top-up, and the pouch only refills on the ground. Clear ' +
+      'waves of cave goblins for as long as you can last.',
   },
   {
     id: 'legend-cart',
