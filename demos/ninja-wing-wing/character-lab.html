@@ -53,14 +53,33 @@ header a { color: var(--accent); }
 }
 .tabs button.on { color: var(--text); border-color: var(--accent); }
 
+/* Two halves: the things you draw with, and the things you type into. The
+   drawing half keeps the grid, the palette and the preview within one glance
+   of each other — the first version stacked them and you ended up scrolling
+   between the colour you picked and the pixel you were putting it on. */
 main {
   display: grid;
-  grid-template-columns: auto 250px 1fr;
+  grid-template-columns: auto minmax(340px, 1fr);
   gap: 22px;
   align-items: start;
   padding: 18px 22px 60px;
 }
-@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 1040px) { main { grid-template-columns: 1fr; } }
+
+.studio {
+  display: grid;
+  grid-template-columns: auto 250px;
+  gap: 16px;
+  align-items: start;
+}
+/* Below this the grid and the swatches will not sit side by side without one
+   of them being squeezed, so they stack instead. */
+@media (max-width: 720px) { .studio { grid-template-columns: 1fr; } }
+
+/* The preview runs the full width under both. */
+.studio .full { grid-column: 1 / -1; }
+
+.details { display: flex; flex-direction: column; gap: 18px; }
 
 .card {
   background: var(--panel);
@@ -103,7 +122,6 @@ main {
    that stick out. Marked so nobody draws a fighter three pixels off centre. */
 #grid div.body-col { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); }
 
-.gridwrap { display: flex; flex-direction: column; gap: 10px; }
 .hintrow { color: var(--mute); font-size: 12px; font-family: var(--mono); }
 
 /* --------------------------------------------------------------- palette */
@@ -212,7 +230,10 @@ button.act.primary { background: var(--accent); color: #250409; border-color: va
 <div class="tabs" id="tabs"></div>
 
 <main>
-  <div class="gridwrap">
+  <!-- Everything you touch while drawing stays together: the grid, the colours
+       you are drawing with, and what it will actually look like. Splitting
+       these across a scroll was the first version's mistake. -->
+  <div class="studio">
     <div class="card">
       <h2>The sprite — 14 &times; 14</h2>
       <div id="grid"></div>
@@ -223,6 +244,15 @@ button.act.primary { background: var(--accent); color: #250409; border-color: va
     </div>
 
     <div class="card">
+      <h2>Colours</h2>
+      <div class="swatches" id="swatches"></div>
+      <p class="hintrow" style="margin:10px 0 0">
+        Slot 5 is the fighter's signature colour — the HUD and the select
+        screen use it.
+      </p>
+    </div>
+
+    <div class="card full">
       <h2>How it looks in game</h2>
       <div class="previews">
         <figure><canvas id="p1" width="14" height="14"></canvas><figcaption>actual size</figcaption></figure>
@@ -233,18 +263,7 @@ button.act.primary { background: var(--accent); color: #250409; border-color: va
     </div>
   </div>
 
-  <div>
-    <div class="card">
-      <h2>Colours</h2>
-      <div class="swatches" id="swatches"></div>
-      <p class="hintrow" style="margin:10px 0 0">
-        Slot 5 is the fighter's signature colour — the HUD and the select
-        screen use it.
-      </p>
-    </div>
-  </div>
-
-  <div>
+  <div class="details">
     <div class="card">
       <h2>Who they are</h2>
       <div class="field">
@@ -289,7 +308,7 @@ button.act.primary { background: var(--accent); color: #250409; border-color: va
       </div>
     </div>
 
-    <div class="card" style="margin-top:18px">
+    <div class="card">
       <h2>Paste this over the FIGHTERS list in fighters.js</h2>
       <textarea id="out" spellcheck="false"></textarea>
       <div class="row">
