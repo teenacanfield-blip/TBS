@@ -219,19 +219,25 @@ const byChar = (id) => ROSTER.find((c) => c.id === id) || ROSTER[0];
 
 /* ==================================================================== stage */
 
-/* Platforms with nothing underneath them. Falling off is the whole point, so
- * the ground is a floating island rather than a floor across the screen. */
-const STAGE = [
-  { x: 78, y: 138, w: 164, h: 8 },     // main island
-  { x: 40, y: 100, w: 54, h: 5 },      // left shelf
-  { x: 226, y: 100, w: 54, h: 5 },     // right shelf
-  { x: 132, y: 66, w: 56, h: 5 },      // top shelf
-];
+/* The maps live in stages.js. `stage()` is the one that is being fought on;
+ * everything else asks for its platforms and spawns through here rather than
+ * closing over a fixed list. */
+const STAGE_LIST = (typeof STAGES !== 'undefined' && STAGES.length) ? STAGES : [];
 
-// Leave these and you lose a stock.
+if (!STAGE_LIST.length) {
+  ctx.fillStyle = '#05070c';
+  ctx.fillRect(0, 0, W, H);
+  drawText('STAGES.JS DID NOT LOAD', W / 2, 84, '#ff5f6d', 1, 'center');
+  throw new Error('stages.js missing');
+}
+
+const stage = () => STAGE_LIST[game.stage] || STAGE_LIST[0];
+const platforms = () => stage().platforms;
+const spawnAt = (i) => stage().spawns[i] || stage().spawns[0];
+
+// Leave these and you lose a stock. Deliberately the same on every map, so a
+// map cannot quietly change how hard it is to be knocked out.
 const BLAST = { left: -34, right: W + 34, top: -70, bottom: H + 46 };
-
-const SPAWN = [{ x: 104, y: 40 }, { x: 200, y: 40 }];
 
 /* ================================================================== helpers */
 
@@ -256,7 +262,7 @@ function makeFighter(charId, index) {
   const c = byChar(charId);
   return {
     char: c.id, index,
-    x: SPAWN[index].x, y: SPAWN[index].y, vx: 0, vy: 0, w: 8, h: 14,
+    x: spawnAt(index).x, y: spawnAt(index).y, vx: 0, vy: 0, w: 8, h: 14,
     face: index === 0 ? 1 : -1,
     onGround: false,
     dmg: 0, stocks: 3,
@@ -265,6 +271,8 @@ function makeFighter(charId, index) {
     atk: null, atkT: 0, hasHit: false,
     hitstun: 0, invuln: 1.2,
     shield: 1, blocking: false, broken: 0,
+    // Item effects, counted down in seconds.
+    buffAtk: 0, buffWing: 0,
     dead: 0,
   };
 }
@@ -313,7 +321,10 @@ function hitboxOf(f) {
  * dangerous the longer it runs rather than just slowly draining. */
 function applyHit(victim, attacker, m, mul) {
   const c = byChar(attacker.char);
-  const dmg = m.dmg * c.atk * (mul || 1);
+  // Iron Fist multiplies the hit and the launch together, so it feels like
+  // strength rather than like chip damage.
+  const fist = attacker.buffAtk > 0 ? 1.75 : 1;
+  const dmg = m.dmg * c.atk * (mul || 1) * fist;
 
   if (victim.blocking && victim.shield > 0) {
     victim.shield -= dmg / 46;
@@ -331,7 +342,7 @@ function applyHit(victim, attacker, m, mul) {
 
   victim.dmg += dmg;
   const wv = byChar(victim.char).weight;
-  const kb = (m.base + victim.dmg * m.scale * 1.5) / wv;
+  const kb = (m.base + victim.dmg * m.scale * 1.5) * fist / wv;
   const a = m.angle * Math.PI * 2;
   const dir = attacker.x + attacker.w / 2 <= victim.x + victim.w / 2 ? 1 : -1;
 
@@ -377,6 +388,140 @@ function throwStar(f, inp) {
   burst(f.x + 4, f.y + 7, 3, '#ffd0d4', 26);
 }
 
+/* ==================================================================== items */
+
+/* Things that fall onto the stage mid-fight and go off the moment somebody
+ * walks into them.
+ *
+ * Picking up is deliberately not a button. The pad is already full — four
+ * directions and four verbs — and a fighting game that makes you stop and
+ * press something to take an item turns a scramble into paperwork. Walk over
+ * it and it is yours, which also means both players can race for it.
+ *
+ * The bomb is the reason that works: if everything on the floor were good,
+ * running over things would be free. */
+const ITEMS = [
+  {
+    id: 'stars', letter: 'S', name: 'STAR POUCH', colour: '#ffe9ec',
+    say: 'STARS FULL',
+    take(f) { f.ammo = 8; f.reload = 0; },
+  },
+  {
+    id: 'mend', letter: 'M', name: 'MEND', colour: '#5ce08a',
+    say: '-30%',
+    take(f) { f.dmg = Math.max(0, f.dmg - 30); },
+  },
+  {
+    id: 'wings', letter: 'W', name: 'WING CHARM', colour: '#9fc4e6',
+    say: 'WINGS',
+    take(f) { f.buffWing = 9; f.flaps = byChar(f.char).flaps + 2; },
+  },
+  {
+    id: 'fist', letter: 'F', name: 'IRON FIST', colour: '#ff9d3d',
+    say: 'IRON FIST',
+    take(f) { f.buffAtk = 7; },
+  },
+  {
+    id: 'bomb', letter: 'X', name: 'BOMB', colour: '#ff5f6d',
+    say: 'BOMB!',
+    take(f) {
+      // Hurts the one who grabbed it, and throws them straight up so it reads
+      // as a mistake rather than as damage from nowhere.
+      f.dmg += 18;
+      f.vy = -170;
+      f.vx *= 0.4;
+      f.hitstun = 0.35;
+      game.shake = 8;
+      burst(f.x + 4, f.y + 7, 20, '#ff9d3d', 96);
+    },
+  },
+];
+
+const ITEM_EVERY = 7.5;      // seconds between drops
+const ITEM_LIFE = 13;        // how long one sits there before fading out
+
+let items = [];
+let itemTimer = ITEM_EVERY * 0.6;   // first one comes a little sooner
+
+// Toast shown when somebody takes something, so the effect is legible.
+let itemSay = '', itemSayT = 0, itemSayWho = 0;
+
+function dropItem() {
+  const kind = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+  // Somewhere above the stage, but inside the walls so it does not just fall
+  // straight out of play.
+  const x = rand(40, W - 48);
+  items.push({ id: kind.id, x, y: -10, vx: rand(-14, 14), vy: 20, w: 8, h: 8, life: ITEM_LIFE, rest: false });
+}
+
+function kindOf(id) { return ITEMS.find((i) => i.id === id) || ITEMS[0]; }
+
+function stepItems() {
+  if (game.items) {
+    itemTimer -= STEP;
+    if (itemTimer <= 0) { itemTimer = ITEM_EVERY; dropItem(); }
+  }
+
+  for (const it of items) {
+    it.life -= STEP;
+
+    if (!it.rest) {
+      it.vy += 300 * STEP;
+      it.x += it.vx * STEP;
+      it.y += it.vy * STEP;
+      it.vx *= 0.99;
+
+      for (const p of platforms()) {
+        if (it.x + it.w <= p.x || it.x >= p.x + p.w) continue;
+        if (it.vy >= 0 && it.y + it.h >= p.y && it.y + it.h - it.vy * STEP <= p.y + 4) {
+          it.y = p.y - it.h;
+          it.vy = 0;
+          it.vx = 0;
+          it.rest = true;
+        }
+      }
+
+      // Fell past everything. Gone.
+      if (it.y > H + 40) it.life = 0;
+    }
+
+    // Taken.
+    for (const f of game.fighters) {
+      if (f.dead > 0 || it.life <= 0) continue;
+      if (!overlap(it, f)) continue;
+      const kind = kindOf(it.id);
+      kind.take(f);
+      it.life = 0;
+      itemSay = kind.say;
+      itemSayT = 1.3;
+      itemSayWho = f.index;
+      burst(it.x + 4, it.y + 4, 10, kind.colour, 60);
+    }
+  }
+
+  items = items.filter((i) => i.life > 0);
+  if (itemSayT > 0) itemSayT -= STEP;
+}
+
+function drawItems() {
+  for (const it of items) {
+    const k = kindOf(it.id);
+    const x = Math.round(it.x), y = Math.round(it.y);
+
+    // Blink out over the last second and a half so nobody is surprised.
+    if (it.life < 1.5 && Math.floor(it.life * 10) % 2 === 0) continue;
+
+    // A bob once it has settled, so a resting item does not read as scenery.
+    const bob = it.rest ? Math.round(Math.sin(game.time * 4 + it.x) * 1) : 0;
+
+    ctx.fillStyle = '#0a0208';
+    ctx.fillRect(x, y + bob, 8, 8);
+    ctx.fillStyle = k.colour;
+    ctx.fillRect(x + 1, y + 1 + bob, 6, 6);
+    drawText(k.letter, x + 3, y + 2 + bob, '#0a0208', 1);
+  }
+}
+
 /* ================================================================== physics */
 
 function stepFighter(f, inp) {
@@ -387,6 +532,8 @@ function stepFighter(f, inp) {
   if (f.broken > 0) f.broken -= STEP;
   if (f.invuln > 0) f.invuln -= STEP;
   if (f.hitstun > 0) f.hitstun -= STEP;
+  if (f.buffAtk > 0) f.buffAtk -= STEP;
+  if (f.buffWing > 0) f.buffWing -= STEP;
 
   const free = f.hitstun <= 0 && f.broken <= 0;
 
@@ -455,7 +602,7 @@ function stepFighter(f, inp) {
 
   // Platforms are one-way: you land on them from above and jump up through.
   f.onGround = false;
-  for (const p of STAGE) {
+  for (const p of platforms()) {
     if (f.x + f.w <= p.x || f.x >= p.x + p.w) continue;
     if (f.vy >= 0 && f.y + f.h >= p.y && f.y + f.h - f.vy * STEP <= p.y + 3) {
       f.y = p.y - f.h;
@@ -464,7 +611,8 @@ function stepFighter(f, inp) {
     }
   }
 
-  if (f.onGround) { f.flaps = c.flaps; }
+  // A Wing Charm is two extra beats for as long as it lasts.
+  if (f.onGround) { f.flaps = c.flaps + (f.buffWing > 0 ? 2 : 0); }
 }
 
 function offStage(f) {
@@ -485,7 +633,7 @@ function loseStock(f) {
 }
 
 function respawn(f) {
-  f.x = SPAWN[f.index].x; f.y = SPAWN[f.index].y;
+  f.x = spawnAt(f.index).x; f.y = spawnAt(f.index).y;
   f.vx = 0; f.vy = 0;
   f.invuln = 1.4;
   f.flaps = byChar(f.char).flaps;
@@ -509,12 +657,14 @@ function setState(s) {
   }
 }
 const game = {
-  state: 'title',   // title | mode | select | lobby | fight | over
+  state: 'title',   // title, mode, select, stagepick, lobby, fight, over
   time: 0,
   shake: 0,
   freeze: 0,
   mode: 'local',    // local | online
   pick: [0, 1],     // roster index each side is hovering
+  stage: 0,         // which map, an index into STAGE_LIST
+  items: true,      // whether anything drops during a fight
   locked: [false, false],
   fighters: [],
   winner: -1,
@@ -528,6 +678,9 @@ function startFight() {
     makeFighter(ROSTER[game.pick[1]].id, 1),
   ];
   stars = [];
+  items = [];
+  itemTimer = ITEM_EVERY * 0.6;
+  itemSayT = 0;
   bits = [];
   game.winner = -1;
   game.banner = 1.4;
@@ -589,6 +742,8 @@ function stepFight() {
     }
   }
   stars = stars.filter((s) => s.life > 0);
+
+  stepItems();
 
   const dead = game.fighters.find((f) => f.stocks <= 0);
   if (dead) {
@@ -717,6 +872,9 @@ function onNetMessage(m) {
   } else if (m.t === 'start') {
     game.pick[0] = clamp(m.p0 | 0, 0, ROSTER.length - 1);
     game.pick[1] = clamp(m.p1 | 0, 0, ROSTER.length - 1);
+    // The host owns the map and the items switch; take theirs, not ours.
+    game.stage = clamp(m.st | 0, 0, STAGE_LIST.length - 1);
+    game.items = Boolean(m.it);
     startFight();
   } else if (m.t === 'input') {
     net.remoteInput = m.i || {};
@@ -741,8 +899,11 @@ function snapshot() {
       sh: +f.shield.toFixed(2), iv: +f.invuln.toFixed(2),
       de: +f.dead.toFixed(2), am: f.ammo, fl: f.flaps, hs: +f.hitstun.toFixed(2),
       br: +f.broken.toFixed(2), wg: +f.wing.toFixed(2),
+      ba: +f.buffAtk.toFixed(1), bw: +f.buffWing.toFixed(1),
     })),
     s: stars.map((s) => [Math.round(s.x), Math.round(s.y), s.owner]),
+    // Items are the host's to spawn and to hand out, same as everything else.
+    it: items.map((i) => [Math.round(i.x), Math.round(i.y), i.id, +i.life.toFixed(1)]),
   };
 }
 
@@ -759,8 +920,10 @@ function applyState(m) {
     f.shield = src.sh; f.invuln = src.iv; f.dead = src.de;
     f.ammo = src.am; f.flaps = src.fl; f.hitstun = src.hs;
     f.broken = src.br; f.wing = src.wg;
+    f.buffAtk = src.ba || 0; f.buffWing = src.bw || 0;
   }
   stars = (m.s || []).map(([x, y, o]) => ({ x, y, w: 4, h: 4, spin: x + y, life: 1, owner: o }));
+  items = (m.it || []).map(([x, y, id, life]) => ({ x, y, w: 8, h: 8, id, life, rest: true }));
 }
 
 function stepNet() {
@@ -885,11 +1048,8 @@ function stepMenus() {
         net.ready[me] = true;
         netSend({ t: 'ready', v: true });
       }
-      // Only the host may actually start, so both sides cannot start at once.
-      if (net.isHost && net.ready[0] && net.ready[1]) {
-        netSend({ t: 'start', p0: game.pick[0], p1: game.pick[1] });
-        startFight();
-      }
+      // The host picks the map, so the two sides cannot choose different ones.
+      if (net.ready[0] && net.ready[1]) setState(net.isHost ? 'stagepick' : 'waiting');
       return;
     }
 
@@ -900,7 +1060,36 @@ function stepMenus() {
       if (took(i, 'right')) game.pick[i] = (game.pick[i] + 1) % ROSTER.length;
       if (took(i, 'atk') || took(i, 'flap')) game.locked[i] = true;
     }
-    if (game.locked[0] && game.locked[1]) startFight();
+    if (game.locked[0] && game.locked[1]) setState('stagepick');
+    return;
+  }
+
+  /* Left and right walk the maps, up and down turn items on and off. Online,
+   * only the host gets this screen — the other side sits on 'waiting' until
+   * the start message arrives, so the two can never disagree about the map. */
+  if (game.state === 'stagepick') {
+    if (back) {
+      game.locked = [false, false];
+      net.ready = [false, false];
+      if (game.mode === 'online') netSend({ t: 'ready', v: false });
+      setState('select');
+      return;
+    }
+    if (left)  game.stage = (game.stage + STAGE_LIST.length - 1) % STAGE_LIST.length;
+    if (right) game.stage = (game.stage + 1) % STAGE_LIST.length;
+    if (up || down) game.items = !game.items;
+    if (ok) {
+      if (game.mode === 'online') {
+        netSend({ t: 'start', p0: game.pick[0], p1: game.pick[1],
+                  st: game.stage, it: game.items });
+      }
+      startFight();
+    }
+    return;
+  }
+
+  if (game.state === 'waiting') {
+    if (back) { netQuit(); setState('mode'); }
     return;
   }
 
@@ -970,21 +1159,25 @@ function drawFighterSprite(f) {
 }
 
 function drawStage() {
+  const s = stage();
+
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#150b1d');
-  g.addColorStop(1, '#3a1430');
+  g.addColorStop(0, s.sky[0]);
+  g.addColorStop(1, s.sky[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = '#f5d9a8';
-  ctx.beginPath();
-  ctx.arc(262, 40, 14, 0, Math.PI * 2);
-  ctx.fill();
+  if (s.moon) {
+    ctx.fillStyle = '#f5d9a8';
+    ctx.beginPath();
+    ctx.arc(s.moon.x, s.moon.y, s.moon.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-  for (const p of STAGE) {
-    ctx.fillStyle = '#241426';
+  for (const p of s.platforms) {
+    ctx.fillStyle = s.ink;
     ctx.fillRect(p.x, p.y, p.w, p.h);
-    ctx.fillStyle = '#5d3560';
+    ctx.fillStyle = s.lip;
     ctx.fillRect(p.x, p.y, p.w, 2);
   }
 }
@@ -1002,6 +1195,11 @@ function drawHud() {
     const heat = clamp(f.dmg / 150, 0, 1);
     const col = `rgb(${Math.round(244 - heat * 10)},${Math.round(233 - heat * 150)},${Math.round(236 - heat * 160)})`;
     drawText(Math.round(f.dmg) + '%', x, 14, col, 2, al);
+
+    // Whatever they picked up, as a lit pip beside the stocks.
+    let bx = i === 0 ? x : x - 3;
+    if (f.buffAtk > 0) { ctx.fillStyle = '#ff9d3d'; ctx.fillRect(i === 0 ? x + 40 : x - 43, 26, 3, 3); }
+    if (f.buffWing > 0) { ctx.fillStyle = '#9fc4e6'; ctx.fillRect(i === 0 ? x + 45 : x - 48, 26, 3, 3); }
 
     for (let s = 0; s < f.stocks; s++) {
       const sx = i === 0 ? x + s * 5 : x - 3 - s * 5;
@@ -1063,6 +1261,77 @@ function drawSelect() {
     drawText('P1  A/D THEN F', W / 2 - 60, 150, '#c58b9a', 1, 'center');
     drawText('P2  ARROWS THEN K', W / 2 + 60, 150, '#c58b9a', 1, 'center');
   }
+}
+
+/* A small picture of each map rather than its name alone — the shape of the
+ * platforms is the only thing that actually matters about a stage. */
+function drawStageThumb(s, x, y, w, h) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, s.sky[0]);
+  g.addColorStop(1, s.sky[1]);
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+
+  const sx = w / W, sy = h / H;
+  for (const p of s.platforms) {
+    ctx.fillStyle = s.lip;
+    ctx.fillRect(
+      Math.round(x + p.x * sx), Math.round(y + p.y * sy),
+      Math.max(1, Math.round(p.w * sx)), Math.max(1, Math.round(p.h * sy))
+    );
+  }
+}
+
+function drawStagePick() {
+  drawStage();
+  ctx.fillStyle = 'rgba(5,7,12,0.78)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawTextShadow('PICK A MAP', W / 2, 10, '#ffe9ec', 2, 'center');
+
+  const tw = 62, th = 36;
+  for (let i = 0; i < STAGE_LIST.length; i++) {
+    const s = STAGE_LIST[i];
+    const cx = Math.round(W * (i + 1) / (STAGE_LIST.length + 1));
+    const x = cx - tw / 2, y = 30;
+
+    drawStageThumb(s, x, y, tw, th);
+
+    if (i === game.stage) {
+      ctx.strokeStyle = '#ff5f6d';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - 1.5, y - 1.5, tw + 3, th + 3);
+    }
+    drawText(s.name, cx, y + th + 5, i === game.stage ? '#ffe9ec' : '#7d6b75', 1, 'center');
+  }
+
+  drawText(stage().tag, W / 2, 84, '#c58b9a', 1, 'center');
+
+  // The items switch.
+  const on = game.items;
+  ctx.fillStyle = on ? 'rgba(92,224,138,0.16)' : 'rgba(255,255,255,0.04)';
+  ctx.fillRect(W / 2 - 52, 100, 104, 18);
+  ctx.strokeStyle = on ? '#5ce08a' : '#3a2030';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(W / 2 - 52.5, 99.5, 105, 19);
+  drawText('ITEMS  ' + (on ? 'ON' : 'OFF'), W / 2, 106, on ? '#5ce08a' : '#7d6b75', 2, 'center');
+
+  drawText('LEFT / RIGHT  MAP', W / 2, 130, '#8b7680', 1, 'center');
+  drawText('UP / DOWN  ITEMS', W / 2, 140, '#8b7680', 1, 'center');
+  drawText('ENTER TO FIGHT', W / 2, 154, '#ffe9ec', 1, 'center');
+  drawText('ESC TO GO BACK', W / 2, 166, '#5b3a4a', 1, 'center');
+}
+
+function drawWaiting() {
+  drawStage();
+  ctx.fillStyle = 'rgba(5,7,12,0.8)';
+  ctx.fillRect(0, 0, W, H);
+  drawTextShadow('READY', W / 2, 54, '#ffe9ec', 3, 'center');
+  drawText('THE HOST IS PICKING THE MAP', W / 2, 90, '#c58b9a', 1, 'center');
+  if (Math.floor(game.time * 2) % 2 === 0) {
+    drawText('HANG ON', W / 2, 106, '#7d6b75', 1, 'center');
+  }
+  drawText('ESC TO LEAVE', W / 2, H - 12, '#5b3a4a', 1, 'center');
 }
 
 function drawLobby() {
@@ -1141,6 +1410,8 @@ function draw() {
 
   if (game.state === 'lobby') { drawLobby(); return; }
   if (game.state === 'select') { drawSelect(); return; }
+  if (game.state === 'stagepick') { drawStagePick(); return; }
+  if (game.state === 'waiting') { drawWaiting(); return; }
 
   // Fight, and the result screen drawn over it.
   drawStage();
@@ -1160,10 +1431,19 @@ function draw() {
     }
   }
 
+
+  drawItems();
   for (const f of game.fighters) drawFighterSprite(f);
   drawHud();
 
-  if (game.banner > 0) drawTextShadow('FIGHT', W / 2, 70, '#ffe9ec', 4, 'center');
+  if (game.banner > 0) drawTextShadow("FIGHT", W / 2, 70, "#ffe9ec", 4, "center");
+
+  // What the last item did, over whoever took it.
+  if (itemSayT > 0) {
+    const f = game.fighters[itemSayWho];
+    if (f) drawTextShadow(itemSay, clamp(f.x + 4, 30, W - 30), Math.max(8, f.y - 12),
+                          itemSayWho === 0 ? "#ff5f6d" : "#7ce6ff", 1, "center");
+  }
 
   if (game.state === 'over') {
     ctx.fillStyle = 'rgba(5,7,12,0.76)';
