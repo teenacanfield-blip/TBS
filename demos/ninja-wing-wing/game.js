@@ -85,6 +85,7 @@ function drawTextShadow(s, x, y, colour, sc, align) {
  * inside a single frame, which menus read instead of the held state. */
 const keys = {};
 const tapped = {};
+let muteFlash = 0;         // seconds left on the on-screen mute notice
 
 const LAYOUTS = [
   { // player one — left hand
@@ -94,7 +95,8 @@ const LAYOUTS = [
   },
   { // player two — right hand
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
-    KeyK: 'atk', KeyL: 'star', KeyM: 'block', Slash: 'flap',
+    // Block moved off M so M can be mute, which everybody expects it to be.
+    KeyK: 'atk', KeyL: 'star', Semicolon: 'block', Slash: 'flap',
     Period: 'flap',
   },
 ];
@@ -113,6 +115,13 @@ function pad(i) { return keys['p' + i] || (keys['p' + i] = {}); }
 
 addEventListener('keydown', (e) => {
   if (codeOpen) return;                 // the room-code field owns the keyboard
+
+  // Browsers keep an AudioContext suspended until a gesture, so this is the
+  // earliest honest moment to start the sound.
+  Sound.unlock();
+
+  if (e.code === 'KeyM') { muteFlash = 1.2; Sound.toggleMute(); e.preventDefault(); return; }
+
   let used = false;
 
   for (let i = 0; i < 2; i++) {
@@ -155,6 +164,7 @@ function tookMenu(k) { if (tapped[k]) { tapped[k] = false; return true; } return
     const k = btn.dataset.key;
     const down = (e) => {
       e.preventDefault();
+      Sound.unlock();
       btn.classList.add('on');
       const s = pad(0);
       if (!s[k]) s['t_' + k] = true;
@@ -297,6 +307,7 @@ function startAttack(f, name) {
   f.atk = name;
   f.atkT = 0;
   f.hasHit = false;
+  Sound.sfx('swing');
 }
 
 // Which move a fighter's ATTACK button produces, given what they are holding.
@@ -331,11 +342,13 @@ function applyHit(victim, attacker, m, mul) {
     victim.dmg += dmg * 0.18;                 // chip
     victim.vx += attacker.face * 26;
     burst(victim.x + 4, victim.y + 7, 5, '#8fd6ee', 40);
+    Sound.sfx('block');
     if (victim.shield <= 0) {                 // shield break: wide open
       victim.shield = 0;
       victim.broken = 1.4;
       victim.blocking = false;
       burst(victim.x + 4, victim.y + 7, 18, '#ffffff', 90);
+      Sound.sfx('break');
     }
     return;
   }
@@ -354,6 +367,8 @@ function applyHit(victim, attacker, m, mul) {
 
   game.shake = Math.min(9, 3 + kb / 46);
   game.freeze = Math.min(0.09, 0.02 + kb / 3400);   // a beat of hitstop, for weight
+  // A big launch gets the heavier sound, so you can hear a kill coming.
+  Sound.sfx(kb > 260 ? 'big' : 'hit');
   burst(victim.x + 4, victim.y + 7, 10, attacker.index === 0 ? '#ff5f6d' : '#7ce6ff', 70);
 }
 
@@ -384,6 +399,7 @@ function throwStar(f, inp) {
 
   f.ammo--;
   f.cool = 0.15;
+  Sound.sfx('star');
   if (ax) f.face = ax > 0 ? 1 : -1;
   burst(f.x + 4, f.y + 7, 3, '#ffd0d4', 26);
 }
@@ -459,7 +475,7 @@ function kindOf(id) { return ITEMS.find((i) => i.id === id) || ITEMS[0]; }
 function stepItems() {
   if (game.items) {
     itemTimer -= STEP;
-    if (itemTimer <= 0) { itemTimer = ITEM_EVERY; dropItem(); }
+    if (itemTimer <= 0) { itemTimer = ITEM_EVERY; dropItem(); Sound.sfx('drop'); }
   }
 
   for (const it of items) {
@@ -496,6 +512,7 @@ function stepItems() {
       itemSayT = 1.3;
       itemSayWho = f.index;
       burst(it.x + 4, it.y + 4, 10, kind.colour, 60);
+      Sound.sfx(kind.id === 'bomb' ? 'bomb' : 'item');
     }
   }
 
@@ -565,6 +582,7 @@ function stepFighter(f, inp) {
       f.flaps--;
       f.flapCool = 0.24;
       f.wing = 0.22;
+      Sound.sfx('flap');
       burst(f.x + 4, f.y + f.h, 5, '#bde3ff', 34);
     }
 
@@ -628,6 +646,7 @@ function loseStock(f) {
   f.atk = null; f.hitstun = 0; f.blocking = false; f.broken = 0;
   f.shield = 1;
   game.shake = 9;
+  Sound.sfx('ko');
   burst(clamp(f.x, 4, W - 4), clamp(f.y, 4, H - 4), 24,
         f.index === 0 ? '#ff5f6d' : '#7ce6ff', 110);
 }
@@ -684,6 +703,7 @@ function startFight() {
   bits = [];
   game.winner = -1;
   game.banner = 1.4;
+  Sound.sfx('fight');
   setState('fight');
 }
 
@@ -748,6 +768,7 @@ function stepFight() {
   const dead = game.fighters.find((f) => f.stocks <= 0);
   if (dead) {
     game.winner = 1 - dead.index;
+    Sound.sfx('win');
     setState('over');
     if (game.mode === 'online') netSend({ t: 'over', w: game.winner });
   }
@@ -882,6 +903,7 @@ function onNetMessage(m) {
     applyState(m);
   } else if (m.t === 'over') {
     game.winner = m.w;
+    Sound.sfx('win');
     setState('over');
   }
 }
@@ -996,6 +1018,14 @@ function stepMenus() {
   const right = tookMenu('right');
   const up = tookMenu('up');
   const down = tookMenu('down');
+
+  // Only while a menu is actually up: F and K are 'ok' here and 'attack'
+  // during a fight, and a confirm beep on every punch would be maddening.
+  if (game.state !== 'fight') {
+    if (left || right || up || down) Sound.sfx('move');
+    if (ok) Sound.sfx('ok');
+    if (back) Sound.sfx('back');
+  }
 
   if (game.state === 'title') {
     if (ok) setState('mode');
@@ -1260,6 +1290,7 @@ function drawSelect() {
   } else {
     drawText('P1  A/D THEN F', W / 2 - 60, 150, '#c58b9a', 1, 'center');
     drawText('P2  ARROWS THEN K', W / 2 + 60, 150, '#c58b9a', 1, 'center');
+    drawText('M MUTES', W / 2, 162, '#5b3a4a', 1, 'center');
   }
 }
 
@@ -1384,6 +1415,7 @@ function draw() {
     if (Math.floor(game.time * 2) % 2 === 0) {
       drawText('PRESS ENTER', W / 2, 140, '#ffe9ec', 1, 'center');
     }
+    drawText('M MUTES', W / 2, 152, '#5b3a4a', 1, 'center');
     drawText('THIRSTY BEAR STUDIOS', W / 2, H - 10, '#5b3a4a', 1, 'center');
     return;
   }
@@ -1462,6 +1494,21 @@ function draw() {
 
 /* ==================================================================== loop */
 
+
+/* Which loop should be running. Called every frame — Sound.music() ignores a
+ * request for the track already playing, so this stays declarative rather than
+ * needing a cue at every transition. */
+function updateMusic() {
+  if (game.state === 'fight') {
+    // Somebody on their last stock tips it over to the faster loop.
+    const edge = game.fighters.some((f) => f.stocks <= 1);
+    // Each map moves the key, so four fights in a row do not sound identical.
+    Sound.music(edge ? 'tense' : 'fight', game.stage * 2);
+  } else {
+    Sound.music('menu', 0);
+  }
+}
+
 function step() {
   game.time += STEP;
   if (game.shake > 0) game.shake = Math.max(0, game.shake - STEP * 40);
@@ -1471,6 +1518,8 @@ function step() {
 
   stepMenus();
   stepNet();
+  updateMusic();
+  if (muteFlash > 0) muteFlash -= STEP;
 
   if (game.state === 'fight') stepFight();
 }
@@ -1491,6 +1540,12 @@ function frame(now) {
   }
 
   draw();
+  // Drawn last so it sits over whatever screen is up.
+  if (muteFlash > 0) {
+    drawTextShadow(Sound.muted ? 'SOUND OFF' : 'SOUND ON', W - 6, 6,
+                   Sound.muted ? '#7d6b75' : '#5ce08a', 1, 'right');
+  }
+
   requestAnimationFrame(frame);
 }
 
