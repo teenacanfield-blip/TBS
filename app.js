@@ -690,7 +690,11 @@ function viewDemo(id) {
           ${demoUrl(d)
             ? `<button class="btn play" data-playdemo="${d.id}">${ICON.play} Play the demo</button>`
             : `<span class="btn ghost" aria-disabled="true" style="cursor:default;opacity:.7">Not playable yet</span>`}
-          <span class="chip accent">${n ? `${averageStars(d.id).toFixed(1)} / 5 · ${n} review${n === 1 ? '' : 's'}` : 'Be the first to review'}</span>
+          <span class="chip accent">${n ? `${averageStars(d.id).toFixed(1)} / 5 · ${n} review${n === 1 ? "" : "s"}` : "Be the first to review"}</span>
+          ${/* Same as a full game: anything a demo wants its own button for —
+                a sprite editor, a level maker. Optional. */ ''}
+          ${(d.extras || []).map((x) => `
+            <a class="btn ghost" href="${x.url}"${x.blank ? ' target="_blank" rel="noopener"' : ''}>${esc(x.label)}</a>`).join('')}
         </div>
       </div>
     </section>

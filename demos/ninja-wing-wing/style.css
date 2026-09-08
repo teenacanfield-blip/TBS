@@ -1,0 +1,178 @@
+/* Ninja Wing Wing.
+ *
+ * The game itself is one canvas; this file only has to place it, dress the
+ * touch buttons, and style the one real input the game needs (a room code —
+ * phone keyboards will not appear for a canvas). */
+
+:root {
+  --bg:     #0a0d13;
+  --accent: #ff5f6d;
+  --line:   #3a2030;
+  --text:   #f4e9ec;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Courier New", Courier, monospace;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #05070c;
+  touch-action: none;
+}
+
+/* ---------------------------------------------------------------- touch */
+
+#touch { display: none; }
+body.touch #touch { display: block; }
+
+#touch button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  background: rgba(28, 14, 22, 0.66);
+  border: 2px solid rgba(255, 95, 109, 0.45);
+  border-radius: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+#touch button:active,
+#touch button.on {
+  background: rgba(255, 95, 109, 0.36);
+  border-color: var(--accent);
+}
+
+/* Aim cross bottom-left, the four verbs bottom-right. 52px keeps every target
+   thumb-sized even with eight of them on screen. */
+#touch .t-up,
+#touch .t-down  { width: 52px; height: 52px; left: calc(10px + 52px); }
+#touch .t-left,
+#touch .t-right { width: 52px; height: 52px; bottom: calc(10px + 52px); }
+#touch .t-up    { bottom: calc(10px + 104px); }
+#touch .t-down  { bottom: 10px; }
+#touch .t-left  { left: 10px; }
+#touch .t-right { left: calc(10px + 104px); }
+
+#touch .t-atk,
+#touch .t-star,
+#touch .t-block,
+#touch .t-flap { width: 64px; height: 46px; }
+#touch .t-atk   { right: 10px;                bottom: calc(10px + 54px); }
+#touch .t-star  { right: calc(10px + 70px);   bottom: calc(10px + 54px); }
+#touch .t-block { right: calc(10px + 70px);   bottom: 10px; }
+#touch .t-flap  { right: 10px;                bottom: 10px; }
+
+@media (max-height: 430px) {
+  #touch .t-up, #touch .t-down, #touch .t-left, #touch .t-right { width: 42px; height: 42px; }
+  #touch .t-up    { bottom: calc(8px + 84px); }
+  #touch .t-left  { left: 8px; bottom: calc(8px + 42px); }
+  #touch .t-right { left: calc(8px + 84px); bottom: calc(8px + 42px); }
+  #touch .t-down  { bottom: 8px; }
+  #touch .t-up, #touch .t-down { left: calc(8px + 42px); }
+
+  #touch .t-atk, #touch .t-star, #touch .t-block, #touch .t-flap { width: 54px; height: 38px; }
+  #touch .t-atk   { right: 8px;              bottom: calc(8px + 44px); }
+  #touch .t-star  { right: calc(8px + 60px); bottom: calc(8px + 44px); }
+  #touch .t-block { right: calc(8px + 60px); bottom: 8px; }
+  #touch .t-flap  { right: 8px;              bottom: 8px; }
+}
+
+/* ------------------------------------------------------------- room code */
+
+#codebox {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  width: min(280px, 86vw);
+  padding: 16px;
+  background: #140a12;
+  border: 3px solid var(--accent);
+  border-radius: 10px;
+  text-align: center;
+}
+#codebox[hidden] { display: none; }
+
+#codebox label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c58b9a;
+  margin-bottom: 8px;
+}
+
+#codebox input {
+  width: 100%;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--text);
+  background: #05070c;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  outline: none;
+}
+#codebox input:focus { border-color: var(--accent); }
+
+#codebox .row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+#codebox button {
+  flex: 1;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  background: #2a1420;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+#codebox button:hover { border-color: var(--accent); }
+
+#code-msg {
+  margin: 10px 0 0;
+  min-height: 15px;
+  font-size: 12px;
+  color: #c58b9a;
+}

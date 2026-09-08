@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<title>Character Lab — Ninja Wing Wing</title>
+<style>
+/* A tool, not a game: this one is ordinary HTML, because dragging a mouse
+   across a grid and typing a name are things the browser is already good at. */
+:root {
+  --bg:      #0a0d13;
+  --panel:   #151b26;
+  --panel-2: #1d2534;
+  --line:    #303c54;
+  --text:    #e8edf6;
+  --dim:     #9aa6ba;
+  --mute:    #6d7a8f;
+  --accent:  #ff5f6d;
+  --mono:    ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+header {
+  padding: 18px 22px 12px;
+  border-bottom: 3px solid var(--line);
+}
+h1 { margin: 0; font-size: 19px; letter-spacing: 0.04em; }
+header p { margin: 4px 0 0; color: var(--dim); font-size: 13px; max-width: 70ch; }
+header a { color: var(--accent); }
+
+.tabs { display: flex; gap: 6px; padding: 12px 22px 0; flex-wrap: wrap; }
+.tabs button {
+  padding: 7px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mute);
+  background: var(--panel);
+  border: 2px solid var(--line);
+  cursor: pointer;
+}
+.tabs button.on { color: var(--text); border-color: var(--accent); }
+
+main {
+  display: grid;
+  grid-template-columns: auto 250px 1fr;
+  gap: 22px;
+  align-items: start;
+  padding: 18px 22px 60px;
+}
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--panel);
+  border: 3px solid var(--line);
+  padding: 14px;
+}
+.card h2 {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* ------------------------------------------------------------------ grid */
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(14, 22px);
+  grid-template-rows: repeat(14, 22px);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  width: max-content;
+  touch-action: none;
+  user-select: none;
+}
+#grid div {
+  background: #0b0e14;
+  /* A checker under transparent cells, so "nothing" reads as nothing rather
+     than as a very dark colour. */
+  background-image: linear-gradient(45deg, #12161f 25%, transparent 25%, transparent 75%, #12161f 75%),
+                    linear-gradient(45deg, #12161f 25%, transparent 25%, transparent 75%, #12161f 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+  cursor: crosshair;
+}
+/* The eight middle columns are where the body belongs; the rest is for things
+   that stick out. Marked so nobody draws a fighter three pixels off centre. */
+#grid div.body-col { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); }
+
+.gridwrap { display: flex; flex-direction: column; gap: 10px; }
+.hintrow { color: var(--mute); font-size: 12px; font-family: var(--mono); }
+
+/* --------------------------------------------------------------- palette */
+
+.swatches { display: flex; flex-direction: column; gap: 6px; }
+.sw {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.sw.on { border-color: var(--accent); background: var(--panel-2); }
+.sw .chip { width: 26px; height: 22px; border: 1px solid #000; flex: none; }
+.sw .chip.none {
+  background-image: linear-gradient(45deg, #444 25%, #222 25%, #222 75%, #444 75%),
+                    linear-gradient(45deg, #444 25%, #222 25%, #222 75%, #444 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+.sw label { font-family: var(--mono); font-size: 11px; color: var(--dim); flex: 1; cursor: pointer; }
+.sw input[type=color] {
+  width: 30px; height: 22px; padding: 0;
+  background: none; border: 1px solid var(--line); cursor: pointer;
+}
+
+/* ----------------------------------------------------------------- forms */
+
+.field { margin-bottom: 10px; }
+.field label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-bottom: 3px;
+}
+.field input, .field select {
+  width: 100%;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--line);
+  outline: none;
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* --------------------------------------------------------------- preview */
+
+.previews { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+.previews figure { margin: 0; text-align: center; }
+.previews canvas { display: block; image-rendering: pixelated; background: #241426; }
+.previews figcaption { font-family: var(--mono); font-size: 10px; color: var(--mute); margin-top: 5px; }
+
+/* ---------------------------------------------------------------- export */
+
+textarea {
+  width: 100%;
+  height: 220px;
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--line);
+  outline: none;
+  resize: vertical;
+  white-space: pre;
+}
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+button.act {
+  padding: 9px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 2px solid var(--line);
+  cursor: pointer;
+}
+button.act:hover { border-color: var(--accent); }
+button.act.primary { background: var(--accent); color: #250409; border-color: var(--accent); }
+
+#says { margin-left: auto; align-self: center; color: var(--dim); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Character Lab</h1>
+  <p>
+    Draw the fighters and name them here, then paste the result into
+    <code>fighters.js</code>. Nothing you do on this page touches the game until
+    you paste — so you can try anything. Your work is kept in this browser as
+    you go. <a href="index.html">Back to the game</a>
+  </p>
+</header>
+
+<div class="tabs" id="tabs"></div>
+
+<main>
+  <div class="gridwrap">
+    <div class="card">
+      <h2>The sprite — 14 &times; 14</h2>
+      <div id="grid"></div>
+      <p class="hintrow">
+        Drag to paint &middot; right-click to rub out<br />
+        The lighter middle columns are the body. Draw facing <b>right</b>.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>How it looks in game</h2>
+      <div class="previews">
+        <figure><canvas id="p1" width="14" height="14"></canvas><figcaption>actual size</figcaption></figure>
+        <figure><canvas id="p3" width="42" height="42"></canvas><figcaption>3&times;</figcaption></figure>
+        <figure><canvas id="p6" width="84" height="84"></canvas><figcaption>6&times;</figcaption></figure>
+        <figure><canvas id="pm" width="84" height="84"></canvas><figcaption>facing left</figcaption></figure>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Colours</h2>
+      <div class="swatches" id="swatches"></div>
+      <p class="hintrow" style="margin:10px 0 0">
+        Slot 5 is the fighter's signature colour — the HUD and the select
+        screen use it.
+      </p>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Who they are</h2>
+      <div class="field">
+        <label for="f-name">Name</label>
+        <input id="f-name" maxlength="10" />
+      </div>
+      <div class="field">
+        <label for="f-tag">One line about them</label>
+        <input id="f-tag" maxlength="40" />
+      </div>
+      <div class="field">
+        <label for="f-id">Id (used in save data — letters and dashes)</label>
+        <input id="f-id" maxlength="16" />
+      </div>
+
+      <h2 style="margin-top:16px">How they fight</h2>
+      <div class="two">
+        <div class="field">
+          <label for="f-weight">Weight — hard to launch</label>
+          <input id="f-weight" type="number" step="0.02" min="0.5" max="2" />
+        </div>
+        <div class="field">
+          <label for="f-speed">Speed</label>
+          <input id="f-speed" type="number" step="0.02" min="0.5" max="2" />
+        </div>
+        <div class="field">
+          <label for="f-flaps">Wing beats</label>
+          <input id="f-flaps" type="number" step="1" min="0" max="5" />
+        </div>
+        <div class="field">
+          <label for="f-atk">Damage</label>
+          <input id="f-atk" type="number" step="0.02" min="0.5" max="2" />
+        </div>
+        <div class="field">
+          <label for="f-up">Up + attack</label>
+          <select id="f-up"></select>
+        </div>
+        <div class="field">
+          <label for="f-dive">Down + attack, airborne</label>
+          <select id="f-dive"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Paste this over the FIGHTERS list in fighters.js</h2>
+      <textarea id="out" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="act primary" id="copy">Copy</button>
+        <button class="act" id="load">Load what is in the box</button>
+        <button class="act" id="revert">Start again from the defaults</button>
+        <span id="says"></span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="fighters.js?v=5"></script>
+<script>
+(function () {
+'use strict';
+
+const SPR = 14;                 // the sprite is 14 wide and 14 tall
+const BODY_FROM = 3, BODY_TO = 10;
+const MOVES = ['jab', 'fan', 'screw', 'bounce', 'upper', 'drop', 'kick', 'pound', 'meteor'];
+const STORE = 'nww.lab.v1';
+
+// A working copy, so nothing here can disturb the game's own defaults.
+const defaults = () => JSON.parse(JSON.stringify(FIGHTERS));
+
+let roster = load() || defaults();
+let current = 0;
+let penIndex = 1;               // which palette slot the mouse is painting with
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    return Array.isArray(v) && v.length ? v : null;
+  } catch (e) { return null; }   // storage blocked, or something we did not write
+}
+
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify(roster)); } catch (e) {}
+}
+
+const $ = (id) => document.getElementById(id);
+const fighter = () => roster[current];
+
+function says(msg) {
+  $('says').textContent = msg;
+  clearTimeout(says.t);
+  says.t = setTimeout(() => { $('says').textContent = ''; }, 2600);
+}
+
+/* -------------------------------------------------------------------- tabs */
+
+function drawTabs() {
+  const box = $('tabs');
+  box.innerHTML = '';
+  roster.forEach((f, i) => {
+    const b = document.createElement('button');
+    b.textContent = f.name || ('#' + (i + 1));
+    b.className = i === current ? 'on' : '';
+    b.addEventListener('click', () => { current = i; drawAll(); });
+    box.appendChild(b);
+  });
+}
+
+/* -------------------------------------------------------------------- grid */
+
+let painting = false;
+let paintWith = null;
+
+function cellAt(e) {
+  const el = document.elementFromPoint(
+    e.touches ? e.touches[0].clientX : e.clientX,
+    e.touches ? e.touches[0].clientY : e.clientY
+  );
+  return el && el.parentNode === $('grid') ? el : null;
+}
+
+function paint(cell) {
+  if (!cell || paintWith === null) return;
+  const x = +cell.dataset.x, y = +cell.dataset.y;
+  const f = fighter();
+  const row = f.sprite[y].split('');
+  row[x] = paintWith;
+  f.sprite[y] = row.join('');
+  cell.style.background = paintWith === '.' ? '' : f.palette[+paintWith];
+  if (paintWith === '.') cell.style.backgroundImage = '';
+  drawPreviews();
+  save();
+}
+
+function buildGrid() {
+  const g = $('grid');
+  g.innerHTML = '';
+  for (let y = 0; y < SPR; y++) {
+    for (let x = 0; x < SPR; x++) {
+      const d = document.createElement('div');
+      d.dataset.x = x; d.dataset.y = y;
+      if (x >= BODY_FROM && x <= BODY_TO) d.className = 'body-col';
+      g.appendChild(d);
+    }
+  }
+
+  g.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    // Right button rubs out; left paints with the chosen slot.
+    paintWith = e.button === 2 ? '.' : String(penIndex);
+    painting = true;
+    paint(cellAt(e));
+  });
+  g.addEventListener('pointermove', (e) => { if (painting) paint(cellAt(e)); });
+  g.addEventListener('contextmenu', (e) => e.preventDefault());
+  addEventListener('pointerup', () => {
+    // Rebuilding the export text costs more than painting a cell, so it waits
+    // until the stroke is finished rather than running per pixel of a drag.
+    if (painting) writeOut();
+    painting = false;
+    paintWith = null;
+  });
+}
+
+function paintGridFromData() {
+  const f = fighter();
+  const cells = $('grid').children;
+  for (let y = 0; y < SPR; y++) {
+    for (let x = 0; x < SPR; x++) {
+      const cell = cells[y * SPR + x];
+      const ch = (f.sprite[y] || '')[x] || '.';
+      if (ch === '.') {
+        cell.style.background = '';
+        cell.style.backgroundImage = '';
+      } else {
+        cell.style.background = f.palette[+ch] || '#f0f';
+        cell.style.backgroundImage = 'none';
+      }
+    }
+  }
+}
+
+/* ----------------------------------------------------------------- palette */
+
+function drawSwatches() {
+  const box = $('swatches');
+  box.innerHTML = '';
+  const f = fighter();
+
+  const eraser = document.createElement('div');
+  eraser.className = 'sw' + (penIndex === '.' ? ' on' : '');
+  eraser.innerHTML = '<span class="chip none"></span><label>rub out</label>';
+  eraser.addEventListener('click', () => { penIndex = '.'; drawSwatches(); });
+  box.appendChild(eraser);
+
+  f.palette.forEach((col, i) => {
+    const row = document.createElement('div');
+    row.className = 'sw' + (String(penIndex) === String(i) ? ' on' : '');
+
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.style.background = col;
+
+    const lab = document.createElement('label');
+    lab.textContent = i + (i === 5 ? '  signature' : '');
+
+    const pick = document.createElement('input');
+    pick.type = 'color';
+    pick.value = col;
+    pick.addEventListener('input', () => {
+      f.palette[i] = pick.value;
+      chip.style.background = pick.value;
+      paintGridFromData();
+      drawPreviews();
+      save();
+    });
+    // Clicking the row selects the pen; clicking the picker should not.
+    pick.addEventListener('click', (e) => e.stopPropagation());
+
+    row.append(chip, lab, pick);
+    row.addEventListener('click', () => { penIndex = i; drawSwatches(); });
+    box.appendChild(row);
+  });
+}
+
+/* ---------------------------------------------------------------- previews */
+
+function paintCanvas(cv, scale, mirror) {
+  const c = cv.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  c.clearRect(0, 0, cv.width, cv.height);
+  const f = fighter();
+  for (let y = 0; y < SPR; y++) {
+    for (let x = 0; x < SPR; x++) {
+      const ch = (f.sprite[y] || '')[mirror ? SPR - 1 - x : x] || '.';
+      if (ch === '.') continue;
+      const col = f.palette[+ch];
+      if (!col) continue;
+      c.fillStyle = col;
+      c.fillRect(x * scale, y * scale, scale, scale);
+    }
+  }
+}
+
+function drawPreviews() {
+  paintCanvas($('p1'), 1, false);
+  paintCanvas($('p3'), 3, false);
+  paintCanvas($('p6'), 6, false);
+  paintCanvas($('pm'), 6, true);
+}
+
+/* ------------------------------------------------------------------ fields */
+
+function fillMoveSelect(el) {
+  el.innerHTML = '';
+  for (const m of MOVES) {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m;
+    el.appendChild(o);
+  }
+}
+
+function bindField(id, key, cast) {
+  const el = $(id);
+  el.addEventListener('input', () => {
+    const v = cast ? cast(el.value) : el.value;
+    fighter()[key] = v;
+    if (key === 'name') drawTabs();
+    if (key === 'palette') paintGridFromData();
+    drawPreviews();
+    save();
+    writeOut();
+  });
+}
+
+function fillFields() {
+  const f = fighter();
+  $('f-name').value = f.name || '';
+  $('f-tag').value = f.tag || '';
+  $('f-id').value = f.id || '';
+  $('f-weight').value = f.weight;
+  $('f-speed').value = f.speed;
+  $('f-flaps').value = f.flaps;
+  $('f-atk').value = f.atk;
+  $('f-up').value = f.up || 'jab';
+  $('f-dive').value = f.dive || 'jab';
+}
+
+/* ------------------------------------------------------------------ export */
+
+// Written out to look exactly like the file it is going into, so pasting it
+// does not leave fighters.js in two different styles.
+function writeOut() {
+  const parts = roster.map((f) => {
+    const pal = f.palette.map((c) => `'${c}'`).join(', ');
+    const spr = f.sprite.map((r) => `      '${r}',`).join('\n');
+    return (
+      `  {\n` +
+      `    id: '${f.id}', name: '${f.name}', tag: '${String(f.tag).replace(/'/g, "\\'")}',\n` +
+      `    weight: ${(+f.weight).toFixed(2)}, speed: ${(+f.speed).toFixed(2)}, ` +
+      `flaps: ${+f.flaps}, atk: ${(+f.atk).toFixed(2)}, up: '${f.up}', dive: '${f.dive}',\n` +
+      `    palette: [${pal}],\n` +
+      `    sprite: [\n${spr}\n    ],\n` +
+      `  },`
+    );
+  });
+  $('out').value = 'const FIGHTERS = [\n' + parts.join('\n') + '\n];\n';
+}
+
+function readIn() {
+  const text = $('out').value;
+  // The box holds a JS file, not JSON, so pull the array out and evaluate just
+  // that. It is this page's own text going back into this page.
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start < 0 || end < 0) { says('Could not find the list in there.'); return; }
+  let parsed;
+  try {
+    parsed = new Function('return ' + text.slice(start, end + 1))();
+  } catch (e) {
+    says('That did not parse: ' + e.message);
+    return;
+  }
+  if (!Array.isArray(parsed) || !parsed.length) { says('That is not a roster.'); return; }
+
+  for (const f of parsed) {
+    if (!Array.isArray(f.sprite) || f.sprite.length !== SPR) { says('Every sprite needs ' + SPR + ' rows.'); return; }
+    if (!Array.isArray(f.palette)) { says('Every fighter needs a palette.'); return; }
+  }
+
+  roster = parsed;
+  current = Math.min(current, roster.length - 1);
+  save();
+  drawAll();
+  says('Loaded.');
+}
+
+/* -------------------------------------------------------------------- boot */
+
+function drawAll() {
+  drawTabs();
+  paintGridFromData();
+  drawSwatches();
+  drawPreviews();
+  fillFields();
+  writeOut();
+}
+
+fillMoveSelect($('f-up'));
+fillMoveSelect($('f-dive'));
+
+bindField('f-name', 'name', (v) => v.toUpperCase());
+bindField('f-tag', 'tag');
+bindField('f-id', 'id', (v) => v.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+bindField('f-weight', 'weight', Number);
+bindField('f-speed', 'speed', Number);
+bindField('f-flaps', 'flaps', (v) => parseInt(v, 10) || 0);
+bindField('f-atk', 'atk', Number);
+bindField('f-up', 'up');
+bindField('f-dive', 'dive');
+
+$('copy').addEventListener('click', async () => {
+  writeOut();
+  try {
+    await navigator.clipboard.writeText($('out').value);
+    says('Copied — paste it over the list in fighters.js');
+  } catch (e) {
+    // Clipboard needs permission and a secure context; selecting the text is
+    // a fine second best.
+    $('out').select();
+    says('Press Ctrl+C to copy the selected text.');
+  }
+});
+
+$('load').addEventListener('click', readIn);
+
+$('revert').addEventListener('click', () => {
+  if (!confirm('Throw away your changes and go back to the four defaults?')) return;
+  roster = defaults();
+  current = 0;
+  save();
+  drawAll();
+  says('Back to the defaults.');
+});
+
+buildGrid();
+drawAll();
+})();
+</script>
+</body>
+</html>

@@ -49,11 +49,14 @@ const DEMOS = [
     accent: '#ff5f6d',
     accentDark: '#2a0409',
     url: '',
+    // Where the fighters are drawn and named. Kept out of the game on purpose:
+    // making a character and playing as one are different jobs.
+    extras: [{ label: 'Character Lab', url: './demos/ninja-wing-wing/character-lab.html' }],
     blurb:
-      'A ninja with a pair of wings and a pouch of shuriken. Every throw shoves ' +
-      'you the opposite way, so throwing downward is how you climb — the wings ' +
-      'are only ever a top-up, and the pouch only refills on the ground. Clear ' +
-      'waves of cave goblins for as long as you can last.',
+      'A two-player fighter. Platforms, damage that builds, and a KO when ' +
+      'somebody leaves the screen — with a roster to pick from and a block to ' +
+      'spend. Every shuriken shoves you the other way, so throwing downward is ' +
+      'how you climb. Same keyboard, or online with a room code.',
   },
   {
     id: 'legend-cart',
