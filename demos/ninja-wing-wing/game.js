@@ -205,11 +205,48 @@ fit();
 
 /* =================================================================== roster */
 
-/* The roster lives in fighters.js so it can be authored in character-lab.html
- * rather than edited by hand in here. Everything the game needs beyond the raw
- * data is worked out once, on load. */
-const ROSTER = (typeof FIGHTERS !== 'undefined' ? FIGHTERS : []).map((c) => ({
+/* Where the fighters come from, in order of preference:
+ *
+ *   1. Whatever is saved in the Character Lab, if there is anything. Draw a
+ *      ninja next door and it is in the game on the next load — no copy, no
+ *      paste, no editing fighters.js. That is the point of the Lab.
+ *   2. fighters.js, which is what everyone else who opens the site gets, and
+ *      what the Lab starts from.
+ *
+ * Anything saved is treated as suspect: it came out of localStorage, which the
+ * player can edit by hand, and a sprite of the wrong shape would otherwise
+ * throw somewhere deep in the draw loop. */
+const LAB_STORE = 'nww.lab.v1';
+const SPRITE_ROWS = 14;
+
+function labRoster() {
+  let raw;
+  try { raw = localStorage.getItem(LAB_STORE); } catch (e) { return null; }
+  if (!raw) return null;
+
+  let list;
+  try { list = JSON.parse(raw); } catch (e) { return null; }
+  if (!Array.isArray(list) || !list.length) return null;
+
+  const ok = list.every((c) =>
+    c && typeof c.id === 'string' &&
+    Array.isArray(c.palette) && c.palette.length &&
+    Array.isArray(c.sprite) && c.sprite.length === SPRITE_ROWS &&
+    c.sprite.every((r) => typeof r === 'string')
+  );
+  return ok ? list : null;
+}
+
+const FROM_LAB = labRoster();
+const BASE_ROSTER = FROM_LAB || (typeof FIGHTERS !== 'undefined' ? FIGHTERS : []);
+
+const ROSTER = BASE_ROSTER.map((c) => ({
   ...c,
+  name: String(c.name || 'NINJA').toUpperCase(),
+  weight: Number(c.weight) || 1,
+  speed: Number(c.speed) || 1,
+  flaps: Number(c.flaps) || 0,
+  atk: Number(c.atk) || 1,
   // Slot 5 of a fighter's palette is their signature colour — it is the scarf
   // on the default art, and it is what the HUD and the select boxes use.
   colour: (c.palette && c.palette[5]) || '#ff5f6d',
@@ -225,7 +262,41 @@ if (!ROSTER.length) {
   throw new Error('fighters.js missing');
 }
 
-const byChar = (id) => ROSTER.find((c) => c.id === id) || ROSTER[0];
+/* The two fighters actually in the current match, which are not always two
+ * entries from this machine's roster.
+ *
+ * Online, the host sends the full pair — art, palette and numbers — with the
+ * start message, and both machines fight with those. Otherwise a player who
+ * had drawn their own ninjas would see them and their opponent would see four
+ * strangers, because the pick is only an index into a list the two sides do
+ * not necessarily share. They are re-labelled slot0 and slot1 so that two
+ * fighters built from the same original id cannot collide. */
+let ACTIVE = [];
+
+function inSlot(def, slot) {
+  return { ...def, id: 'slot' + slot };
+}
+
+function byChar(id) {
+  for (const d of ACTIVE) if (d && d.id === id) return d;
+  return ROSTER.find((c) => c.id === id) || ROSTER[0];
+}
+
+/* A pair that arrived over the network is somebody else's data, and it reaches
+ * the draw loop sixty times a second. Check its shape once, here, rather than
+ * finding out inside drawSpriteAt; anything wrong falls back to our own picks
+ * so a bad message costs the skins, not the match. */
+function usableDefs(defs) {
+  if (!Array.isArray(defs) || defs.length !== 2) return null;
+  const ok = defs.every((c) =>
+    c &&
+    Array.isArray(c.palette) && c.palette.length &&
+    c.palette.every((p) => typeof p === 'string') &&
+    Array.isArray(c.sprite) && c.sprite.length === SPRITE_ROWS &&
+    c.sprite.every((r) => typeof r === 'string')
+  );
+  return ok ? defs : null;
+}
 
 /* ==================================================================== stage */
 
@@ -289,9 +360,15 @@ function makeFighter(charId, index) {
 
 /* Every attack in one table. `reach` is how far in front the hitbox sits, and
  * `angle` is the direction the victim is launched, in turns clockwise from
- * straight right — so -0.25 is straight up. */
+ * straight right — so -0.25 is straight up.
+ *
+ * The jab is the one that had to be retuned. It worked from the first build —
+ * the hitbox came out, overlapped, and dealt its damage — but it was unlandable
+ * in a real fight: a clean hit threw the other fighter 22 pixels away and the
+ * hitbox only reached 18, so nobody could ever follow one up. It is now wider,
+ * reaches further, and stays out for twice as long. */
 const MOVES = {
-  jab:    { dmg: 5,  base: 62,  scale: 0.62, angle: -0.05, reach: 9,  w: 10, h: 9,  t: 0.22, act: 0.05, end: 0.12 },
+  jab:    { dmg: 5,  base: 62,  scale: 0.62, angle: -0.05, reach: 11, w: 14, h: 11, t: 0.22, act: 0.04, end: 0.15 },
   fan:    { dmg: 6,  base: 76,  scale: 0.70, angle: -0.25, reach: 0,  w: 12, h: 13, t: 0.32, act: 0.08, end: 0.20 },
   screw:  { dmg: 5,  base: 70,  scale: 0.66, angle: -0.24, reach: 0,  w: 10, h: 15, t: 0.28, act: 0.06, end: 0.18 },
   bounce: { dmg: 8,  base: 84,  scale: 0.74, angle: -0.26, reach: 0,  w: 14, h: 12, t: 0.36, act: 0.10, end: 0.24 },
@@ -569,6 +646,11 @@ function stepFighter(f, inp) {
     if (move && !f.atk) {
       f.vx += move * accel * STEP;
       f.face = move > 0 ? 1 : -1;
+    } else if (f.atk) {
+      // Swinging does not brake you. Walking into your own punch is how you
+      // close the gap the punch opens — stopping dead on every swing was the
+      // real reason the jab felt like it did nothing.
+      f.vx *= f.onGround ? 0.96 : 0.995;
     } else if (f.onGround) {
       f.vx *= 0.80;
     } else {
@@ -691,10 +773,24 @@ const game = {
   msg: '',
 };
 
-function startFight() {
+/* A Lab roster is whatever the player saved, and that can be a single fighter.
+ * Player two would otherwise open on index 1, which does not exist — a blank
+ * column on the select screen and an undefined fighter at the start of a
+ * match. Both sides start on somebody who is actually there. */
+game.pick[1] = Math.min(1, ROSTER.length - 1);
+
+/* `defs` is the pair to fight with. Online the joiner is handed the host's,
+ * so both machines agree on who is on screen; everywhere else it is left out
+ * and the two picks off this machine's roster are used. */
+function startFight(defs) {
+  ACTIVE = [
+    inSlot(defs && defs[0] ? defs[0] : ROSTER[game.pick[0]], 0),
+    inSlot(defs && defs[1] ? defs[1] : ROSTER[game.pick[1]], 1),
+  ];
+
   game.fighters = [
-    makeFighter(ROSTER[game.pick[0]].id, 0),
-    makeFighter(ROSTER[game.pick[1]].id, 1),
+    makeFighter(ACTIVE[0].id, 0),
+    makeFighter(ACTIVE[1].id, 1),
   ];
   stars = [];
   items = [];
@@ -893,10 +989,12 @@ function onNetMessage(m) {
   } else if (m.t === 'start') {
     game.pick[0] = clamp(m.p0 | 0, 0, ROSTER.length - 1);
     game.pick[1] = clamp(m.p1 | 0, 0, ROSTER.length - 1);
-    // The host owns the map and the items switch; take theirs, not ours.
+    // The host owns the map, the items switch and both fighters; take theirs,
+    // not ours, or two people with different Lab characters fight two
+    // different matches. A malformed pair falls back to our own picks.
     game.stage = clamp(m.st | 0, 0, STAGE_LIST.length - 1);
     game.items = Boolean(m.it);
-    startFight();
+    startFight(usableDefs(m.defs));
   } else if (m.t === 'input') {
     net.remoteInput = m.i || {};
   } else if (m.t === 'state') {
@@ -1110,8 +1208,12 @@ function stepMenus() {
     if (up || down) game.items = !game.items;
     if (ok) {
       if (game.mode === 'online') {
+        // The whole pair goes over, art included, so a fighter drawn in the
+        // Lab turns up on the other person's screen too. Two sprites is about
+        // a kilobyte and this is sent once a match.
         netSend({ t: 'start', p0: game.pick[0], p1: game.pick[1],
-                  st: game.stage, it: game.items });
+                  st: game.stage, it: game.items,
+                  defs: [ROSTER[game.pick[0]], ROSTER[game.pick[1]]] });
       }
       startFight();
     }
@@ -1245,6 +1347,9 @@ function drawSelect() {
   ctx.fillRect(0, 0, W, H);
 
   drawTextShadow('CHOOSE YOUR NINJA', W / 2, 10, '#ffe9ec', 2, 'center');
+
+  // Worth saying, because otherwise it is not obvious the Lab did anything.
+  if (FROM_LAB) drawText('YOUR OWN, FROM THE LAB', W / 2, 22, '#5ce08a', 1, 'center');
 
   for (let i = 0; i < ROSTER.length; i++) {
     const c = ROSTER[i];
@@ -1483,7 +1588,9 @@ function draw() {
     if (game.winner === -2) {
       drawTextShadow('DISCONNECTED', W / 2, 60, '#ff5f6d', 3, 'center');
     } else {
-      const c = byChar(ROSTER[game.pick[game.winner]].id);
+      // Whoever actually fought, not whatever this machine's roster has at
+      // that index — online those are not the same thing.
+      const c = ACTIVE[game.winner] || ROSTER[0];
       drawTextShadow(c.name + ' WINS', W / 2, 60, c.colour, 3, 'center');
     }
     if (Math.floor(game.time * 2) % 2 === 0) {
