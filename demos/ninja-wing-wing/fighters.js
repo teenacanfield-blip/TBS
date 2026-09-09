@@ -24,7 +24,8 @@
  *            grappler has no wings and ignores this.
  *   move     'wings' (the default) or 'grapple'. A grappler trades the flap
  *            for a hook: hold the button to fire it, and it reels them in
- *            wherever it catches.
+ *            wherever it catches. Set it in the Character Lab under
+ *            'Getting around'.
  *   atk      damage multiplier on everything you throw or swing.
  *   up       the move ATTACK gives while holding UP.
  *   dive     the move ATTACK gives while holding DOWN in the air.
@@ -97,11 +98,8 @@ const FIGHTERS = [
     ],
   },
   {
-    id: 'oni', name: 'ONI', tag: 'Slow, and swings on a rope',
-    // Heavy and deliberate on foot. The hook is how they get anywhere, and
-    // that is only a trade if walking is genuinely slow.
-    weight: 1.14, speed: 0.66, flaps: 0, atk: 1.38, up: 'upper', dive: 'meteor',
-    move: 'grapple',
+    id: 'oni', name: 'ONI', tag: 'Hits like a door',
+    weight: 1.14, speed: 0.90, flaps: 2, atk: 1.38, up: 'upper', dive: 'meteor',
     palette: ['#0d1018', '#5a3b6b', '#7d5594', '#b78ccc', '#f4e9ec', '#c77dff', '#9fc4e6', '#dff0ff'],
     sprite: [
       '...02222220...',
