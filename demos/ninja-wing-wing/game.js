@@ -351,6 +351,7 @@ function makeFighter(charId, index) {
     ammo: 4, reload: 0, cool: 0,
     atk: null, atkT: 0, hasHit: false,
     hitstun: 0, invuln: 1.2,
+    hook: null,                 // the grappling line, for fighters that have one
     shield: 1, blocking: false, broken: 0,
     // Item effects, counted down in seconds.
     buffAtk: 0, buffWing: 0,
@@ -440,6 +441,7 @@ function applyHit(victim, attacker, m, mul) {
   victim.vy = Math.sin(a) * kb;
   victim.hitstun = clamp(kb / 340, 0.14, 0.72);
   victim.atk = null;
+  victim.hook = null;         // being hit tears the line loose
   victim.invuln = 0;
 
   game.shake = Math.min(9, 3 + kb / 46);
@@ -616,6 +618,116 @@ function drawItems() {
   }
 }
 
+/* ================================================================= grapple */
+
+/* A hook instead of wings.
+ *
+ * Wings are forgiving: two beats, always there, always the same. A hook is the
+ * opposite bargain — it does nothing at all unless it catches something, and
+ * when it does it pulls harder and further than a flap ever would. That is why
+ * a grappler can afford to be slow on foot, and has to be: if they walked at
+ * everyone else's pace the hook would just be a free extra jump.
+ *
+ * Hold the button to fire and to reel. Let go and the line drops. */
+const HOOK_SPEED = 320;      // how fast the head travels
+const HOOK_MAX = 96;         // how much line there is
+const HOOK_PULL = 620;       // how hard it reels you in
+const HOOK_COOL = 0.28;      // before another can be thrown
+
+function hookAnchored(h) {
+  for (const p of platforms()) {
+    if (h.x >= p.x && h.x <= p.x + p.w && h.y >= p.y && h.y <= p.y + p.h) return true;
+  }
+  return false;
+}
+
+function dropHook(f, cool) {
+  f.hook = null;
+  f.flapCool = cool == null ? HOOK_COOL : cool;
+}
+
+function stepGrapple(f, inp) {
+  // Let go of the button and the line goes with it.
+  if (!inp.flap) {
+    if (f.hook) dropHook(f, 0.12);
+    return;
+  }
+
+  if (!f.hook) {
+    if (f.flapCool > 0 || f.atk) return;
+
+    // Aim where they are holding. Nothing held throws it up and forwards,
+    // which is the direction somebody reaching for a ledge actually wants.
+    let ax = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+    let ay = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
+    if (!ax && !ay) { ax = f.face; ay = -1; }
+
+    const len = Math.hypot(ax, ay) || 1;
+    f.hook = {
+      x: f.x + 4, y: f.y + 7,
+      vx: (ax / len) * HOOK_SPEED, vy: (ay / len) * HOOK_SPEED,
+      set: false,
+    };
+    Sound.sfx('star');
+    return;
+  }
+
+  const h = f.hook;
+
+  if (!h.set) {
+    h.x += h.vx * STEP;
+    h.y += h.vy * STEP;
+
+    if (hookAnchored(h)) {
+      h.set = true;
+      Sound.sfx('block');           // a short metallic bite
+      burst(h.x, h.y, 5, '#c77dff', 40);
+    } else {
+      const out = Math.hypot(h.x - (f.x + 4), h.y - (f.y + 7));
+      // Out of line, or gone off the world: it comes back with nothing.
+      if (out > HOOK_MAX || h.x < -20 || h.x > W + 20 || h.y < -60 || h.y > H + 40) {
+        dropHook(f);
+      }
+    }
+    return;
+  }
+
+  // Anchored: reel in. This overrides gravity rather than fighting it, which
+  // is what makes a hook feel like a rope and not like a balloon.
+  const dx = h.x - (f.x + 4), dy = h.y - (f.y + 7);
+  const d = Math.hypot(dx, dy) || 1;
+
+  f.vx += (dx / d) * HOOK_PULL * STEP;
+  f.vy += (dy / d) * HOOK_PULL * STEP;
+  f.vx = clamp(f.vx, -240, 240);
+  f.vy = clamp(f.vy, -300, 300);
+
+  // The odd spark at the anchor, so a taut line reads as doing something.
+  if (Math.random() < 0.25) burst(h.x, h.y, 1, '#c77dff', 12);
+
+  // Arrived. Let it go rather than grinding against the platform.
+  if (d < 12) dropHook(f, 0.16);
+}
+
+// The line and its head. Drawn under the fighters so it reads as behind them.
+function drawHooks() {
+  for (const f of game.fighters) {
+    if (!f.hook || f.dead > 0) continue;
+    const h = f.hook;
+    const c = byChar(f.char);
+
+    ctx.strokeStyle = h.set ? (c.colour || '#c77dff') : '#8b7680';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(f.x + 4) + 0.5, Math.round(f.y + 7) + 0.5);
+    ctx.lineTo(Math.round(h.x) + 0.5, Math.round(h.y) + 0.5);
+    ctx.stroke();
+
+    ctx.fillStyle = h.set ? '#ffe9ec' : '#c9bcc4';
+    ctx.fillRect(Math.round(h.x) - 1, Math.round(h.y) - 1, 3, 3);
+  }
+}
+
 /* ================================================================== physics */
 
 function stepFighter(f, inp) {
@@ -659,7 +771,11 @@ function stepFighter(f, inp) {
     f.vx = clamp(f.vx, -106 * c.speed, 106 * c.speed);
 
     if (f.flapCool > 0) f.flapCool -= STEP;
-    if (inp.flap && f.flaps > 0 && f.flapCool <= 0 && !f.atk) {
+
+    // Wings or a hook, depending on the fighter. Both hang off the same button.
+    if (byChar(f.char).move === 'grapple') {
+      stepGrapple(f, inp);
+    } else if (inp.flap && f.flaps > 0 && f.flapCool <= 0 && !f.atk) {
       f.vy = -132;
       f.flaps--;
       f.flapCool = 0.24;
@@ -726,6 +842,7 @@ function loseStock(f) {
   f.dead = 0.9;
   f.vx = 0; f.vy = 0;
   f.atk = null; f.hitstun = 0; f.blocking = false; f.broken = 0;
+  f.hook = null;              // a line does not survive being knocked off
   f.shield = 1;
   game.shake = 9;
   Sound.sfx('ko');
@@ -737,6 +854,7 @@ function respawn(f) {
   f.x = spawnAt(f.index).x; f.y = spawnAt(f.index).y;
   f.vx = 0; f.vy = 0;
   f.invuln = 1.4;
+  f.hook = null;
   f.flaps = byChar(f.char).flaps;
   f.ammo = 4;
 }
@@ -1019,6 +1137,9 @@ function snapshot() {
       sh: +f.shield.toFixed(2), iv: +f.invuln.toFixed(2),
       de: +f.dead.toFixed(2), am: f.ammo, fl: f.flaps, hs: +f.hitstun.toFixed(2),
       br: +f.broken.toFixed(2), wg: +f.wing.toFixed(2),
+      // The line, so the joiner draws it rather than a fighter yanked about
+      // by nothing. Null most of the time, and three numbers when it is not.
+      hk: f.hook ? [Math.round(f.hook.x), Math.round(f.hook.y), f.hook.set ? 1 : 0] : null,
       ba: +f.buffAtk.toFixed(1), bw: +f.buffWing.toFixed(1),
     })),
     s: stars.map((s) => [Math.round(s.x), Math.round(s.y), s.owner]),
@@ -1041,6 +1162,9 @@ function applyState(m) {
     f.ammo = src.am; f.flaps = src.fl; f.hitstun = src.hs;
     f.broken = src.br; f.wing = src.wg;
     f.buffAtk = src.ba || 0; f.buffWing = src.bw || 0;
+    f.hook = Array.isArray(src.hk)
+      ? { x: src.hk[0], y: src.hk[1], vx: 0, vy: 0, set: Boolean(src.hk[2]) }
+      : null;
   }
   stars = (m.s || []).map(([x, y, o]) => ({ x, y, w: 4, h: 4, spin: x + y, life: 1, owner: o }));
   items = (m.it || []).map(([x, y, id, life]) => ({ x, y, w: 8, h: 8, id, life, rest: true }));
@@ -1329,9 +1453,15 @@ function drawHud() {
     drawText(Math.round(f.dmg) + '%', x, 14, col, 2, al);
 
     // Whatever they picked up, as a lit pip beside the stocks.
-    let bx = i === 0 ? x : x - 3;
     if (f.buffAtk > 0) { ctx.fillStyle = '#ff9d3d'; ctx.fillRect(i === 0 ? x + 40 : x - 43, 26, 3, 3); }
     if (f.buffWing > 0) { ctx.fillStyle = '#9fc4e6'; ctx.fillRect(i === 0 ? x + 45 : x - 48, 26, 3, 3); }
+
+    // A grappler has no wings to count, so this says whether the hook is ready
+    // instead — which for them is the only number worth watching.
+    if (c.move === 'grapple') {
+      ctx.fillStyle = (f.hook || f.flapCool > 0) ? '#4a3b43' : (c.colour || '#c77dff');
+      ctx.fillRect(i === 0 ? x : x - 6, 32, 6, 2);
+    }
 
     for (let s = 0; s < f.stocks; s++) {
       const sx = i === 0 ? x + s * 5 : x - 3 - s * 5;
@@ -1371,7 +1501,7 @@ function drawSelect() {
 
     drawText(c.name, cx, 60, c.colour, 1, 'center');
     drawText('WT ' + c.weight.toFixed(2), cx, 68, '#9a8d95', 1, 'center');
-    drawText('FLAP ' + c.flaps, cx, 75, '#9a8d95', 1, 'center');
+    drawText(c.move === 'grapple' ? 'HOOK' : 'FLAP ' + c.flaps, cx, 75, '#9a8d95', 1, 'center');
   }
 
   // Whoever each side is hovering, spelled out underneath.
@@ -1570,6 +1700,7 @@ function draw() {
 
 
   drawItems();
+  drawHooks();
   for (const f of game.fighters) drawFighterSprite(f);
   drawHud();
 
