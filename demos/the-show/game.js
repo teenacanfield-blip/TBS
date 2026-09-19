@@ -255,6 +255,11 @@ run.gear = freshGear();
 
 /* The level being played, and everything living in it. */
 let L = null, theme = null, grid = null;
+/* How hard this league is trying. It scales the things that actually decide
+ * difficulty — how fast enemies walk, how often a machine fires and how fast
+ * the ball leaves it — rather than the level geometry, so the sandlot and the
+ * big leagues can share a vocabulary and still feel nothing alike. */
+let pace = 1;
 let ents = [], shots = [], bits = [], pops = [];
 let taken = null;             // entity indices already collected this attempt
 let camX = 0, camY = 0;
@@ -269,7 +274,22 @@ const p = {
   onGround: false, coyote: 0, buffer: 0, jumps: 0, holdJump: false,
   swing: -1, swungAt: null, invuln: 0, hurtT: 0,
   anim: 0, dead: false, deadT: 0, cooldown: 0, gliding: false, ridden: null,
+  stepD: 0,
 };
+
+/* How loud the park is. The sandlot has nobody in it and The Show has forty
+ * thousand, so the bed of crowd noise is tied to the league you are in — and
+ * to the screen, because a title card should not sound like the ninth. */
+let ambNow = -1;
+function setAmbience(v) {
+  if (Math.abs(v - ambNow) < 0.02) return;
+  ambNow = v;
+  Sound.ambience(v);
+}
+function parkNoise() {
+  if (game.mode !== 'play' || !theme) return 0.12;
+  return Math.min(1, (theme.crowd ? 0.34 : 0.1) + run.level * 0.08);
+}
 
 /* =================================================================== levels */
 
@@ -277,6 +297,7 @@ function loadLevel(i, keepTaken) {
   run.level = i;
   L = Levels.get(i);
   theme = Art.THEMES[L.theme] || Art.THEMES.sandlot;
+  pace = L.pace || 1;
   grid = L.grid.map((r) => r.slice());
   if (!keepTaken) taken = new Set();
 
@@ -344,11 +365,11 @@ function spawn(d, idx) {
     // The pole stands on the tile below the one it is placed on, so the flag
     // ends up out of the dirt rather than buried to the knee in it.
     case 'check': return Object.assign(base, { x: px + 4, y: (d.y + 1) * T - 40, w: 10, h: 40, lit: false, tx: d.x, ty: d.y });
-    case 'crow':  return Object.assign(base, { x: px, y: py + 6, w: 12, h: 10, vx: -28, vy: 0 });
+    case 'crow':  return Object.assign(base, { x: px, y: py + 6, w: 12, h: 10, vx: -28 * pace, vy: 0 });
     case 'gopher':return Object.assign(base, { x: px + 3, y: py + 6, w: 10, h: 10, up: 0, timer: Math.random() * 2 });
-    case 'machine':return Object.assign(base, { x: px, y: py + 2, w: 16, h: 14, dir: d.dir, cool: 0.8 + Math.random() });
-    case 'slider':return Object.assign(base, { x: px, y: py, w: 10, h: 10, home: py, hx: px, amp: d.amp * T, ph: Math.random() * 6 });
-    case 'rival': return Object.assign(base, { x: px, y: py, w: 12, h: 16, vx: -46, vy: 0, stun: 0 });
+    case 'machine':return Object.assign(base, { x: px, y: py + 2, w: 16, h: 14, dir: d.dir, cool: (0.8 + Math.random()) / pace, whirred: false });
+    case 'slider':return Object.assign(base, { x: px, y: py, w: 10, h: 10, home: py, hx: px, amp: d.amp * T, ph: Math.random() * 6, whistled: false });
+    case 'rival': return Object.assign(base, { x: px, y: py, w: 12, h: 16, vx: -46 * pace, vy: 0, stun: 0 });
     case 'mover': return Object.assign(base, {
       x: px, y: py, w: d.w * T, h: 6, hx: px, hy: py,
       ax: d.ax, ay: d.ay, dist: d.dist * T, speed: d.speed * T, phase: 0, dvx: 0, dvy: 0,
@@ -707,6 +728,13 @@ function stepPlayer(dt) {
 
   p.anim += dt * (p.onGround ? Math.abs(p.vx) * 0.07 : 4);
 
+  // Footsteps, measured in distance rather than time, so they keep pace with
+  // him instead of with the clock.
+  if (p.onGround && Math.abs(p.vx) > 25) {
+    p.stepD += Math.abs(p.vx) * dt;
+    if (p.stepD > 14) { p.stepD = 0; Sound.sfx('step'); }
+  } else p.stepD = 0;
+
   // What the bat is touching this frame.
   if (p.swing >= SWING_ON[0] && p.swing <= SWING_ON[1]) batHits();
 }
@@ -742,7 +770,7 @@ function giveBalls(n, x, y) {
   pop(x, y, '+' + n, '#ffd166');
   puff(x, y, 3, '#ffffff', 60, 0.8);
   // Fifty of them is another out in the pocket: the oldest deal in the genre.
-  while (run.balls >= 50) { run.balls -= 50; run.outs++; Sound.sfx('power'); pop(p.x, p.y - 12, 'EXTRA OUT', '#5ce08a'); }
+  while (run.balls >= 50) { run.balls -= 50; run.outs++; Sound.sfx('extra'); pop(p.x, p.y - 12, 'EXTRA OUT', '#5ce08a'); }
 }
 
 /* Everything the bat touches while it is out. Order matters a little: the
@@ -904,13 +932,15 @@ function stepEnt(e, dt) {
     }
 
     case 'crow': {
+      // The odd caw, only from birds near enough to be worth hearing.
+      if (Math.random() < 0.0015 && Math.abs(e.x - p.x) < 190) Sound.sfx('caw');
       moveX(e, e.vx * dt);
       e.vy = Math.min(e.vy + 700 * dt, 300);
       if (moveY(e, e.vy * dt, false) === 'floor') e.vy = 0;
       else settle(e);
       // Turn at a wall, or before walking off the end of the world.
       const ahead = e.vx > 0 ? e.x + e.w + 2 : e.x - 2;
-      if (e.vx === 0 || !groundUnder(ahead, e.y + e.h + 2)) e.vx = -(e.vx || -28);
+      if (e.vx === 0 || !groundUnder(ahead, e.y + e.h + 2)) e.vx = -(e.vx || -28 * pace);
       if (isSolid(tileAt(Math.floor(ahead / T), Math.floor((e.y + 4) / T)))) e.vx = -e.vx;
       touchPlayer(e);
       break;
@@ -920,8 +950,8 @@ function stepEnt(e, dt) {
       e.timer -= dt;
       if (e.timer <= 0) {
         e.up = e.up > 0 ? 0 : 1;
-        e.timer = e.up ? 1.5 : 1.4 + Math.random();
-        if (e.up) Sound.sfx('pitch');
+        e.timer = (e.up ? 1.5 : 1.4 + Math.random()) / pace;
+        if (e.up && Math.abs(e.x - p.x) < 220) Sound.sfx('pop');
       }
       if (e.up > 0) touchPlayer(e);
       break;
@@ -929,10 +959,22 @@ function stepEnt(e, dt) {
 
     case 'machine': {
       e.cool -= dt;
+      // The wind-up is audible before the ball is: a machine you cannot see
+      // yet should still be something you can hear coming.
+      if (e.cool < 0.3 && !e.whirred) {
+        e.whirred = true;
+        if (Math.abs(e.x - p.x) < 260) Sound.sfx('whir');
+      }
       if (e.cool <= 0) {
-        e.cool = 1.7 + Math.random() * 0.6;
+        e.cool = (1.7 + Math.random() * 0.6) / pace;
+        e.whirred = false;
         const dir = e.dir;
-        addShot('pitch', e.x + (dir > 0 ? 14 : -4), e.y + 4, dir * 108, 0, { life: 5 });
+        addShot('pitch', e.x + (dir > 0 ? 14 : -4), e.y + 4, dir * 108 * pace, 0, { life: 5 });
+        // The top leagues throw in pairs — one at your knees and one at your
+        // cap, so the answer is the bat rather than the jump button.
+        if (pace >= 1.2 && Math.random() < 0.35) {
+          addShot('pitch', e.x + (dir > 0 ? 14 : -4), e.y - 7, dir * 92 * pace, 0, { life: 5 });
+        }
         Sound.sfx('pitch');
         puff(e.x + (dir > 0 ? 16 : 0), e.y + 7, 3, '#c9ced6', 40);
       }
@@ -941,16 +983,20 @@ function stepEnt(e, dt) {
     }
 
     case 'slider': {
-      e.ph += dt;
+      e.ph += dt * pace;
       e.x = e.hx + Math.sin(e.ph * 0.7) * 34;
       e.y = e.home + Math.sin(e.ph * 1.9) * e.amp;
+      // It whistles as it goes past your ear, once per pass.
+      const near = Math.abs(e.x - p.x) < 46 && Math.abs(e.y - p.y) < 44;
+      if (near && !e.whistled) { e.whistled = true; Sound.sfx('curve'); }
+      else if (!near) e.whistled = false;
       touchPlayer(e, true);
       break;
     }
 
     case 'rival': {
       if (e.stun > 0) { e.stun -= dt; e.vx = 0; }
-      else if (e.vx === 0) e.vx = -46;
+      else if (e.vx === 0) e.vx = -46 * pace;
       moveX(e, e.vx * dt);
       e.vy = Math.min(e.vy + 760 * dt, 320);
       if (moveY(e, e.vy * dt, false) !== 'floor') settle(e);
@@ -1033,8 +1079,11 @@ function stepBoss(e, dt) {
   const pace = Math.sin(e.st * 1.1) * 26;
   e.x = e.home + pace;
 
-  if (e.state === 'idle' && e.cool <= 0) { e.state = 'wind'; e.cool = 0.42 * rush; }
-  else if (e.state === 'wind' && e.cool <= 0) {
+  if (e.state === 'idle' && e.cool <= 0) {
+    e.state = 'wind';
+    e.cool = 0.42 * rush;
+    Sound.sfx('wind');              // the tell, a beat before the pitch
+  } else if (e.state === 'wind' && e.cool <= 0) {
     e.state = 'idle';
     e.cool = (1.5 + Math.random() * 0.5) * rush;
 
@@ -1043,12 +1092,12 @@ function stepBoss(e, dt) {
     // slope — otherwise every pitch sails over the batter's cap, which is
     // exactly what the first version of him did.
     const from = e.y + 8;
-    const speed = 150 + (3 - e.hp) * 28;
+    const speed = (150 + (3 - e.hp) * 28) * (0.85 + 0.15 * pace);
     const flight = Math.max(0.25, (e.x - (p.x + p.w)) / speed);
     const dy = clamp(((p.y + 5) - from) / flight, -110, 110);
 
     addShot('pitch', e.x - 6, from, -speed, dy, { life: 6, heavy: true });
-    Sound.sfx('pitch');
+    Sound.sfx('heat');
     puff(e.x - 4, from + 2, 4, '#ffffff', 60);
     // Down to his last out he throws two: one at you, one at where you would
     // have to jump to.
@@ -1651,17 +1700,26 @@ function drawMap() {
   const lv = Levels.get(game.pick);
   const open = isOpen(game.pick);
   // A card behind the words, because the league behind them is a busy place.
-  box(18, 62, W - 36, 86, 'rgba(8,10,20,0.66)');
+  box(18, 62, W - 36, 86, 'rgba(8,10,20,0.8)');
   box(18, 62, W - 36, 1, 'rgba(255,255,255,0.14)');
   box(18, 147, W - 36, 1, 'rgba(255,255,255,0.14)');
   txs(lv.name, W / 2, 68, open ? '#ffffff' : '#8a90a2', 2, 'center');
   txs(lv.league, W / 2, 84, '#ffd166', 1, 'center');
 
   // The blurb, wrapped by hand at a width the font can take.
-  wrap(lv.note, W / 2, 98, 46, open ? '#c9d0e0' : '#6e7488');
+  wrap(lv.note, W / 2, 95, 46, open ? '#c9d0e0' : '#6e7488');
+
+  // How hard the league is trying, as five marks. The climb is the point of
+  // the game, so it should be something you can see before you walk into it.
+  const heat = Math.max(1, Math.min(5, Math.round((lv.pace - 0.6) * 6)));
+  txt('PACE', W / 2 - 46, 116, '#6d7690', 1);
+  for (let i = 0; i < 5; i++) {
+    box(W / 2 - 20 + i * 9, 115, 7, 5,
+        i < heat ? (open ? '#ffd166' : '#6a7186') : 'rgba(255,255,255,0.12)');
+  }
 
   const best = save.best[lv.id];
-  txs(best ? 'BEST ' + time(best) : 'NOT PLAYED', W / 2, 124, '#9aa4c0', 1, 'center');
+  txs(best ? 'BEST ' + time(best) : 'NOT PLAYED', W / 2, 128, '#9aa4c0', 1, 'center');
 
   if (!open) {
     const need = Levels.CARDS_FOR_SHOW - totalCards();
@@ -1838,7 +1896,10 @@ function stepMenus() {
       if (tookMenu('back')) { game.mode = 'title'; Sound.sfx('select'); }
       if (tookMenu('ok')) {
         if (isOpen(game.pick)) {
-          run.outs = Math.max(3, run.outs);
+          // The bottom two leagues hand you a fourth out. Learning to time a
+          // swing should not cost you the walk back to the ladder.
+          const easy = Levels.get(game.pick).pace < 0.85;
+          run.outs = Math.max(easy ? 4 : 3, run.outs);
           startLevel(game.pick);
         } else Sound.sfx('deny');
       }
@@ -1846,7 +1907,7 @@ function stepMenus() {
     }
 
     case 'pause':
-      if (tookMenu('ok')) { game.mode = 'play'; Sound.music(theme.music, theme.shift); }
+      if (tookMenu('ok')) { game.mode = 'play'; Sound.music(theme.music, theme.shift); Sound.sfx('resume'); }
       if (tookKey('KeyR')) { run.gear = freshGear(); startLevel(run.level); }
       if (tookMenu('back')) { game.mode = 'map'; game.pick = run.level; Sound.music('menu'); }
       break;
@@ -1872,8 +1933,10 @@ function stepMenus() {
   // Pause is the one key that works from inside the game.
   if (tapPause) {
     tapPause = false;
-    if (game.mode === 'play') { game.mode = 'pause'; Sound.music('menu'); }
-    else if (game.mode === 'pause') { game.mode = 'play'; Sound.music(theme.music, theme.shift); }
+    if (game.mode === 'play') { game.mode = 'pause'; Sound.music('menu'); Sound.sfx('pause'); }
+    else if (game.mode === 'pause') {
+      game.mode = 'play'; Sound.music(theme.music, theme.shift); Sound.sfx('resume');
+    }
   }
   menu.ok = menu.back = menu.left = menu.right = menu.up = menu.down = false;
 }
@@ -1902,6 +1965,8 @@ function step() {
     if (game.mode !== 'pause') stepBits(STEP);
   }
   stepMenus();
+
+  setAmbience(parkNoise());
 
   if (game.shake > 0) game.shake = Math.max(0, game.shake - STEP * 18);
   if (game.flash > 0) game.flash -= STEP;

@@ -130,6 +130,10 @@ const Levels = (() => {
     return {
       id: def.id, name: def.name, league: def.league, theme: def.theme,
       note: def.note, par: def.par, boss: !!def.bossFight,
+      // How hard the league is trying. Everything that moves or throws is
+      // scaled by this, so the sandlot and the big leagues can be built out of
+      // the same pieces and still feel nothing alike. 1 is neutral.
+      pace: def.pace == null ? 1 : def.pace,
       w: W, h: H, grid, ents, crates,
       start: b._start || { x: 2, y: FLOOR - 2 },
       goalAt: b._goal || { x: W - 4, y: FLOOR - 4 },
@@ -143,7 +147,7 @@ const Levels = (() => {
   const sandlot = {
     id: 'sandlot', name: 'THE SANDLOT', league: 'SANDLOT', theme: 'sandlot',
     note: 'A dirt lot, a taped bat, and a fence nobody has cleared yet.',
-    par: 80, width: 168,
+    par: 80, width: 168, pace: 0.68,
     build(b) {
       b.start(3);
 
@@ -187,6 +191,7 @@ const Levels = (() => {
 
       b.arc(120, b.FLOOR - 3, 3);
       b.floorTo(123, 140);
+      b.check(125);
       b.gopher(127);
       b.card(131, b.FLOOR - 3);
       b.crow(136);
@@ -204,7 +209,7 @@ const Levels = (() => {
   const little = {
     id: 'little', name: 'LITTLE LEAGUE', league: 'LITTLE LEAGUE', theme: 'little',
     note: 'Real bases, real bleachers, and the machine that never gets tired.',
-    par: 95, width: 180,
+    par: 95, width: 180, pace: 0.8,
     build(b) {
       b.start(3);
       b.floorTo(0, 28);
@@ -246,6 +251,7 @@ const Levels = (() => {
 
       b.arc(128, b.FLOOR - 3, 3);
       b.floorTo(131, 150);
+      b.check(133);
       b.crate(134, b.FLOOR - 2); b.crate(135, b.FLOOR - 2, 'helmet');
       b.crow(140);
       b.plank(142, 4, b.FLOOR - 5);
@@ -266,7 +272,7 @@ const Levels = (() => {
   const school = {
     id: 'school', name: 'FRIDAY NIGHT', league: 'HIGH SCHOOL', theme: 'school',
     note: 'Under the lights, with scouts in the third row and a bus at eleven.',
-    par: 110, width: 190,
+    par: 110, width: 190, pace: 0.9,
     build(b) {
       b.start(3);
       b.floorTo(0, 22);
@@ -322,7 +328,7 @@ const Levels = (() => {
   const college = {
     id: 'college', name: 'SUNDAY DOUBLEHEADER', league: 'COLLEGE', theme: 'college',
     note: 'Aluminium bats, wooden benches, and curveballs that mean it.',
-    par: 120, width: 196,
+    par: 120, width: 196, pace: 1,
     build(b) {
       b.start(3);
       b.floorTo(0, 25);
@@ -381,7 +387,7 @@ const Levels = (() => {
   const single = {
     id: 'single', name: 'THE BUS LEAGUE', league: 'SINGLE-A', theme: 'single',
     note: 'Four hundred miles a night. Play where the bus stops.',
-    par: 125, width: 200,
+    par: 125, width: 200, pace: 1.12,
     build(b) {
       b.start(3);
       b.floorTo(0, 18);
@@ -438,7 +444,7 @@ const Levels = (() => {
   const doubleA = {
     id: 'double', name: 'RAIN DELAY', league: 'DOUBLE-A', theme: 'double',
     note: 'They will not call it. The tarp stays rolled and so do you.',
-    par: 130, width: 204,
+    par: 130, width: 204, pace: 1.22,
     build(b) {
       b.start(3);
       b.floorTo(0, 23);
@@ -461,11 +467,13 @@ const Levels = (() => {
       b.mover(72, b.FLOOR - 6, 3, 1, 0, 6, 2.8);
       b.floorTo(82, 102);
       b.gopher(86); b.gopher(92);
+      b.rival(95);
       b.coins(88, b.FLOOR - 4, 4);
       b.rakes(98, 3, b.FLOOR - 1);
 
       b.floorTo(105, 125);
       b.machine(110, b.FLOOR - 1, -1); b.machine(120, b.FLOOR - 1, 1);
+      b.slider(115, b.FLOOR - 8, 3);
       b.card(114, b.FLOOR - 6);
       b.plank(112, 6, b.FLOOR - 5);
       b.check(123);
@@ -497,7 +505,7 @@ const Levels = (() => {
   const triple = {
     id: 'triple', name: 'ONE CALL AWAY', league: 'TRIPLE-A', theme: 'triple',
     note: 'Everybody here has been up once. Everybody here wants back.',
-    par: 140, width: 212,
+    par: 140, width: 212, pace: 1.34,
     build(b) {
       b.start(3);
       b.floorTo(0, 21);
@@ -512,6 +520,7 @@ const Levels = (() => {
       b.mover(41, b.FLOOR - 4, 3, 0, 1, 5, 2.8);
       b.floorTo(47, 62);
       b.machine(52, b.FLOOR - 1, -1); b.machine(58, b.FLOOR - 1, 1);
+      b.slider(56, b.FLOOR - 8, 3);
       b.plank(53, 6, b.FLOOR - 5);
       b.coins(54, b.FLOOR - 6, 5);
       b.check(61);
@@ -544,7 +553,7 @@ const Levels = (() => {
 
       b.arc(165, b.FLOOR - 4, 4);
       b.floorTo(169, 186);
-      b.rival(173); b.crow(179);
+      b.rival(173); b.crow(179); b.rival(182);
       b.machine(184, b.FLOOR - 1, -1);
       b.plank(175, 6, b.FLOOR - 5);
       b.coins(176, b.FLOOR - 6, 5);
@@ -563,7 +572,7 @@ const Levels = (() => {
   const show = {
     id: 'show', name: 'THE SHOW', league: 'THE BIG LEAGUES', theme: 'show',
     note: 'Forty thousand people, and one man who throws ninety-nine.',
-    par: 150, width: 150, bossFight: true,
+    par: 150, width: 150, pace: 1.45, bossFight: true,
     build(b) {
       b.start(3);
       b.floorTo(0, 27);
@@ -574,6 +583,7 @@ const Levels = (() => {
       b.arc(27, b.FLOOR - 3, 4);
       b.floorTo(31, 46);
       b.machine(36, b.FLOOR - 1, -1); b.machine(43, b.FLOOR - 1, 1);
+      b.rival(33);
       b.plank(37, 6, b.FLOOR - 5);
       b.card(40, b.FLOOR - 7);
       b.check(45);
@@ -583,6 +593,7 @@ const Levels = (() => {
       b.rival(65, b.FLOOR - 5);
       b.crate(68, b.FLOOR - 6, 'helmet');
       b.slider(72, b.FLOOR - 8, 4);
+      b.machine(75, b.FLOOR - 5, -1);
 
       b.arc(77, b.FLOOR - 5, 4);
       b.floorTo(81, 96);

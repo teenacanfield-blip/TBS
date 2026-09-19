@@ -50,6 +50,7 @@ const Sound = (() => {
 
         ready = true;
         if (pending) { const p = pending; pending = null; music(p.name, p.shift); }
+        if (ambWant) ambience(ambWant);
       } catch (e) {
         ready = false;                        // no audio here; carry on quietly
         return;
@@ -123,8 +124,13 @@ const Sound = (() => {
     // Moving about.
     jump:  () => tone(sfxBus, { freq: 300, to: 620, dur: 0.11, gain: 0.2, type: 'square' }),
     hop:   () => tone(sfxBus, { freq: 480, to: 880, dur: 0.1, gain: 0.16, type: 'square' }),
-    land:  () => hiss(sfxBus, { freq: 420, to: 180, dur: 0.07, gain: 0.12, q: 0.8 }),
+    land:  () => { hiss(sfxBus, { freq: 420, to: 180, dur: 0.07, gain: 0.12, q: 0.8 });
+                   tone(sfxBus, { freq: 120, to: 70, dur: 0.06, gain: 0.1, type: 'triangle' }); },
     glide: () => hiss(sfxBus, { freq: 1600, dur: 0.12, gain: 0.04, q: 0.6 }),
+    // A scuff of dirt. Quiet on purpose: it plays every few strides and the
+    // whole point of it is that you stop noticing it.
+    step:  () => hiss(sfxBus, { freq: 900 + Math.random() * 500, to: 300, dur: 0.05,
+                                gain: 0.045, q: 1.4 }),
 
     // The bat. `swing` is the miss, `crack` is the one you want to hear, and
     // `homer` is the one the crowd hears.
@@ -138,6 +144,17 @@ const Sound = (() => {
                    hiss(sfxBus, { freq: 900, to: 200, dur: 0.1, gain: 0.16, q: 0.7 }); },
     toss:  () => tone(sfxBus, { freq: 900, to: 1500, dur: 0.07, gain: 0.14, type: 'sine' }),
     pitch: () => tone(sfxBus, { freq: 1200, to: 700, dur: 0.09, gain: 0.12, type: 'sine' }),
+    // The machine spinning up. It is a tell: the noise arrives before the ball
+    // does, which is the only fair way to put one of these behind a blind jump.
+    whir:  () => { tone(sfxBus, { freq: 220, to: 480, dur: 0.22, gain: 0.07, type: 'sawtooth' });
+                   hiss(sfxBus, { freq: 2600, to: 4200, dur: 0.22, gain: 0.04, q: 3 }); },
+    // The Closer, rocking back. Heavier, and you get a beat to read it.
+    wind:  () => { tone(sfxBus, { freq: 140, to: 320, dur: 0.34, gain: 0.16, type: 'sawtooth' });
+                   hiss(sfxBus, { freq: 500, to: 1800, dur: 0.34, gain: 0.08, q: 1.2 }); },
+    heat:  () => { tone(sfxBus, { freq: 900, to: 420, dur: 0.16, gain: 0.18, type: 'sine' });
+                   hiss(sfxBus, { freq: 3000, to: 900, dur: 0.16, gain: 0.1, q: 1 }); },
+    // A curveball going past your ear.
+    curve: () => hiss(sfxBus, { freq: 600, to: 2400, dur: 0.24, gain: 0.07, q: 2.4 }),
 
     // Picking things up.
     coin:  () => { tone(sfxBus, { freq: 1050, dur: 0.05, gain: 0.16 });
@@ -164,8 +181,23 @@ const Sound = (() => {
                    hiss(sfxBus, { freq: 2600, dur: 0.9, gain: 0.05, q: 0.4, attack: 0.3 }); },
     boo:   () => hiss(sfxBus, { freq: 260, to: 150, dur: 0.9, gain: 0.14, q: 0.4, attack: 0.2 }),
 
+    // The wildlife.
+    caw:   () => { tone(sfxBus, { freq: 760, to: 520, dur: 0.09, gain: 0.09, type: 'sawtooth' });
+                   tone(sfxBus, { freq: 700, to: 460, dur: 0.11, gain: 0.08, type: 'sawtooth', at: 0.12 }); },
+    pop:   () => { tone(sfxBus, { freq: 400, to: 900, dur: 0.07, gain: 0.12, type: 'sine' });
+                   hiss(sfxBus, { freq: 700, to: 300, dur: 0.1, gain: 0.08, q: 0.8 }); },
+
+    // Fifty baseballs is another out in the pocket, and it should sound like
+    // more than picking up the fiftieth baseball.
+    extra: () => [0, 4, 7, 12, 19].forEach((n, i) =>
+                   tone(sfxBus, { freq: midi(64 + n), dur: 0.2, gain: 0.22, at: i * 0.08, type: 'triangle' })),
+
     // Screens.
     select:() => tone(sfxBus, { freq: 640, dur: 0.05, gain: 0.14 }),
+    pause: () => { tone(sfxBus, { freq: 520, dur: 0.08, gain: 0.16 });
+                   tone(sfxBus, { freq: 340, dur: 0.12, gain: 0.16, at: 0.07 }); },
+    resume:() => { tone(sfxBus, { freq: 340, dur: 0.08, gain: 0.16 });
+                   tone(sfxBus, { freq: 560, dur: 0.12, gain: 0.16, at: 0.07 }); },
     start: () => [0, 7, 12].forEach((n, i) =>
                    tone(sfxBus, { freq: midi(60 + n), dur: 0.18, gain: 0.24, at: i * 0.09 })),
     deny:  () => tone(sfxBus, { freq: 200, to: 140, dur: 0.14, gain: 0.2, type: 'square' }),
@@ -304,6 +336,64 @@ const Sound = (() => {
     if (timer) { clearInterval(timer); timer = null; }
   }
 
+  /* ------------------------------------------------------------- ambience */
+
+  /* A ballpark is never silent. This is a bed of filtered noise with a slow
+   * swell on it, held at whatever level the league deserves: nobody is
+   * watching in the sandlot, forty thousand are in The Show. It is the
+   * cheapest thing in this file and it does more for the sense of place than
+   * any single sound effect in it. */
+  let ambSrc = null, ambGain = null, ambBuf = null;
+  let ambWant = 0;
+
+  function ambience(level) {
+    ambWant = Math.max(0, Math.min(1, level || 0));
+    if (!ready) return;
+
+    if (!ambSrc) {
+      try {
+        // Its own long buffer: looping half a second of noise has an audible
+        // period to it, and a crowd that pulses every half second is a fan.
+        if (!ambBuf) {
+          const n = ctx.sampleRate * 3;
+          ambBuf = ctx.createBuffer(1, n, ctx.sampleRate);
+          const d = ambBuf.getChannelData(0);
+          let last = 0;
+          for (let i = 0; i < n; i++) {
+            last = last * 0.86 + (Math.random() * 2 - 1) * 0.14;   // brown-ish
+            d[i] = last;
+          }
+        }
+
+        ambSrc = ctx.createBufferSource();
+        ambSrc.buffer = ambBuf;
+        ambSrc.loop = true;
+
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.4;
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass'; hp.frequency.value = 180;
+
+        ambGain = ctx.createGain();
+        ambGain.gain.value = 0;
+
+        // A slow swell over the top, so it breathes rather than hums.
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 0.08;
+        const lfoAmt = ctx.createGain();
+        lfoAmt.gain.value = 0.02;
+        lfo.connect(lfoAmt);
+        lfoAmt.connect(ambGain.gain);
+        lfo.start();
+
+        ambSrc.connect(hp); hp.connect(lp); lp.connect(ambGain); ambGain.connect(master);
+        ambSrc.start();
+      } catch (e) { ambSrc = null; return; }
+    }
+
+    ambGain.gain.setTargetAtTime(ambWant * 0.085, ctx.currentTime, 0.8);
+  }
+
   /* ----------------------------------------------------------------- mute */
 
   function toggleMute() {
@@ -322,6 +412,7 @@ const Sound = (() => {
     sfx,
     music,
     stopMusic,
+    ambience,
     toggleMute,
     get muted() { return muted; },
     get ready() { return ready; },
