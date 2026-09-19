@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="color-scheme" content="light" />
+<title>2B or Not 2B</title>
+<meta name="description" content="A pencil fell off a school desk. Parkour it back up. Forty-four achievements, no downloads." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%23f7f4ea'/%3E%3Crect x='6' y='2' width='4' height='8' fill='%23f5c518'/%3E%3Crect x='6' y='10' width='4' height='2' fill='%23e6c99a'/%3E%3Crect x='7' y='12' width='2' height='2' fill='%2333363f'/%3E%3Crect x='6' y='1' width='4' height='1' fill='%23ef7f9a'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css?v=1" />
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <div id="flash" aria-hidden="true"></div>
+
+  <!-- The heads-up display, drawn as the back of an exercise book: a ruler up
+       the side for height, a tally at the top, and the pencil itself as the
+       sharpness meter. -->
+  <div id="hud" hidden>
+    <div id="zone">
+      <b id="zone-name">The Lino</b>
+      <span id="zone-sub">0 up</span>
+    </div>
+
+    <div id="meter" aria-hidden="true">
+      <div class="meter-rail">
+        <span style="bottom:0%"></span>
+        <span style="bottom:12%"></span>
+        <span style="bottom:34%"></span>
+        <span style="bottom:58%"></span>
+        <span style="bottom:80%"></span>
+        <span style="bottom:100%"></span>
+        <div id="meter-pip"></div>
+      </div>
+      <div class="meter-cap">desk</div>
+    </div>
+
+    <div id="tally">
+      <span class="t"><i class="i-crumb"></i><b id="n-crumb">0</b></span>
+      <span class="t"><i class="i-star"></i><b id="n-star">0/10</b></span>
+      <span class="t t-time"><b id="n-time">0:00</b></span>
+    </div>
+
+    <div id="sharp" title="How sharp your tip is">
+      <div class="sharp-body"><div id="sharp-fill"></div></div>
+      <span>tip</span>
+    </div>
+
+    <div id="hint" hidden></div>
+  </div>
+
+  <div id="toasts" aria-live="polite"></div>
+
+  <!-- Thumbs. The left half of the screen is a stick you draw with your
+       finger, so only the three verbs need buttons. -->
+  <div id="touch" hidden aria-hidden="true">
+    <button type="button" class="t-jump" data-key="jump">JUMP</button>
+    <button type="button" class="t-dash" data-key="dash">DASH</button>
+    <button type="button" class="t-dive" data-key="dive">DIVE</button>
+  </div>
+
+  <div id="veil" hidden>
+
+    <!-- ------------------------------------------------------------ title -->
+    <section class="screen card" id="screen-title" hidden>
+      <div class="pencil-rule" aria-hidden="true"></div>
+      <h1>2B <span>or not</span> 2B</h1>
+      <p class="sub">You rolled off the desk. It is a long way back up.</p>
+      <p class="blurb">
+        Run, jump, and stab your tip into anything soft enough to hold it —
+        cork, vinyl, chewing gum, the back of a drawer. Sharpeners are the only
+        way to get your point back, and they are the only checkpoints. Falling
+        will not kill you. It will just put you on the floor again.
+      </p>
+      <div class="row">
+        <button class="btn big" id="btn-play">Climb</button>
+        <button class="btn" id="btn-achv">Sticker chart</button>
+        <button class="btn" id="btn-help">Controls</button>
+        <button class="btn ghost" data-mute>Sound: on</button>
+      </div>
+      <p class="foot"><span id="title-stickers">0 / 44 stickers</span> · <span id="title-best">Never made it up yet</span></p>
+    </section>
+
+    <!-- ------------------------------------------------------------ pause -->
+    <section class="screen card small" id="screen-pause" hidden>
+      <h2>Hanging about</h2>
+      <div class="row">
+        <button class="btn big" id="btn-resume">Carry on</button>
+        <button class="btn" id="btn-restart">Start again</button>
+        <button class="btn" id="btn-achv2">Sticker chart</button>
+        <button class="btn" id="btn-help2">Controls</button>
+        <button class="btn ghost" data-mute>Sound: on</button>
+        <button class="btn ghost" id="btn-title">Give up</button>
+      </div>
+      <p class="foot">Esc gets you back. Shift+Esc leaves the game entirely.</p>
+    </section>
+
+    <!-- ------------------------------------------------------- the chart -->
+    <section class="screen card wide" id="screen-achv" hidden>
+      <h2>Sticker chart</h2>
+      <div class="progress"><div id="achv-bar"></div></div>
+      <p class="sub"><span id="achv-count">0 of 44</span> — and they stay on the chart between goes.</p>
+      <ul id="achv-list" class="chart"></ul>
+      <div class="row">
+        <button class="btn big" id="btn-back">Back</button>
+        <button class="btn ghost" id="btn-forget">Clear the chart</button>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------- controls -->
+    <section class="screen card" id="screen-help" hidden>
+      <h2>Controls</h2>
+      <table class="keys">
+        <tr><td>W A S D</td><td>Run, in whatever direction the camera is facing</td></tr>
+        <tr><td>Mouse</td><td>Look. Click once to hold the camera</td></tr>
+        <tr><td>Space</td><td>Jump. Again in the air for a spin, once per flight</td></tr>
+        <tr><td>Space at a wall</td><td>Kick off it, if your tip is in it</td></tr>
+        <tr><td>Shift / E</td><td>Dash. One per flight, back when you land</td></tr>
+        <tr><td>Ctrl / Q / F</td><td>Dive tip-first. Deadly on erasers, in the good way</td></tr>
+        <tr><td>R</td><td>Back to the last sharpener</td></tr>
+        <tr><td>M</td><td>Mute</td></tr>
+        <tr><td>Esc</td><td>Pause</td></tr>
+      </table>
+      <p class="blurb">
+        Hold toward a soft wall in mid-air and the pencil sticks into it. It
+        slides, it costs sharpness, and at zero sharpness nothing holds — so
+        the sharpeners are worth going out of your way for.
+      </p>
+      <div class="row"><button class="btn big" id="btn-back2">Back</button></div>
+    </section>
+
+    <!-- -------------------------------------------------------------- won -->
+    <section class="screen card" id="screen-win" hidden>
+      <div class="pencil-rule" aria-hidden="true"></div>
+      <h1 class="won">Home</h1>
+      <p class="sub">Back in the groove, where a pencil belongs.</p>
+      <dl class="score">
+        <div><dt>Time</dt><dd id="win-time">0:00</dd></div>
+        <div><dt>Crumbs</dt><dd id="win-crumbs">0</dd></div>
+        <div><dt>Stars</dt><dd id="win-stars">0</dd></div>
+        <div><dt>Best</dt><dd id="win-best">0:00</dd></div>
+      </dl>
+      <div class="row">
+        <button class="btn big" id="btn-play-again">Again</button>
+        <button class="btn" id="btn-achv3">Sticker chart</button>
+        <button class="btn ghost" id="btn-title2">Title</button>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------- no webgl -->
+    <section class="screen card" id="screen-sorry" hidden>
+      <h2>No 3D here</h2>
+      <p class="blurb">
+        This browser will not give the game a WebGL canvas, which is the one
+        thing it genuinely cannot do without. Everything else in the game is
+        made on the spot — there are no files to fetch — so if 3D works
+        anywhere else on this machine, it will work here too.
+      </p>
+    </section>
+
+  </div>
+</div>
+
+<script src="sound.js?v=1"></script>
+<script src="gfx.js?v=1"></script>
+<script src="world.js?v=1"></script>
+<script src="achievements.js?v=1"></script>
+<script src="game.js?v=1"></script>
+</body>
+</html>

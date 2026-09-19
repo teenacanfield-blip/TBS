@@ -18,9 +18,26 @@
  * game shows itself is noted in its blurb, so nobody is confused by the two.
  *
  * `motif` picks the shape drawn on the cover. The ones that exist right now are
- * car, lizard, star, sword, ball and dragon. See art.js to add more.
+ * car, lizard, star, sword, ball, dragon and pencil. See art.js to add more.
  */
 const DEMOS = [
+  {
+    id: '2b-or-not-2b',
+    title: '2B or Not 2B',
+    tagline: 'The long way back to the desk',
+    motif: 'pencil',
+    accent: '#f5c518',
+    accentDark: '#2a2103',
+    url: '',
+    blurb:
+      'A 3D platformer about a pencil that rolled off a school desk and has ' +
+      'ninety units of classroom to climb to get back into the groove at the ' +
+      'top of it. A pencil has a sharp end, so it can stab into anything soft ' +
+      '— cork, vinyl, chewing gum — and kick off again, and that costs the ' +
+      'sharpness that only a sharpener gives back. Falling is not death; it ' +
+      'just puts you on the lino again. Forty-four things to earn a sticker ' +
+      'for, and it brings its own 3D, so no CDN and nothing to fetch.',
+  },
   {
     id: 'rc-craze',
     title: 'RC Craze',

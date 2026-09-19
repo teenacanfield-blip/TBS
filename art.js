@@ -640,6 +640,17 @@ const Art = (() => {
       R(cx + u * 4.3, cy + u * 2, u * 1.6, u * 3.4, '#7d5730') +
       `</g>`,
 
+    // 2B or Not 2B: a pencil, tip down, on its way to the floor.
+    pencil: (cx, cy, u, c) =>
+      R(cx - u * 1.8, cy - u * 9, u * 3.6, u * 1.8, '#ef7f9a') +
+      R(cx - u * 1.8, cy - u * 7.2, u * 3.6, u * 1.1, '#b9bcc4') +
+      R(cx - u * 1.8, cy - u * 6.1, u * 3.6, u * 9.6, c) +
+      R(cx - u * 0.5, cy - u * 6.1, u * 1, u * 9.6, '#ffe9a8') +
+      R(cx - u * 1.8, cy + u * 3.5, u * 3.6, u * 1.6, '#e6c99a') +
+      triDown(cx, cy + u * 5.1, 3, u * 0.6, '#33363f') +
+      R(cx - u * 7, cy + u * 8, u * 4, u * 1.2, '#c0392b') +
+      R(cx + u * 3.4, cy + u * 8, u * 5, u * 1.2, '#2f6fb5'),
+
     // The Dragon's Last Breath: head, horn, and the breath itself.
     dragon: (cx, cy, u, c) =>
       R(cx - u * 5, cy - u * 3, u * 7, u * 5, c) +

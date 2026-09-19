@@ -1,0 +1,332 @@
+/* The game is 3D; everything around it is stationery.
+ *
+ * The panels are paper — ruled, with a red margin down the left, the way an
+ * exercise book is — and the accent throughout is pencil yellow. Nothing here
+ * is an image file: the ruled lines, the ruler up the side of the screen and
+ * the pencil that doubles as the sharpness meter are all gradients.
+ */
+
+:root {
+  --paper: #f7f4ea;
+  --paper-2: #efe9d9;
+  --ink: #26313d;
+  --ink-soft: #5d6b7a;
+  --rule: #cbd9e6;
+  --margin: #d9534f;
+  --yellow: #f5c518;
+  --yellow-dark: #c99e0d;
+  --graphite: #4a4f5c;
+  --pink: #ef7f9a;
+  --gold: #ffd54a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #c9cfd6;
+  color: var(--ink);
+  font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage { position: fixed; inset: 0; }
+#gl { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+
+#flash {
+  position: absolute; inset: 0; pointer-events: none;
+  background: #fff; opacity: 0; transition: opacity .12s linear;
+}
+
+/* ==================================================================== HUD */
+
+#hud { position: absolute; inset: 0; pointer-events: none; font-weight: 600; }
+
+#zone {
+  position: absolute; top: 14px; left: 18px;
+  padding: 8px 14px 8px 18px;
+  background: var(--paper);
+  border-left: 4px solid var(--margin);
+  border-radius: 3px 8px 8px 3px;
+  box-shadow: 0 4px 14px rgba(20, 30, 40, .22);
+}
+#zone b { display: block; font-size: 19px; letter-spacing: .2px; }
+#zone span { display: block; font-size: 12px; color: var(--ink-soft); font-weight: 500; }
+
+/* A ruler up the left-hand side. The pip is you. */
+#meter {
+  position: absolute; left: 22px; top: 92px; bottom: 130px;
+  width: 26px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.meter-rail {
+  position: relative; flex: 1; width: 20px;
+  background: linear-gradient(180deg, #fdf6d8, #f0e3b8);
+  border: 1px solid rgba(90, 70, 20, .35);
+  border-radius: 3px;
+  box-shadow: 0 3px 10px rgba(20, 30, 40, .2);
+}
+.meter-rail span {
+  position: absolute; left: 0; width: 11px; height: 2px;
+  background: rgba(80, 60, 20, .5);
+}
+#meter-pip {
+  position: absolute; left: -5px; width: 30px; height: 6px;
+  margin-bottom: -3px;
+  background: var(--graphite);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .7);
+  transition: bottom .08s linear;
+}
+.meter-cap {
+  margin-top: 6px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .09em; color: #3f4a55;
+  background: var(--paper); padding: 2px 6px; border-radius: 4px;
+}
+
+#tally {
+  position: absolute; top: 14px; right: 18px;
+  display: flex; gap: 8px;
+}
+#tally .t {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--paper); padding: 7px 12px; border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(20, 30, 40, .22);
+  font-variant-numeric: tabular-nums;
+}
+#tally .t-time { color: var(--ink-soft); }
+.i-crumb, .i-star { width: 12px; height: 12px; display: inline-block; }
+.i-crumb { background: var(--graphite); border-radius: 2px; transform: rotate(18deg); }
+.i-star {
+  background: var(--gold);
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+/* The sharpness meter is a pencil, standing up, that gets shorter. */
+#sharp {
+  position: absolute; left: 22px; bottom: 24px;
+  width: 34px; text-align: center;
+}
+.sharp-body {
+  height: 92px; width: 18px; margin: 0 auto 4px;
+  background: rgba(255, 255, 255, .55);
+  border: 1px solid rgba(40, 55, 70, .25);
+  border-radius: 3px;
+  display: flex; align-items: flex-end;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(20, 30, 40, .2);
+}
+#sharp-fill {
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, var(--pink) 0 12%, #b9bcc4 12% 20%, var(--yellow) 20% 100%);
+  transition: height .12s linear;
+}
+#sharp span {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+  color: #3f4a55; background: var(--paper); padding: 2px 6px; border-radius: 4px;
+}
+
+#hint {
+  position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%);
+  max-width: min(560px, 80vw); text-align: center;
+  padding: 9px 16px; background: rgba(38, 49, 61, .86); color: #fff;
+  border-radius: 999px; font-weight: 500; font-size: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+}
+
+/* ================================================================= toasts */
+
+#toasts {
+  position: absolute; right: 18px; bottom: 22px;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+  pointer-events: none;
+}
+.toast {
+  background: var(--paper);
+  border-left: 5px solid var(--yellow);
+  border-radius: 4px 10px 10px 4px;
+  padding: 8px 14px;
+  min-width: 190px;
+  box-shadow: 0 8px 22px rgba(20, 30, 40, .3);
+  animation: slide .32s cubic-bezier(.2, 1.3, .5, 1);
+  transition: opacity .55s ease, transform .55s ease;
+}
+.toast span {
+  display: block; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--ink-soft);
+}
+.toast b { display: block; font-size: 15px; }
+.toast.out { opacity: 0; transform: translateX(24px); }
+@keyframes slide { from { opacity: 0; transform: translateX(40px); } }
+
+/* ================================================================ screens */
+
+/* `hidden` has to be spelled out here: `#veil` is a stronger selector than the
+   browser's own `[hidden] { display: none }`, so without this the dimmer stays
+   over the game for the whole session. */
+#veil[hidden], #touch[hidden], #hud[hidden] { display: none; }
+
+#veil {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  padding: 24px;
+  background: rgba(28, 38, 48, .55);
+  backdrop-filter: blur(3px);
+  overflow: auto;
+}
+
+.card {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  padding: 26px 30px 24px 44px;
+  background:
+    linear-gradient(var(--paper), var(--paper)),
+    repeating-linear-gradient(180deg, transparent 0 27px, var(--rule) 27px 28px);
+  background-blend-mode: multiply;
+  border-radius: 6px;
+  box-shadow: 0 24px 60px rgba(10, 18, 26, .45);
+}
+.card::before {
+  content: ""; position: absolute; left: 26px; top: 0; bottom: 0;
+  width: 2px; background: var(--margin); opacity: .55;
+}
+.card.small { width: min(420px, 100%); }
+.card.wide { width: min(760px, 100%); }
+
+.pencil-rule {
+  height: 12px; margin: 0 0 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+    var(--graphite) 0 3%, #e6c99a 3% 9%, var(--yellow) 9% 84%,
+    var(--yellow-dark) 84% 86%, #b9bcc4 86% 93%, var(--pink) 93% 100%);
+}
+
+h1 {
+  margin: 0; font-size: clamp(34px, 7vw, 52px); line-height: 1;
+  letter-spacing: -1px;
+}
+h1 span { color: var(--ink-soft); font-size: .5em; letter-spacing: 0; }
+h1.won { color: var(--yellow-dark); }
+h2 { margin: 0 0 10px; font-size: 26px; }
+.sub { margin: 6px 0 12px; color: var(--ink-soft); font-weight: 600; }
+.blurb { margin: 0 0 16px; color: #384654; max-width: 46em; }
+.foot { margin: 14px 0 0; font-size: 12px; color: var(--ink-soft); }
+
+.row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+
+.btn {
+  font: inherit; font-weight: 700;
+  padding: 10px 18px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper-2);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--ink);
+  transition: transform .06s ease, box-shadow .06s ease, background .12s ease;
+}
+.btn:hover { background: #fff; }
+.btn:active { transform: translateY(3px); box-shadow: 0 0 0 var(--ink); }
+.btn.big { background: var(--yellow); }
+.btn.big:hover { background: #ffd744; }
+.btn.ghost { border-color: rgba(38, 49, 61, .35); box-shadow: 0 3px 0 rgba(38, 49, 61, .25); }
+
+/* -------------------------------------------------------------- the chart */
+
+.progress {
+  height: 10px; border-radius: 999px; overflow: hidden;
+  background: rgba(38, 49, 61, .12);
+  border: 1px solid rgba(38, 49, 61, .18);
+}
+#achv-bar { height: 100%; width: 0; background: var(--yellow); transition: width .4s ease; }
+
+.chart {
+  list-style: none; margin: 4px 0 16px; padding: 0;
+  display: grid; gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+}
+.chart li {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  grid-template-rows: auto auto;
+  gap: 0 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .55);
+  border: 1px solid rgba(38, 49, 61, .12);
+  opacity: .72;
+}
+.chart li.got {
+  opacity: 1;
+  background: #fffbe8;
+  border-color: rgba(201, 158, 13, .45);
+}
+.chart .sticker {
+  grid-row: 1 / 3; align-self: center;
+  font-size: 20px; text-align: center; color: #b9bfc7;
+}
+.chart li.got .sticker { color: var(--gold); text-shadow: 0 1px 0 var(--yellow-dark); }
+.chart b { font-size: 14px; }
+.chart i { font-style: normal; font-size: 12px; color: var(--ink-soft); }
+.chart li.secret b, .chart li.secret i { color: #9aa3ad; }
+
+.keys { border-collapse: collapse; margin: 0 0 16px; width: 100%; }
+.keys td { padding: 5px 0; vertical-align: top; border-bottom: 1px dashed rgba(38, 49, 61, .18); }
+.keys td:first-child {
+  width: 34%; font-weight: 700; font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px; padding-right: 12px;
+}
+
+.score {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin: 14px 0 18px;
+}
+.score div {
+  background: rgba(255, 255, 255, .6); border: 1px solid rgba(38, 49, 61, .14);
+  border-radius: 6px; padding: 10px;
+}
+.score dt {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft);
+}
+.score dd { margin: 2px 0 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ================================================================== touch */
+
+#touch { position: absolute; inset: 0; pointer-events: none; }
+#touch button {
+  position: absolute;
+  pointer-events: auto;
+  font: 700 13px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: .06em;
+  color: var(--ink);
+  background: rgba(247, 244, 234, .82);
+  border: 2px solid rgba(38, 49, 61, .55);
+  border-radius: 50%;
+  width: 76px; height: 76px;
+  touch-action: none;
+  user-select: none;
+}
+#touch button:active { background: var(--yellow); }
+.t-jump { right: 22px; bottom: 96px; }
+.t-dash { right: 108px; bottom: 40px; }
+.t-dive { right: 22px; bottom: 16px; width: 64px !important; height: 64px !important; }
+
+@media (hover: hover) and (pointer: fine) { #touch { display: none; } }
+
+@media (max-width: 560px) {
+  #meter { display: none; }
+  #zone b { font-size: 16px; }
+  .card { padding: 22px 18px 20px 34px; }
+  .card::before { left: 18px; }
+  .score { grid-template-columns: repeat(2, 1fr); }
+  /* Everything that talks to you moves up out from under the thumbs. */
+  #hint { bottom: 252px; font-size: 13px; }
+  #toasts { bottom: 194px; right: 12px; }
+  .toast { min-width: 0; max-width: 62vw; }
+  #sharp { bottom: 16px; }
+}

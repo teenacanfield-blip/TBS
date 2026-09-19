@@ -10,6 +10,7 @@ finds.
 
 | Demo | Folder | Status | Came from |
 | --- | --- | --- | --- |
+| 2B or Not 2B | `2b-or-not-2b` | playable | written here, from nothing |
 | RC Craze | `rc-craze` | playable | `Downloads\rc craze.html` |
 | Liz | `liz` | playable | `Downloads\lizard3d_1.html` |
 | Ninja Wing Wing | `ninja-wing-wing` | **not built** | only a sprite sheet exists |
@@ -28,6 +29,11 @@ RC Craze, Liz, Legend Cart and Animabal1 are 3D and load `three.js` from
 on wifi that blocks CDNs — some school and guest networks do — they will open to
 a blank screen. The Dragon's Last Breath and both full games have no such
 dependency and always work.
+
+2B or Not 2B is 3D as well, and does not. It carries its own renderer in
+`gfx.js` — plain WebGL, one shader — because a game set in a classroom is the
+last one that should go blank on a school network. Nothing in that folder is
+fetched: the sound is synthesised, the level is code, and there are no images.
 
 So RC Craze lives at `demos/rc-craze/index.html`.
 
