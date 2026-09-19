@@ -1,0 +1,115 @@
+/* The Show.
+ *
+ * The game is one canvas. All this file has to do is centre it, keep the
+ * pixels square, and put thumb-sized buttons on a phone. */
+
+:root {
+  --bg:     #0a0d16;
+  --accent: #ffd166;
+  --line:   #2a3350;
+  --text:   #f4f1e4;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Courier New", Courier, monospace;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #05070c;
+  touch-action: none;
+}
+
+/* ---------------------------------------------------------------- touch */
+
+#touch { display: none; }
+body.touch #touch { display: block; }
+
+/* Held upright, the game is a letterbox in the middle of a tall screen and the
+   buttons are at the bottom. Lift it clear of the thumbs. */
+@media (orientation: portrait) {
+  body.touch #wrap {
+    align-items: flex-start;
+    padding-top: 12vh;
+  }
+}
+
+#touch button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  background: rgba(16, 22, 40, 0.66);
+  border: 2px solid rgba(255, 209, 102, 0.42);
+  border-radius: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+#touch button:active,
+#touch button.on {
+  background: rgba(255, 209, 102, 0.34);
+  border-color: var(--accent);
+}
+
+/* Left thumb walks, right thumb swings. Down is only needed for dropping
+   through a plank, so it sits under the two it belongs between. */
+#touch .t-left,
+#touch .t-right,
+#touch .t-down { width: 56px; height: 56px; }
+#touch .t-left  { left: 10px;               bottom: calc(10px + 58px); }
+#touch .t-right { left: calc(10px + 116px); bottom: calc(10px + 58px); }
+#touch .t-down  { left: calc(10px + 58px);  bottom: 10px; }
+
+#touch .t-jump,
+#touch .t-swing,
+#touch .t-throw { width: 68px; height: 50px; }
+#touch .t-jump  { right: 10px;              bottom: 10px; }
+#touch .t-swing { right: calc(10px + 74px); bottom: 10px; }
+#touch .t-throw { right: 10px;              bottom: calc(10px + 56px); }
+
+#touch .t-pause {
+  width: 36px; height: 26px;
+  right: 10px; top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+
+@media (max-height: 430px) {
+  #touch .t-left, #touch .t-right, #touch .t-down { width: 46px; height: 46px; }
+  #touch .t-left  { left: 8px;              bottom: calc(8px + 48px); }
+  #touch .t-right { left: calc(8px + 96px); bottom: calc(8px + 48px); }
+  #touch .t-down  { left: calc(8px + 48px); bottom: 8px; }
+
+  #touch .t-jump, #touch .t-swing, #touch .t-throw { width: 58px; height: 42px; }
+  #touch .t-jump  { right: 8px;              bottom: 8px; }
+  #touch .t-swing { right: calc(8px + 64px); bottom: 8px; }
+  #touch .t-throw { right: 8px;              bottom: calc(8px + 48px); }
+}

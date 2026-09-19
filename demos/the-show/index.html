@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="color-scheme" content="dark" />
+<title>The Show</title>
+<meta name="description" content="A baseball platformer. Eight leagues from the sandlot to the big leagues, power-ups in the crates, and a bat that sends every pitch back the way it came." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230c1020'/%3E%3Crect x='5' y='4' width='6' height='6' fill='%23ffffff'/%3E%3Crect x='4' y='5' width='8' height='4' fill='%23ffffff'/%3E%3Crect x='6' y='5' width='1' height='4' fill='%23c8102e'/%3E%3Crect x='9' y='5' width='1' height='4' fill='%23c8102e'/%3E%3Crect x='2' y='11' width='12' height='2' fill='%23c08a4a'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css?v=1" />
+</head>
+<body>
+<div id="wrap">
+  <!-- Menus, HUD and game all go into this one canvas, drawn with the game's
+       own pixel font, so nothing is ever in the wrong typeface at the wrong
+       size. There is no DOM text below this line. -->
+  <canvas id="c" width="320" height="180"></canvas>
+
+  <div id="touch" aria-hidden="true">
+    <button type="button" class="t-left"  data-key="left"  aria-label="Left">&#9664;</button>
+    <button type="button" class="t-right" data-key="right" aria-label="Right">&#9654;</button>
+    <button type="button" class="t-down"  data-key="down"  aria-label="Down">&#9660;</button>
+    <button type="button" class="t-jump"  data-key="jump"  aria-label="Jump">JUMP</button>
+    <button type="button" class="t-swing" data-key="swing" aria-label="Swing the bat">SWING</button>
+    <button type="button" class="t-throw" data-key="throw" aria-label="Throw">THROW</button>
+    <button type="button" class="t-pause" data-key="pause" aria-label="Pause">II</button>
+  </div>
+</div>
+
+<script src="sound.js?v=1"></script>
+<script src="art.js?v=1"></script>
+<script src="levels.js?v=1"></script>
+<script src="game.js?v=1"></script>
+</body>
+</html>

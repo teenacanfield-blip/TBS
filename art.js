@@ -640,6 +640,28 @@ const Art = (() => {
       R(cx + u * 4.3, cy + u * 2, u * 1.6, u * 3.4, '#7d5730') +
       `</g>`,
 
+    // The Show: a batter over the plate, bat cocked, ball on the way in.
+    batter: (cx, cy, u, c) =>
+      `<g transform="rotate(-38 ${cx + u * 2} ${cy - u * 3})">` +
+      R(cx + u * 1.4, cy - u * 11, u * 2, u * 8.4, '#a8703f') +
+      R(cx + u * 1.4, cy - u * 2.8, u * 1.6, u * 2.6, '#7d5730') +
+      `</g>` +
+      R(cx - u * 1.9, cy - u * 8.4, u * 4, u * 1.5, c) +
+      R(cx - u * 1.4, cy - u * 6.9, u * 3, u * 3, '#f0bb88') +
+      R(cx - u * 0.2, cy - u * 6.1, u * 0.9, u * 0.9, '#241a26') +
+      R(cx - u * 2.6, cy - u * 3.9, u * 5.4, u * 5, '#f2f4f8') +
+      R(cx - u * 0.9, cy - u * 2.6, u * 1.7, u * 1.7, c) +
+      R(cx - u * 2.3, cy + u * 1.1, u * 1.9, u * 4.2, '#dfe3ea') +
+      R(cx + u * 0.5, cy + u * 1.1, u * 1.9, u * 4.2, '#dfe3ea') +
+      R(cx - u * 2.7, cy + u * 5.3, u * 2.5, u * 1.3, '#0b0e14') +
+      R(cx + u * 0.3, cy + u * 5.3, u * 2.5, u * 1.3, '#0b0e14') +
+      R(cx - u * 2.2, cy + u * 7, u * 4.6, u * 1.1, '#ffffff') +
+      `<circle cx="${cx - u * 8}" cy="${cy - u * 3}" r="${u * 2.4}" fill="#f2f4f8"/>` +
+      R(cx - u * 9.4, cy - u * 3.8, u * 0.7, u * 0.7, c) +
+      R(cx - u * 9, cy - u * 2.8, u * 0.7, u * 0.7, c) +
+      R(cx - u * 7.2, cy - u * 3.8, u * 0.7, u * 0.7, c) +
+      R(cx - u * 7.6, cy - u * 2.8, u * 0.7, u * 0.7, c),
+
     // 2B or Not 2B: a pencil, tip down, on its way to the floor.
     pencil: (cx, cy, u, c) =>
       R(cx - u * 1.8, cy - u * 9, u * 3.6, u * 1.8, '#ef7f9a') +

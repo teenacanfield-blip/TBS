@@ -10,6 +10,7 @@ finds.
 
 | Demo | Folder | Status | Came from |
 | --- | --- | --- | --- |
+| The Show | `the-show` | playable | written here, from nothing |
 | 2B or Not 2B | `2b-or-not-2b` | playable | written here, from nothing |
 | RC Craze | `rc-craze` | playable | `Downloads\rc craze.html` |
 | Liz | `liz` | playable | `Downloads\lizard3d_1.html` |
@@ -34,6 +35,12 @@ dependency and always work.
 `gfx.js` — plain WebGL, one shader — because a game set in a classroom is the
 last one that should go blank on a school network. Nothing in that folder is
 fetched: the sound is synthesised, the level is code, and there are no images.
+
+The Show is the same deal in 2D. Four files, nothing fetched: the sprites are
+typed out as letters in `art.js`, the eight leagues are functions in
+`levels.js`, and the organ between innings is oscillators in `sound.js`. It
+also checks its own levels on load — a gap wider than a jump is a typo, and it
+says so in the console rather than waiting to be found on the fifth league.
 
 So RC Craze lives at `demos/rc-craze/index.html`.
 

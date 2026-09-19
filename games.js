@@ -18,9 +18,29 @@
  * game shows itself is noted in its blurb, so nobody is confused by the two.
  *
  * `motif` picks the shape drawn on the cover. The ones that exist right now are
- * car, lizard, star, sword, ball, dragon and pencil. See art.js to add more.
+ * car, lizard, star, sword, ball, dragon, pencil and batter. See art.js to add
+ * more.
  */
 const DEMOS = [
+  {
+    id: 'the-show',
+    title: 'The Show',
+    tagline: 'Sandlot to the big leagues',
+    motif: 'batter',
+    accent: '#ffd166',
+    accentDark: '#2b2103',
+    url: '',
+    blurb:
+      'A baseball platformer, and a straight answer to what a kid in a dirt ' +
+      'lot is actually playing for: eight leagues, each one a level, ending ' +
+      'at a big-league plate with a closer on the mound. Power-ups come out ' +
+      'of crates — a helmet that takes one hit for you, cleats, gum you can ' +
+      'float on, an arm that throws. The bat is the real idea, though. Half ' +
+      'the things in this game throw something at you, and a swing timed to ' +
+      'the pitch sends it back twice as fast through whatever is standing ' +
+      'there. The closer cannot be touched by anything except his own ' +
+      'fastball, returned.',
+  },
   {
     id: '2b-or-not-2b',
     title: '2B or Not 2B',
