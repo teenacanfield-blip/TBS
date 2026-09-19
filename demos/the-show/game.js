@@ -353,8 +353,11 @@ function spawn(d, idx) {
       x: px, y: py, w: d.w * T, h: 6, hx: px, hy: py,
       ax: d.ax, ay: d.ay, dist: d.dist * T, speed: d.speed * T, phase: 0, dvx: 0, dvy: 0,
     });
+    // He stands on the ground two rows below the tile he is placed on, like
+    // everything else with feet — placed by where he stands, not by his hat.
     case 'boss':  return Object.assign(base, {
-      x: px, y: py - 12, w: 20, h: 26, hp: 3, cool: 1.6, state: 'idle', st: 0, vx: 0, vy: 0, home: px,
+      x: px, y: (d.y + 2) * T - 26, w: 20, h: 26, hp: 3, cool: 1.6,
+      state: 'idle', st: 0, vx: 0, vy: 0, home: px,
     });
     default: return null;
   }
@@ -370,6 +373,10 @@ function goalBox() {
 
 const SOLID = '#XSWB';
 function isSolid(ch) { return SOLID.indexOf(ch) >= 0; }
+
+// What counts as the same body of earth, for drawing edges rather than for
+// walking into.
+function banks(ch) { return ch === '#' || ch === 'X' || ch === 'S' || ch === 'W'; }
 
 function tileAt(tx, ty) {
   if (ty < 0 || ty >= L.h) return '.';
@@ -1195,7 +1202,8 @@ function drawWorld() {
   // reads as a missing tile rather than as somewhere you can fall.
   const deep = Levels.FLOOR * T;
   box(ox - 8, deep, W + 16, L.h * T - deep + 40, theme.groundDark);
-  box(ox - 8, deep, W + 16, 2, 'rgba(0,0,0,0.35)');
+  box(ox - 8, deep, W + 16, L.h * T - deep + 40, 'rgba(0,0,0,0.42)');
+  box(ox - 8, deep, W + 16, 2, 'rgba(0,0,0,0.3)');
 
   // Tiles, only the ones on screen.
   const tx0 = Math.max(0, Math.floor(ox / T) - 1), tx1 = Math.min(L.w - 1, Math.floor((ox + W) / T) + 1);
@@ -1204,8 +1212,14 @@ function drawWorld() {
     for (let tx = tx0; tx <= tx1; tx++) {
       const ch = grid[ty][tx];
       if (ch === '.') continue;
-      const open = ty === 0 || grid[ty - 1][tx] === '.' || grid[ty - 1][tx] === '=' || grid[ty - 1][tx] === '^';
-      Art.tile(ctx, ch, tx, ty, tx * T, ty * T, theme, open);
+      // Which sides are open, so a tile knows whether to grow grass on top and
+      // where to put its edge shading. Ground only counts ground as a
+      // neighbour: a crate sitting on a hill should not cap the hill.
+      const up = ty === 0 || !banks(grid[ty - 1][tx]);
+      const lf = tx === 0 || !banks(grid[ty][tx - 1]);
+      const rt = tx === L.w - 1 || !banks(grid[ty][tx + 1]);
+      Art.tile(ctx, ch, tx, ty, tx * T, ty * T, theme,
+               (up ? 1 : 0) | (lf ? 2 : 0) | (rt ? 4 : 0));
     }
   }
 
@@ -1225,12 +1239,28 @@ function drawGoal() {
   const t = game.t;
   // The mouth of the dugout, with home plate on the dirt in front of it. It
   // lights up when it is open, and stays shut while the Closer is standing.
-  box(b.x, b.y + 4, 22, 40, goalOpen ? '#1f2a44' : '#141a28');
-  box(b.x - 2, b.y, 26, 6, goalOpen ? theme.groundTop : '#2b3142');
+  box(b.x - 1, b.y + 4, 24, 40, '#101728');            // the dark inside
+  box(b.x + 1, b.y + 6, 20, 36, goalOpen ? '#1f2a44' : '#181f31');
+  // The roof keeps the team's colour whether the way through is open or not,
+  // so a locked gate still reads as a dugout rather than as a grey box.
+  box(b.x - 3, b.y, 28, 7, goalOpen ? theme.groundTop : theme.groundDark);
+  box(b.x - 3, b.y, 28, 2, goalOpen ? theme.groundLit : theme.soil);
+  box(b.x - 3, b.y + 6, 28, 1, 'rgba(0,0,0,0.45)');
+
+  // Rails across the front, lit when the way through is open.
   for (let i = 0; i < 4; i++) {
-    box(b.x + 2 + i * 6, b.y + 8, 3, 28, goalOpen ? '#ffd166' : '#555c6e');
+    box(b.x + 2 + i * 6, b.y + 9, 3, 27, goalOpen ? '#ffd166' : '#6a7186');
+    box(b.x + 2 + i * 6, b.y + 9, 1, 27, goalOpen ? '#fff0b8' : '#858da3');
   }
-  box(b.x + 4, b.y + 38, 14, 4, '#ffffff');       // the plate itself
+  // A chain across it while it is shut.
+  if (!goalOpen) {
+    for (let i = 0; i < 11; i++) box(b.x + i * 2, b.y + 20 + (i % 2), 2, 2, '#9aa2b4');
+  }
+  // A step down into it, and the plate on the dirt outside.
+  box(b.x + 1, b.y + 36, 20, 3, goalOpen ? '#2e3b5c' : '#1d2436');
+  box(b.x + 4, b.y + 39, 15, 4, '#e6e9ef');
+  box(b.x + 4, b.y + 39, 15, 2, '#ffffff');
+  box(b.x + 4, b.y + 43, 15, 1, 'rgba(0,0,0,0.3)');
   if (goalOpen) {
     const bob = R(Math.sin(t * 4) * 2);
     Art.text(ctx, 'NEXT', b.x + 11, b.y - 11 + bob, '#ffd166', 1, 'center');
@@ -1253,16 +1283,16 @@ function drawEnt(e) {
     }
     case 'card': {
       const bob = Math.round(Math.sin(game.t * 3 + e.anim) * 2);
-      ctx.fillStyle = 'rgba(143,227,255,0.18)';
-      ctx.fillRect(e.x - 3, e.y - 3 + bob, 14, 14);
-      Art.spr(ctx, 'card', e.x, e.y + bob, false, kit);
+      box(e.x - 4, e.y - 4 + bob, 16, 16, 'rgba(143,227,255,0.16)');
+      box(e.x - 2, e.y - 2 + bob, 12, 12, 'rgba(143,227,255,0.16)');
+      Art.spr(ctx, 'card', e.x - 1, e.y - 1 + bob, false, kit);
       break;
     }
     case 'item': {
       const bob = Math.round(Math.sin(game.t * 4 + e.anim) * 2);
-      ctx.fillStyle = 'rgba(255,209,102,0.2)';
-      ctx.fillRect(e.x - 4, e.y - 4 + bob, 16, 16);
-      Art.spr(ctx, GEAR[e.kind].spr, e.x, e.y + bob, false, kit);
+      box(e.x - 4, e.y - 4 + bob, 16, 16, 'rgba(255,209,102,0.16)');
+      box(e.x - 2, e.y - 2 + bob, 12, 12, 'rgba(255,209,102,0.18)');
+      Art.spr(ctx, GEAR[e.kind].spr, e.x - 1, e.y - 1 + bob, false, kit);
       break;
     }
     case 'sign': {
@@ -1286,52 +1316,64 @@ function drawEnt(e) {
       break;
     }
     case 'check': {
-      ctx.fillStyle = '#c9ced6';
-      ctx.fillRect(e.x + 4, e.y, 2, 40);
-      const w0 = e.lit ? 14 : 10;
-      const wave = e.lit ? Math.round(Math.sin(game.t * 8) * 1.5) : 0;
-      ctx.fillStyle = e.lit ? theme.sky[0] : '#8a90a2';
-      ctx.fillRect(e.x + 6, e.y + 2 + wave, w0, 9);
-      ctx.fillStyle = e.lit ? '#ffffff' : '#6e747c';
-      ctx.fillRect(e.x + 6, e.y + 2 + wave, w0, 2);
-      // The on-deck circle on the ground.
-      ctx.fillStyle = e.lit ? 'rgba(92,224,138,0.5)' : 'rgba(255,255,255,0.18)';
-      ctx.fillRect(e.x - 5, e.y + 38, 20, 3);
+      // The on-deck circle first: two rings of dirt on the ground.
+      box(e.x - 7, e.y + 36, 24, 4, e.lit ? 'rgba(92,224,138,0.45)' : 'rgba(255,255,255,0.14)');
+      box(e.x - 4, e.y + 37, 18, 2, e.lit ? 'rgba(92,224,138,0.7)' : 'rgba(255,255,255,0.2)');
+
+      box(e.x + 4, e.y, 2, 38, '#9aa1ad');      // pole
+      box(e.x + 4, e.y, 1, 38, '#c9d0da');      // lit edge
+      box(e.x + 3, e.y - 2, 4, 2, '#dfe6f0');   // cap
+
+      // A pennant, which waves once it has been reached.
+      const wave = e.lit ? Math.round(Math.sin(game.t * 7) * 1.5) : 0;
+      const w0 = e.lit ? 15 : 11;
+      for (let r = 0; r < 9; r++) {
+        const w1 = Math.round(w0 * (1 - Math.abs(r - 4) / 9));
+        const off = e.lit ? Math.round(Math.sin(game.t * 7 + r * 0.6) * 1.2) : 0;
+        box(e.x + 6, e.y + 2 + r + wave, w1, 1,
+            e.lit ? (r < 2 ? '#ffffff' : theme.groundTop) : '#767d8b');
+        if (e.lit && off > 0) box(e.x + 6 + w1, e.y + 2 + r + wave, 1, 1, theme.groundTop);
+      }
       break;
     }
     case 'crow': {
       const f = (Math.floor(game.t * 8) % 2) === 0 ? 'crow0' : 'crow1';
-      if (dying) Art.sprFlash(ctx, f, e.x, e.y, e.vx > 0, kit, '#ffffff');
-      else Art.spr(ctx, f, e.x, e.y, e.vx > 0, kit);
+      box(e.x + 1, e.y + e.h - 1, 10, 1, 'rgba(0,0,0,0.22)');
+      if (dying) Art.sprFlash(ctx, f, e.x - 1, e.y - 2, e.vx > 0, kit, '#ffffff');
+      else Art.spr(ctx, f, e.x - 1, e.y - 2, e.vx > 0, kit);
       break;
     }
     case 'gopher': {
       // The hole first, so he comes out of it rather than over it.
-      ctx.fillStyle = '#3a2a1c';
-      ctx.fillRect(e.x - 2, e.y + 6, 14, 5);
+      box(e.x - 3, e.y + e.h - 4, 16, 4, '#2c1f14');
+      box(e.x - 3, e.y + e.h - 4, 16, 1, '#1a1209');
       if (e.up > 0 || dying) {
         const f = (Math.floor(game.t * 6) % 2) === 0 ? 'gopher0' : 'gopher1';
-        if (dying) Art.sprFlash(ctx, f, e.x, e.y, false, kit, '#ffffff');
-        else Art.spr(ctx, f, e.x, e.y, false, kit);
+        if (dying) Art.sprFlash(ctx, f, e.x - 1, e.y - 2, false, kit, '#ffffff');
+        else Art.spr(ctx, f, e.x - 1, e.y - 2, false, kit);
       }
       break;
     }
     case 'machine': {
       const f = e.cool < 0.25 ? 'machine1' : 'machine0';
-      if (e.flash > 0) Art.sprFlash(ctx, f, e.x, e.y, e.dir > 0, kit, '#ffffff');
-      else Art.spr(ctx, f, e.x, e.y, e.dir > 0, kit);
+      box(e.x, e.y + e.h - 1, 16, 1, 'rgba(0,0,0,0.25)');
+      if (e.flash > 0) Art.sprFlash(ctx, f, e.x - 1, e.y - 2, e.dir > 0, kit, '#ffffff');
+      else Art.spr(ctx, f, e.x - 1, e.y - 2, e.dir > 0, kit);
       break;
     }
     case 'slider': {
       const f = (Math.floor(game.t * 10) % 2) === 0 ? 'slider0' : 'slider1';
-      if (dying) Art.sprFlash(ctx, f, e.x, e.y, false, kit, '#ffffff');
-      else Art.spr(ctx, f, e.x, e.y, false, kit);
+      // A spinning ball leaves a smear behind it.
+      box(e.x - 6, e.y + 3, 6, 4, 'rgba(255,255,255,0.18)');
+      if (dying) Art.sprFlash(ctx, f, e.x - 1, e.y - 2, false, kit, '#ffffff');
+      else Art.spr(ctx, f, e.x - 1, e.y - 2, false, kit);
       break;
     }
     case 'rival': {
       const f = e.stun > 0 ? 'rival0' : (Math.floor(game.t * 7) % 2) === 0 ? 'rival0' : 'rival1';
-      if (dying || e.flash > 0) Art.sprFlash(ctx, f, e.x, e.y, e.vx > 0, kit, '#ffffff');
-      else Art.spr(ctx, f, e.x, e.y, e.vx > 0, kit);
+      box(e.x + 1, e.y + e.h - 1, 10, 1, 'rgba(0,0,0,0.22)');
+      if (dying || e.flash > 0) Art.sprFlash(ctx, f, e.x - 1, e.y - 2, e.vx > 0, kit, '#ffffff');
+      else Art.spr(ctx, f, e.x - 1, e.y - 2, e.vx > 0, kit);
       if (e.stun > 0) {
         for (let i = 0; i < 3; i++) {
           const a = game.t * 6 + i * 2.1;
@@ -1341,9 +1383,13 @@ function drawEnt(e) {
       break;
     }
     case 'mover': {
-      box(e.x, e.y, e.w, 6, '#5c4d3a');
-      box(e.x, e.y, e.w, 4, '#e0c089');
-      for (let i = 4; i < e.w; i += 8) box(e.x + i, e.y + 4, 3, 1, '#8a5c26');
+      box(e.x, e.y, e.w, 7, '#4a3524');
+      box(e.x, e.y, e.w, 5, '#c99a5c');
+      box(e.x, e.y, e.w, 1, '#e6c089');
+      box(e.x, e.y + 5, e.w, 1, '#6f4a1e');
+      for (let i = 3; i < e.w - 2; i += 7) box(e.x + i, e.y + 2, 2, 1, '#a8763f');
+      box(e.x + 1, e.y + 1, 1, 1, '#3d2c18');
+      box(e.x + e.w - 2, e.y + 1, 1, 1, '#3d2c18');
       // A chalk line showing where it is going, so it is never a surprise.
       if (e.ax) box(e.hx, e.hy + 2, e.dist + e.w, 1, 'rgba(255,255,255,0.14)');
       if (e.ay) box(e.hx + e.w / 2, e.hy, 1, e.dist, 'rgba(255,255,255,0.14)');
@@ -1353,8 +1399,9 @@ function drawEnt(e) {
       const winding = e.state === 'wind';
       const f = winding ? 'closer1' : 'closer0';
       const lean = e.state === 'dead' ? 4 : 0;
-      if (e.flash > 0) Art.sprFlash(ctx, f, e.x - 2, e.y - 2 + lean, true, 'show', '#ffffff');
-      else Art.spr(ctx, f, e.x - 2, e.y - 2 + lean, true, 'show');
+      if (e.state !== 'dead') box(e.x - 1, e.y + e.h - 1, 22, 2, 'rgba(0,0,0,0.3)');
+      if (e.flash > 0) Art.sprFlash(ctx, f, e.x - 1, e.y - 4 + lean, true, 'show', '#ffffff');
+      else Art.spr(ctx, f, e.x - 1, e.y - 4 + lean, true, 'show');
       if (e.state !== 'dead') {
         // His count, over the mound.
         for (let i = 0; i < 3; i++) {
@@ -1366,6 +1413,11 @@ function drawEnt(e) {
     }
   }
 }
+
+/* How far down the head sits in each frame, so the helmet lands on it and the
+ * bat comes out of the right pair of hands. */
+const HEAD = { idle0: 0, idle1: 1, run0: 0, run1: 1, run2: 0, run3: 1,
+               jump: 0, fall: 0, load: 2, hurt: 0 };
 
 function drawPlayer() {
   const kit = theme.kit;
@@ -1381,23 +1433,26 @@ function drawPlayer() {
   else f = Math.floor(game.t * 2) % 2 === 0 ? 'idle0' : 'idle1';
 
   const flip = p.face < 0;
-  const px = Math.round(p.x - 1), py = Math.round(p.y - 2);
+  // He is 12x18 drawn around a 10x14 box, so he stands a little proud of it:
+  // a sprite that exactly fills its hitbox looks like a crate with legs.
+  const px = Math.round(p.x - 1), py = Math.round(p.y + p.h - 18);
+  const head = HEAD[f] || 0;
+
+  // A shadow, so he is standing on the ground rather than in front of it.
+  if (p.onGround) box(px + 2, p.y + p.h - 1, 8, 1, 'rgba(0,0,0,0.25)');
 
   // Gum makes a bubble when he floats.
   if (p.gliding) {
     const r = 5 + (Math.sin(game.t * 9) > 0 ? 1 : 0);
-    box(px + (flip ? -4 : 9), py - 2, r, r, 'rgba(255,122,184,0.65)');
+    box(px + (flip ? -3 : 10), py + head + 4, r, r, 'rgba(255,134,194,0.7)');
+    box(px + (flip ? -3 : 10), py + head + 4, r, 1, 'rgba(255,255,255,0.5)');
   }
 
   Art.spr(ctx, f, px, py, flip, kit);
-  if (g.helmet) {
-    // The helmet sits on whichever row the head is on in this frame.
-    const head = (f === 'idle1' || f === 'run1' || f === 'run3' || f === 'load') ? 1 : 0;
-    Art.spr(ctx, 'helmet', px, py + head, flip, kit);
-  }
+  if (g.helmet) Art.spr(ctx, 'helmet', px, py + head, flip, kit);
 
   // The bat, walked out from the hands at whatever angle the swing is at.
-  const hx = px + (flip ? 3 : 9), hy = py + 9;
+  const hx = px + (flip ? 3 : 8), hy = py + head + 10;
   let a;
   if (p.swing >= 0) {
     const t01 = clamp(p.swing / SWING_TIME, 0, 1);
@@ -1482,20 +1537,20 @@ function drawHUD() {
   }
   if (run.outs > 3) txt('+' + (run.outs - 3), 124, 5, '#ff5f6d', 1);
 
-  Art.spr(ctx, 'ball', 140, 3, false, theme.kit);
-  txt(String(run.balls), 150, 5, '#f6f2e4', 1);
+  Art.spr(ctx, 'ball', 138, 3, false, theme.kit);
+  txt(String(run.balls), 149, 5, '#f6f2e4', 1);
 
-  Art.spr(ctx, 'card', 172, 3, false, theme.kit);
+  Art.spr(ctx, 'card', 170, 2, false, theme.kit);
   txt(levelCards + '/3', 182, 5, '#8fe3ff', 1);
 
-  txt(time(levelTime), 218, 5, '#e8e3d2', 1);
+  txt(time(levelTime), 216, 5, '#e8e3d2', 1);
 
   // Gear, right-hand end, in the order it gets taken off you.
-  let gx = 246;
+  let gx = 240;
   for (const k of GEAR_ORDER) {
     if (!run.gear[k]) continue;
-    Art.spr(ctx, GEAR[k].spr, gx, 3, false, theme.kit);
-    gx += 10;
+    Art.spr(ctx, GEAR[k].spr, gx, 2, false, theme.kit);
+    gx += 12;
   }
 
   if (L.boss && bossRef && bossRef.state !== 'dead' && p.x > 116 * T) {
@@ -1878,7 +1933,8 @@ function draw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   if (game.flash > 0) {
-    ctx.fillStyle = 'rgba(255,255,255,' + Math.min(0.5, game.flash * 2.4) + ')';
+    // Enough to feel the contact, not enough to lose the screen behind it.
+    ctx.fillStyle = 'rgba(255,255,255,' + Math.min(0.3, game.flash * 1.6) + ')';
     ctx.fillRect(0, 0, W, H);
   }
   if (game.fade > 0) {
