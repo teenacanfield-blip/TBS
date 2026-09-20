@@ -1,0 +1,116 @@
+/* Pokémon Rip and Go.
+ *
+ * The game is one canvas. All this file has to do is centre it, keep the
+ * pixels square, and put thumb-sized buttons on a phone. */
+
+:root {
+  --bg:     #0a0d16;
+  --accent: #ffd166;
+  --line:   #2a3350;
+  --text:   #f4f1e4;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Courier New", Courier, monospace;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #05070c;
+  touch-action: none;
+}
+
+/* ---------------------------------------------------------------- touch */
+
+#touch { display: none; }
+body.touch #touch { display: block; }
+
+/* Held upright, the game is a letterbox in the middle of a tall screen and
+   the buttons are at the bottom. Lift it clear of the thumbs. */
+@media (orientation: portrait) {
+  body.touch #wrap {
+    align-items: flex-start;
+    padding-top: 12vh;
+  }
+}
+
+#touch button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  background: rgba(16, 22, 40, 0.66);
+  border: 2px solid rgba(255, 209, 102, 0.42);
+  border-radius: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+#touch button:active,
+#touch button.on {
+  background: rgba(255, 209, 102, 0.34);
+  border-color: var(--accent);
+}
+
+/* Left thumb walks and moves the cursor, right thumb picks. Every screen in
+   the game uses the same six, which is why there is no screen-specific
+   layout in here. */
+#touch .t-up,
+#touch .t-down,
+#touch .t-left,
+#touch .t-right { width: 52px; height: 52px; }
+#touch .t-up    { left: calc(10px + 54px); bottom: calc(10px + 108px); }
+#touch .t-left  { left: 10px;              bottom: calc(10px + 54px); }
+#touch .t-right { left: calc(10px + 108px); bottom: calc(10px + 54px); }
+#touch .t-down  { left: calc(10px + 54px); bottom: 10px; }
+
+#touch .t-a,
+#touch .t-b { width: 64px; height: 52px; }
+#touch .t-a { right: 10px;              bottom: calc(10px + 34px); }
+#touch .t-b { right: calc(10px + 70px); bottom: 10px; }
+
+#touch .t-start {
+  width: 52px; height: 26px;
+  right: 10px; top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+@media (max-height: 430px) {
+  #touch .t-up, #touch .t-down, #touch .t-left, #touch .t-right { width: 44px; height: 44px; }
+  #touch .t-up    { left: calc(8px + 46px); bottom: calc(8px + 92px); }
+  #touch .t-left  { left: 8px;              bottom: calc(8px + 46px); }
+  #touch .t-right { left: calc(8px + 92px); bottom: calc(8px + 46px); }
+  #touch .t-down  { left: calc(8px + 46px); bottom: 8px; }
+
+  #touch .t-a, #touch .t-b { width: 56px; height: 44px; }
+  #touch .t-a { right: 8px;              bottom: calc(8px + 30px); }
+  #touch .t-b { right: calc(8px + 62px); bottom: 8px; }
+}

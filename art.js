@@ -117,6 +117,9 @@ const Art = (() => {
     ':': '00000 01100 01100 00000 01100 01100 00000',
     '/': '00001 00010 00010 00100 01000 01000 10000',
     '+': '00000 00100 00100 11111 00100 00100 00000',
+    /* An acute over a slightly squashed E, so a fan game can be spelled the
+       way it is spelled. */
+    'É': '00010 11111 10000 11110 10000 10000 11111',
     '(': '00010 00100 01000 01000 01000 00100 00010',
     ')': '01000 00100 00010 00010 00010 00100 01000',
   };
@@ -672,6 +675,24 @@ const Art = (() => {
       triDown(cx, cy + u * 5.1, 3, u * 0.6, '#33363f') +
       R(cx - u * 7, cy + u * 8, u * 4, u * 1.2, '#c0392b') +
       R(cx + u * 3.4, cy + u * 8, u * 5, u * 1.2, '#2f6fb5'),
+
+    // Pokémon Rip and Go: a card, with the torn wrapper coming off it.
+    card: (cx, cy, u, c) =>
+      R(cx - u * 8, cy - u * 11, u * 14, u * 22, c) +
+      R(cx - u * 7, cy - u * 10, u * 12, u * 20, '#0f1526') +
+      R(cx - u * 6, cy - u * 8.4, u * 10, u * 11, '#1b2740') +
+      R(cx - u * 4, cy - u * 5.4, u * 6, u * 6, '#5ce08a') +
+      R(cx - u * 5, cy - u * 4, u * 8, u * 4.4, '#5ce08a') +
+      R(cx - u * 5, cy - u * 3, u * 8, u * 3.4, '#3faa68') +
+      R(cx - u * 3.2, cy - u * 4.2, u * 1.4, u * 1.4, '#ffffff') +
+      R(cx + u * 0.2, cy - u * 4.2, u * 1.4, u * 1.4, '#ffffff') +
+      R(cx - u * 2.8, cy - u * 3.8, u * 0.7, u * 0.8, '#0b0e14') +
+      R(cx + u * 0.6, cy - u * 3.8, u * 0.7, u * 0.8, '#0b0e14') +
+      R(cx - u * 6, cy + u * 3.4, u * 10, u * 2, c) +
+      R(cx - u * 6, cy + u * 6.4, u * 6, u * 1.2, '#38446b') +
+      R(cx + u * 7, cy - u * 7, u * 3, u * 4.4, c, ' opacity="0.85"') +
+      R(cx + u * 9.4, cy - u * 1, u * 2.4, u * 3.4, c, ' opacity="0.6"') +
+      R(cx + u * 11.4, cy + u * 4, u * 2, u * 2.6, c, ' opacity="0.4"'),
 
     // The Dragon's Last Breath: head, horn, and the breath itself.
     dragon: (cx, cy, u, c) =>

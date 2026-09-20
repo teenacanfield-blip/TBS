@@ -18,10 +18,31 @@
  * game shows itself is noted in its blurb, so nobody is confused by the two.
  *
  * `motif` picks the shape drawn on the cover. The ones that exist right now are
- * car, lizard, star, sword, ball, dragon, pencil and batter. See art.js to add
- * more.
+ * car, lizard, star, sword, ball, dragon, pencil, batter and card. See
+ * art.js to add more.
  */
 const DEMOS = [
+  {
+    id: 'rip-and-go',
+    title: 'Pokémon Rip and Go',
+    tagline: 'Buy packs. Rip them. Keep five.',
+    motif: 'card',
+    accent: '#5ce08a',
+    accentDark: '#08210f',
+    url: '',
+    blurb:
+      'A fan-made collector built around the one decision a booster pack ' +
+      'actually gives you. Fight at the Battle Court for coins, spend them ' +
+      'on a pack, turn the cards over one at a time — and then keep five. A ' +
+      'prism pack holds eight, so the three you leave behind get torn up in ' +
+      'front of you for coins, which means a legendary is never free. ' +
+      'Forty-eight creatures across eight types, six on the team and the ' +
+      'rest in the box. None of the art is fetched: the creatures are typed ' +
+      'out as letters, the sound is oscillators. And if you would rather ' +
+      'they looked like something else, the Sprite Lab takes your own PNG ' +
+      'sheet, cuts it into frames, and lets you point a frame at any ' +
+      'creature in the game — it sticks everywhere, for good.',
+  },
   {
     id: 'the-show',
     title: 'The Show',

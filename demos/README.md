@@ -10,6 +10,7 @@ finds.
 
 | Demo | Folder | Status | Came from |
 | --- | --- | --- | --- |
+| Pokémon Rip and Go | `rip-and-go` | playable | written here, from nothing |
 | The Show | `the-show` | playable | written here, from nothing |
 | 2B or Not 2B | `2b-or-not-2b` | playable | written here, from nothing |
 | RC Craze | `rc-craze` | playable | `Downloads\rc craze.html` |
@@ -41,6 +42,20 @@ typed out as letters in `art.js`, the eight leagues are functions in
 `levels.js`, and the organ between innings is oscillators in `sound.js`. It
 also checks its own levels on load — a gap wider than a jump is a typo, and it
 says so in the console rather than waiting to be found on the fifth league.
+
+Pokémon Rip and Go holds to the same rule, and it is the one demo where that
+took some arguing with itself: a game about collecting creature art, with no
+creature art in it. The forty-eight creatures are sixteen typed-out body plans
+in `dex.js` wearing three palettes each, and a shiny is the palette turned
+rather than a second drawing. It checks them on load, the way The Show checks
+its levels — a row of pixels one character short shifts a whole creature and is
+nearly impossible to spot by eye, so it says so in the console instead.
+
+The one thing it does load is whatever you give it. `lab.html` takes a PNG
+sprite sheet off your desktop, cuts it into frames, and lets you point a frame
+at any creature or at the trainer; the assignment is kept in the browser and
+every screen in the game asks for it before it draws its own art. Nothing is
+fetched over a network either way.
 
 So RC Craze lives at `demos/rc-craze/index.html`.
 
