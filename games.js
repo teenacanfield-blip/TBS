@@ -25,7 +25,7 @@ const DEMOS = [
   {
     id: 'rip-and-go',
     title: 'Pokémon Rip and Go',
-    tagline: 'One of three, and one road out.',
+    tagline: 'One of three, one road out, five out of eight.',
     motif: 'ball',
     accent: '#5ce08a',
     accentDark: '#08210f',
@@ -42,9 +42,17 @@ const DEMOS = [
       'the rest wait in the box, and every move has PP, which is what makes ' +
       'the walk between two towns a decision. Three badges, a cave you ' +
       'cannot see the far side of, and something standing at the end of the ' +
-      'keep that has been standing there a while. The card shop is still ' +
-      'open in Willowbank: buy a pack, turn eight over, keep five, and the ' +
-      'rest come apart for coins. Nothing is fetched — the creatures and ' +
+      'keep that has been standing there a while. ' +
+      'The card shop is still open in Willowbank, and it does two things now. ' +
+      'Buy a pack, turn eight over, keep five, and the rest come apart for ' +
+      'coins — or go through to the back room, where a pack battle is the ' +
+      'whole match: a sealed pack each, five kept out of eight, no team, no ' +
+      'bag, no running. Every card enters at fighting weight, so a lucky ' +
+      'legendary is a good card rather than a won game, and what decides it ' +
+      'is the five you kept and the chart. Every gym leader will take the ' +
+      'badge off you that way too, out of a pack stacked toward their own ' +
+      'type, if you would rather not bring a team at all. ' +
+      'Nothing is fetched — the creatures and ' +
       'the people are typed out as letters, one character per pixel, and ' +
       'the sound is oscillators. If you would rather they looked like ' +
       'something else, the Sprite Lab takes your own PNG sheet, cuts it ' +

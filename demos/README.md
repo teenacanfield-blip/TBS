@@ -61,11 +61,22 @@ whole creature, a map that names a tile nobody drew is a typo, and a door
 pointing at a room that does not exist is a dead end nobody would find until
 they walked into it. They say so in the console instead of waiting.
 
+The pack loop survives as its own mode rather than as the whole game. A pack
+battle is a sealed pack each, five kept out of eight, and no team, bag or exit
+— the card shop runs brackets for a purse, and every gym leader will hand over
+the badge that way if you would rather not bring a team. The first build of it
+was a lottery: a last-stage rare landed at the same level as everybody's
+first-stage commons and swept all five without being hit back. Cards now enter
+at fighting weight, their level set from their own base total, which put a
+same-skill match back to roughly a coin flip and left the draft and the chart
+to decide it.
+
 The one thing it does load is whatever you give it. `lab.html` takes a PNG
 sprite sheet off your desktop, cuts it into frames, and lets you point a frame
-at any creature or at the trainer; the assignment is kept in the browser and
-every screen in the game asks for it before it draws its own art. Nothing is
-fetched over a network either way.
+at any of eighty-nine targets — all thirty-three creatures and all fourteen
+people, four frames each. The assignment is kept in the browser and every
+screen in the game asks for it before it draws its own art. Nothing is fetched
+over a network either way.
 
 So RC Craze lives at `demos/rc-craze/index.html`.
 

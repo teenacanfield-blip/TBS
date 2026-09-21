@@ -584,6 +584,28 @@ function talkToPerson(n) {
   Sound.ok();
 
   if (p.party && !n.beaten) {
+    // A gym leader will take the badge off you either way: bring your own six,
+    // or take a sealed pack each and find out who drafts better.
+    if (p.leader) {
+      talk((p.intro || []).concat([]), () => {
+        ask('HOW DO YOU WANT IT?', [
+          { name: 'TEAM FIGHT', note: 'Your six against mine.' },
+          { name: 'PACK FIGHT', note: 'A sealed pack each. Keep five.' },
+        ], (i) => {
+          if (i === 0) { startTrainer(n); return; }
+          beginDraft({
+            id: p.id, pack: p.packTier || 'field', level: p.packLevel || 20,
+            type: p.type, prize: p.prize, badge: p.badge, leader: p.leader, npc: n,
+            who: p.who, name: Folks.name(p.who), defeat: p.defeat,
+            winLines: (p.defeat || []).concat([
+              'Out of a pack, too. That is the one that will annoy me.']),
+            loseLines: ['Your five are down.',
+              'Same size pack as mine. Come back and draft better.'],
+          });
+        });
+      });
+      return;
+    }
     talk((p.intro || []).concat([]), () => startTrainer(n));
     return;
   }
@@ -598,7 +620,15 @@ function talkToPerson(n) {
     return;
   }
   if (p.shop) { talk(p.lines, () => { ui.shopKind = p.shop; ui.cursor = 0; go('shop'); }); return; }
-  if (p.packs) { talk(p.lines, () => { ui.cursor = 0; go('packs'); }); return; }
+  if (p.packs) {
+    talk(p.lines, () => {
+      ask('WHAT ARE YOU AFTER?', [
+        { name: 'BUY A PACK', note: 'Rip it, keep five, they walk out with you.' },
+        { name: 'PACK ARENA', note: 'Draft five and fight the house for a purse.' },
+      ], (i) => { ui.cursor = 0; go(i === 0 ? 'packs' : 'arena'); });
+    });
+    return;
+  }
   if (p.starters && !S.flags.gotStarter) {
     talk(p.lines, () => { ui.cursor = 0; go('starter'); });
     return;
@@ -842,10 +872,16 @@ const B = {
   learnQueue: [], learn: null, learnSel: 0,
   evoQueue: [], evo: null, evoT: 0,
   ballT: 0, ballShakes: 0, caught: false,
+  team: null, exhibition: false, arena: null,
   runs: 0, xpBar: 0,
 };
 
-function myMon() { return S.party[B.mine]; }
+/* A fight reads its side from here rather than straight out of the save,
+ * because a pack battle is fought with five cards that were never yours and
+ * are not yours afterwards. Everything else about the fight is the same. */
+function team() { return B.team || S.party; }
+
+function myMon() { return team()[B.mine]; }
 function foeMon() { return B.foe; }
 
 /* What the FIGHT menu is allowed to show. Normally the four it knows; when
@@ -855,11 +891,14 @@ function moveList(m) {
   return [{ name: 'STRUGGLE', pp: 1, struggle: true }];
 }
 
-function beginBattle(kind) {
+function beginBattle(kind, opts) {
+  opts = opts || {};
+  B.team = opts.team || null;
+  B.exhibition = !!opts.exhibition;
   B.on = true;
   B.kind = kind;
   B.mods = { me: { atk: 0, def: 0, spd: 0 }, foe: { atk: 0, def: 0, spd: 0 } };
-  B.mine = S.party.findIndex(alive);
+  B.mine = team().findIndex(alive);
   if (B.mine < 0) B.mine = 0;
   B.phase = 'intro';
   B.menu = 0; B.moveSel = 0; B.bagSel = 0;
@@ -1070,7 +1109,7 @@ function takeTurn(action) {
   if (action.kind === 'swap') {
     push('Come back, ' + nameOf(myMon()) + '.', { fn: () => { B.mods.me = { atk: 0, def: 0, spd: 0 }; } });
     B.mine = action.index;
-    push('Go, ' + nameOf(S.party[action.index]) + '!', {
+    push('Go, ' + nameOf(team()[action.index]) + '!', {
       fn: () => { B.shown.me = myMon().hp; B.target.me = myMon().hp; },
     });
     doMove('foe', foeMove, foeSlot);
@@ -1140,7 +1179,7 @@ function resolveFaints() {
 
   if (me && me.hp <= 0) {
     push(nameOf(me) + ' fainted.', { fx: 'faint', fn: () => Sound.faint() });
-    if (S.party.some(alive)) { after('forceswap'); return; }
+    if (team().some(alive)) { after('forceswap'); return; }
     push('You are out of anything that can stand up.');
     B.result = { lost: true };
     after('over');
@@ -1148,6 +1187,8 @@ function resolveFaints() {
 }
 
 function awardXp(foe) {
+  // Nothing you drafted out of a sealed pack gets to keep what it learned.
+  if (B.exhibition) return;
   const me = myMon();
   if (!me || me.hp <= 0) return;
   const gain = xpFrom(foe, B.kind === 'trainer');
@@ -1329,7 +1370,7 @@ function updateBattle(dt) {
   }
 
   if (B.phase === 'forceswap') {
-    const opts = S.party.map((m, i) => i).filter((i) => alive(S.party[i]));
+    const opts = team().map((m, i) => i).filter((i) => alive(team()[i]));
     if (!opts.length) { B.result = { lost: true }; B.phase = 'over'; return; }
     if (eat('up')) { B.swapSel = (B.swapSel + opts.length - 1) % opts.length; Sound.cursor(); }
     if (eat('down')) { B.swapSel = (B.swapSel + 1) % opts.length; Sound.cursor(); }
@@ -1356,14 +1397,15 @@ function updateBattle(dt) {
       Sound.ok();
       if (B.menu === 0) { B.phase = 'moves'; B.moveSel = 0; }
       else if (B.menu === 1) {
+        if (B.exhibition) { Sound.deny(); flash('Sealed means sealed. No bag in here.'); return; }
         const usable = bagList();
         if (!usable.length) { Sound.deny(); flash('The bag is empty.'); return; }
         B.phase = 'bag'; B.bagSel = 0;
       } else if (B.menu === 2) {
-        const bench = S.party.filter((m, i) => i !== B.mine && alive(m));
+        const bench = team().filter((m, i) => i !== B.mine && alive(m));
         if (!bench.length) { Sound.deny(); flash('Nothing else of yours can fight.'); return; }
         B.phase = 'swap';
-        B.swapSel = S.party.findIndex((m, i) => i !== B.mine && alive(m));
+        B.swapSel = team().findIndex((m, i) => i !== B.mine && alive(m));
       } else {
         takeTurn({ kind: 'run' });
       }
@@ -1406,13 +1448,13 @@ function updateBattle(dt) {
   }
 
   if (B.phase === 'swap') {
-    const n = S.party.length;
+    const n = team().length;
     if (eat('up')) { B.swapSel = (B.swapSel + n - 1) % n; Sound.cursor(); }
     if (eat('down')) { B.swapSel = (B.swapSel + 1) % n; Sound.cursor(); }
     if (eat('back')) { B.phase = 'menu'; Sound.back(); }
     if (eat('ok')) {
       if (B.swapSel === B.mine) { Sound.deny(); flash('That one is already out.'); return; }
-      if (!alive(S.party[B.swapSel])) { Sound.deny(); flash('That one cannot fight.'); return; }
+      if (!alive(team()[B.swapSel])) { Sound.deny(); flash('That one cannot fight.'); return; }
       Sound.ok();
       takeTurn({ kind: 'swap', index: B.swapSel });
     }
@@ -1494,6 +1536,29 @@ function updateEvolve(dt) {
 function leaveBattle() {
   B.on = false;
   const r = B.result || {};
+
+  // A pack battle is an exhibition: the five you drafted go back in the box
+  // they came out of, your own team was never in it, and losing costs the
+  // entry fee you already paid and nothing else.
+  if (B.exhibition) {
+    const arena = B.arena || {};
+    const tr = B.trainer;
+    B.team = null; B.exhibition = false; B.arena = null;
+    go('world');
+    Sound.playSong(map.song || 'town');
+    if (r.win) {
+      if (tr && tr.id) S.beaten[tr.id] = true;
+      const n = npcs.find((x) => x.def.id === (tr && tr.id));
+      if (n) n.beaten = true;
+      save();
+      talk(arena.winLines || ['That is the pack battle.']);
+    } else {
+      save();
+      talk(arena.loseLines || ['Your five are down. The pack is spent.',
+        'Buy another and draft better.']);
+    }
+    return;
+  }
 
   if (r.lost && B.trainer && B.trainer.noPenalty) {
     healParty();
@@ -1702,10 +1767,10 @@ function drawBattleBox() {
   if (B.phase === 'swap' || B.phase === 'forceswap') {
     txt(B.phase === 'forceswap' ? 'WHO GOES NEXT?' : 'SEND OUT WHICH?', 10, y + 8, '#ffd166', 1);
     const list = B.phase === 'forceswap'
-      ? S.party.map((m, i) => i).filter((i) => alive(S.party[i]))
-      : S.party.map((m, i) => i);
+      ? team().map((m, i) => i).filter((i) => alive(team()[i]))
+      : team().map((m, i) => i);
     list.slice(0, 6).forEach((idx, row) => {
-      const m = S.party[idx];
+      const m = team()[idx];
       const on = B.swapSel === (B.phase === 'forceswap' ? row : idx);
       const ix = 10 + (row % 2) * 186, iy = y + 18 + Math.floor(row / 2) * 11;
       if (on) box(ix - 2, iy - 2, 180, 11, '#243157');
@@ -2250,6 +2315,7 @@ function updatePacks() {
     ui.cards = openPack(pack);
     ui.flipped = 0;
     ui.keep = ui.cards.map(() => false);
+    ui.pickMode = 'keep';
     Sound.rip();
     go('rip');
   }
@@ -2339,6 +2405,220 @@ function drawRip() {
     W / 2, H - 12, '#9fb0d8', 1, 'center');
 }
 
+/* ============================================================ pack battles */
+/* The shop's rules and the gym's stakes in the same room. Both sides tear a
+ * sealed pack, keep five of what falls out, and fight with exactly that —
+ * no team, no bag, no running. Levels are flattened to one number for the
+ * whole match, so the thing that decides it is what you pulled and what you
+ * knew to keep, rather than which of you spent longer in the long grass.
+ *
+ * It is the only mode in the game where a legendary is not an advantage you
+ * earned. It is an advantage you were handed, and the person across from you
+ * was handed one too. */
+
+/* How badly a card wants to be kept, for the side that is not you. Rarity
+ * first because rarity is raw numbers, then a nudge for anything that hits
+ * the house type hard. */
+function draftScore(card, wantType) {
+  const sp = Dex.byId(card.species);
+  let score = Dex.RARITY_ORDER.indexOf(sp.rarity) * 100;
+  score += sp.base.hp + sp.base.atk + sp.base.def + sp.base.spd;
+  if (wantType && sp.types.indexOf(wantType) >= 0) score += 120;
+  return score;
+}
+
+/* The house pack. A gym's is stacked toward its own type, which is the whole
+ * reason a LEAF gym is still a LEAF gym when nobody brought a team. */
+/* A draft pack is the tier's odds over more cards than anybody gets to keep,
+ * because five out of five is not a draft, it is an inventory. */
+function draftPack(tier, count) {
+  return Object.assign({}, PACKS[tier], { cards: count || DRAFT_CARDS });
+}
+
+const DRAFT_CARDS = 8;
+
+/* Everything enters at fighting weight. The first build of this mode handed
+ * one side a last-stage rare at the same level as everybody's first-stage
+ * commons, and it walked through all five without being hit back — which is
+ * not a draft, it is a lottery with extra steps. So a card's level is set
+ * from what the card *is*: the heavier the species, the younger it comes in,
+ * and what is left to decide the match is the chart and the five you kept. */
+function fightingLevel(speciesId, target) {
+  const sp = Dex.byId(speciesId);
+  const total = sp.base.hp + sp.base.atk + sp.base.def + sp.base.spd;
+  return clamp(Math.round(target * 250 / total), 5, 70);
+}
+
+function draftCards(pack, target) {
+  return openPack(pack).map((c) => ({
+    species: c.species,
+    level: fightingLevel(c.species, target),
+    shiny: c.shiny,
+  }));
+}
+
+function housePack(setup) {
+  const pack = draftPack(setup.foePack || setup.pack, setup.count);
+  const cards = draftCards(pack, setup.level);
+  if (setup.type) {
+    const pool = Dex.SPECIES.filter((s) => s.types.indexOf(setup.type) >= 0);
+    const stack = Math.min(cards.length, setup.stack || 4);
+    for (let i = 0; i < stack && pool.length; i++) {
+      const sp = pick(pool);
+      cards[i] = { species: sp.id, level: fightingLevel(sp.id, setup.level), shiny: false };
+    }
+  }
+  cards.sort((a, b) => draftScore(b, setup.type) - draftScore(a, setup.type));
+  return cards.slice(0, KEEP_MAX).map((c) => makeMon(c.species, c.level, { shiny: c.shiny }));
+}
+
+function beginDraft(setup) {
+  ui.arena = setup;
+  ui.pack = draftPack(setup.pack, setup.count);
+  ui.cards = draftCards(ui.pack, setup.level);
+  ui.flipped = 0;
+  ui.keep = ui.cards.map(() => false);
+  ui.pickMode = 'draft';
+  ui.cursor = 0;
+  Sound.rip();
+  go('rip');
+}
+
+function startPackBattle(setup, mine) {
+  B.arena = setup;
+  B.foeParty = housePack(setup);
+  B.foeIdx = 0;
+  B.foe = B.foeParty[0];
+  B.trainer = {
+    id: setup.id, who: setup.who, name: setup.name,
+    prize: setup.prize || 0, defeat: setup.defeat || ['...'],
+    badge: setup.badge, leader: setup.leader, npc: setup.npc, noPenalty: true,
+  };
+  beginBattle('trainer', { team: mine, exhibition: true });
+  push(setup.name + ' tears a pack open.');
+  push(setup.name + ' keeps five and sends out ' + nameOf(B.foe) + '!');
+  push('Go, ' + nameOf(myMon()) + '!');
+  after('menu');
+}
+
+/* ------------------------------------------------------------- the arena */
+/* The card shop's back room. Pay the fee, draft, and fight whatever the
+ * house drafted out of the same tier. Endlessly repeatable, which is the
+ * point: it is the only place in the game where the pack is the run. */
+
+const ARENA_TIERS = [
+  { id: 'scrub', name: 'SCRUB BRACKET', pack: 'scrub', level: 12, fee: 300, purse: 700,
+    blurb: 'Eight cards each, keep five, level 12. Cheap seats, honest pack.' },
+  { id: 'field', name: 'FIELD BRACKET', pack: 'field', level: 22, fee: 900, purse: 2200,
+    blurb: 'Eight each at level 22, and an uncommon floor on both sides.' },
+  { id: 'foil', name: 'FOIL BRACKET', pack: 'foil', level: 32, fee: 2200, purse: 5200,
+    blurb: 'Eight each at level 32, a rare guaranteed. The house gets one too.' },
+  { id: 'prism', name: 'PRISM BRACKET', pack: 'prism', level: 45, fee: 5000, purse: 12000,
+    blurb: 'Eight each at level 45, an epic floor, and a real shot at a legendary.' },
+];
+
+const ARENA_FOES = ['rival', 'hiker', 'angler', 'picnicker', 'youngster', 'elder', 'clerk'];
+
+function updateArena() {
+  const n = ARENA_TIERS.length + 1;
+  if (eat('back') || eat('start')) { Sound.back(); go('world'); return; }
+  if (eat('up')) { ui.cursor = (ui.cursor + n - 1) % n; Sound.cursor(); }
+  if (eat('down')) { ui.cursor = (ui.cursor + 1) % n; Sound.cursor(); }
+  if (eat('ok')) {
+    if (ui.cursor >= ARENA_TIERS.length) { Sound.back(); go('world'); return; }
+    const t = ARENA_TIERS[ui.cursor];
+    if (S.money < t.fee) { Sound.deny(); flash('The fee is ' + t.fee + '.'); return; }
+    S.money -= t.fee;
+    Sound.buy();
+    const who = pick(ARENA_FOES);
+    beginDraft({
+      id: null, pack: t.pack, level: t.level, prize: t.purse,
+      who, name: Folks.name(who),
+      defeat: ['A better five. That is all it ever is.'],
+      winLines: ['You took the bracket. The purse is yours.'],
+      loseLines: ['The house drafted better.', 'Another pack is another draw.'],
+    });
+  }
+}
+
+function drawArena() {
+  drawWorld();
+  box(0, 0, W, H, 'rgba(5,7,12,0.55)');
+  panel(16, 20, 190, 150, '#101728', '#ce93d8');
+  txt('PACK ARENA', 26, 28, '#ce93d8', 1);
+  txt(S.money + ' COINS', 196, 28, '#cfd8dc', 1, 'right');
+  box(24, 38, 174, 1, '#2b3c6b');
+  ARENA_TIERS.forEach((t, i) => {
+    const y = 46 + i * 18;
+    const on = ui.cursor === i;
+    if (on) { box(22, y - 3, 178, 17, '#243157'); frame(22, y - 3, 178, 17, '#ce93d8'); }
+    txt(t.name, 28, y, on ? '#ffffff' : '#c8d4f0', 1);
+    txt('FEE ' + t.fee, 28, y + 8, S.money >= t.fee ? '#5ce08a' : '#e2483c', 1);
+    txt('WIN ' + t.purse, 194, y + 8, '#ffd166', 1, 'right');
+  });
+  const iy = 46 + ARENA_TIERS.length * 18;
+  const on = ui.cursor === ARENA_TIERS.length;
+  if (on) { box(22, iy - 3, 178, 13, '#243157'); frame(22, iy - 3, 178, 13, '#5aa9f0'); }
+  txt('NOT TODAY', 28, iy, on ? '#ffffff' : '#9fb0d8', 1);
+
+  panel(214, 20, W - 230, 150, '#101728', '#4d5f96');
+  const t = ARENA_TIERS[clamp(ui.cursor, 0, ARENA_TIERS.length - 1)];
+  if (ui.cursor < ARENA_TIERS.length) {
+    txt(t.name, 222, 28, '#ce93d8', 1);
+    let y = wrapText(t.blurb, 222, 42, W - 248, 10, '#cfd8dc') + 6;
+    box(220, y, W - 244, 1, '#2b3c6b'); y += 8;
+    txt('BOTH SIDES TEAR ONE PACK', 222, y, '#9fb0d8', 1); y += 10;
+    txt('EIGHT CARDS, KEEP FIVE', 222, y, '#9fb0d8', 1); y += 10;
+
+    txt('LEVELS SET TO FIGHTING WEIGHT', 222, y, '#9fb0d8', 1); y += 10;
+    txt('NO TEAM. NO BAG. NO RUNNING.', 222, y, '#ffd166', 1); y += 14;
+    txt('THE DRAFT AND THE CHART DECIDE IT.', 222, y, '#5d6b92', 1);
+  }
+  txt('A TO ENTER   B TO LEAVE', W / 2, 182, '#5d6b92', 1, 'center');
+}
+
+/* ------------------------------------------------------ a two-way question */
+/* Used where the game needs an answer rather than an acknowledgement — which
+ * of two fights a gym leader is being asked for, mostly. */
+
+function ask(title, options, after) {
+  ui.ask = { title, options, after };
+  ui.cursor = 0;
+  go('ask');
+}
+
+function updateAsk() {
+  const n = ui.ask.options.length;
+  if (eat('up')) { ui.cursor = (ui.cursor + n - 1) % n; Sound.cursor(); }
+  if (eat('down')) { ui.cursor = (ui.cursor + 1) % n; Sound.cursor(); }
+  if (eat('back')) { Sound.back(); go('world'); return; }
+  if (eat('ok')) {
+    Sound.ok();
+    const pickIdx = clamp(ui.cursor, 0, n - 1);
+    const fn = ui.ask.after;
+    go('world');
+    fn(pickIdx);
+  }
+}
+
+function drawAsk() {
+  drawWorld();
+  box(0, 0, W, H, 'rgba(5,7,12,0.5)');
+  const opts = ui.ask.options;
+  const w = 250, h = 34 + opts.length * 22;
+  const x = (W - w) / 2, y = (H - h) / 2;
+  panel(x, y, w, h, '#101728', '#ffd166');
+  txt(ui.ask.title, x + w / 2, y + 8, '#ffd166', 1, 'center');
+  box(x + 8, y + 18, w - 16, 1, '#2b3c6b');
+  opts.forEach((o, i) => {
+    const iy = y + 26 + i * 22;
+    const on = ui.cursor === i;
+    if (on) { box(x + 6, iy - 3, w - 12, 20, '#243157'); frame(x + 6, iy - 3, w - 12, 20, '#5aa9f0'); }
+    txt(o.name, x + 12, iy, on ? '#ffffff' : '#c8d4f0', 1);
+    txt(o.note || '', x + 12, iy + 9, '#7f8db5', 1);
+  });
+}
+
 function keptCount() { return ui.keep.filter(Boolean).length; }
 
 function updatePick() {
@@ -2357,6 +2637,18 @@ function updatePick() {
   if (eat('start') || eat('back')) {
     if (!keptCount()) { Sound.deny(); flash('Keep at least one.'); return; }
     Sound.ok();
+
+    // A draft is the same five decisions with none of the ownership: the
+    // cards become a side for one fight and are gone afterwards.
+    if (ui.pickMode === 'draft') {
+      const mine = [];
+      ui.cards.forEach((c, i) => {
+        if (ui.keep[i]) mine.push(makeMon(c.species, c.level, { shiny: c.shiny }));
+      });
+      startPackBattle(ui.arena, mine);
+      return;
+    }
+
     let coins = 0, toBox = 0;
     ui.cards.forEach((c, i) => {
       if (ui.keep[i]) {
@@ -2373,8 +2665,9 @@ function updatePick() {
 }
 
 function drawPick() {
+  const draft = ui.pickMode === 'draft';
   box(0, 0, W, H, '#0a0f1c');
-  txt('KEEP FIVE', W / 2, 6, '#ffd166', 1, 'center');
+  txt(draft ? 'DRAFT FIVE' : 'KEEP FIVE', W / 2, 6, draft ? '#ce93d8' : '#ffd166', 1, 'center');
   txt(keptCount() + ' OF ' + KEEP_MAX, W / 2, 16, keptCount() >= KEEP_MAX ? '#5ce08a' : '#9fb0d8', 1, 'center');
   const L = layoutCards(ui.cards.length);
   ui.cards.forEach((c, i) => {
@@ -2382,7 +2675,8 @@ function drawPick() {
     const y = L.y0 + Math.floor(i / L.cols) * (L.ch + L.gap);
     Art.card(ctx, c, x, y, L.cw, L.ch, { kept: ui.keep[i], cursor: ui.cursor === i, tick: Math.floor(t * 4) });
   });
-  txt('A KEEPS OR DROPS   START WHEN YOU ARE DONE', W / 2, H - 10, '#5d6b92', 1, 'center');
+  txt(draft ? 'A DRAFTS OR DROPS   START WHEN YOUR FIVE ARE SET'
+    : 'A KEEPS OR DROPS   START WHEN YOU ARE DONE', W / 2, H - 10, '#5d6b92', 1, 'center');
 }
 
 /* ---------------------------------------------------------------- starter */
@@ -2563,6 +2857,8 @@ function update(dt) {
     case 'box': updateBox(); break;
     case 'shop': updateShop(); break;
     case 'packs': updatePacks(); break;
+    case 'arena': updateArena(); break;
+    case 'ask': updateAsk(); break;
     case 'rip': updateRip(); break;
     case 'pick': updatePick(); break;
     case 'starter': updateStarter(); break;
@@ -2585,6 +2881,8 @@ function draw() {
     case 'box': drawBox(); break;
     case 'shop': drawShop(); break;
     case 'packs': drawPacks(); break;
+    case 'arena': drawArena(); break;
+    case 'ask': drawAsk(); break;
     case 'rip': drawRip(); break;
     case 'pick': drawPick(); break;
     case 'starter': drawStarter(); break;
