@@ -5,16 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <meta name="color-scheme" content="dark" />
 <title>Pokémon Rip and Go</title>
-<meta name="description" content="A fan-made card-pack collector. Buy packs, rip them open, keep five, and battle your way to the next shelf. Load your own sprite sheets in the Sprite Lab." />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230c1020'/%3E%3Crect x='3' y='2' width='10' height='12' fill='%23ffd166'/%3E%3Crect x='4' y='3' width='8' height='10' fill='%231b2440'/%3E%3Crect x='6' y='5' width='4' height='4' fill='%235ce08a'/%3E%3Crect x='5' y='10' width='6' height='1' fill='%23ffd166'/%3E%3C/svg%3E" />
-<link rel="stylesheet" href="style.css?v=1" />
+<meta name="description" content="A fan-made creature-collecting RPG. Pick one of three, walk into the long grass, catch what lives in it, and take three gyms. Thirty-three creatures, each with its own hand-drawn sprite. Load your own sheets in the Sprite Lab." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230c1020'/%3E%3Crect x='2' y='7' width='12' height='2' fill='%230b0d14'/%3E%3Cpath d='M3 4h10v3H3z' fill='%23e2483c'/%3E%3Cpath d='M3 9h10v3H3z' fill='%23eceff1'/%3E%3Crect x='6' y='6' width='4' height='4' fill='%230b0d14'/%3E%3Crect x='7' y='7' width='2' height='2' fill='%23ffd166'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
 <div id="wrap">
-  <!-- Menus, shops, packs, battles and the town all go into this one canvas,
-       drawn with the game's own pixel font, so nothing is ever in the wrong
-       typeface at the wrong size. There is no DOM text below this line — the
-       Sprite Lab is a separate page, because a tool is allowed to be a tool. -->
+  <!-- Towns, routes, the cave, every menu and every fight go into this one
+       canvas, drawn with the game's own pixel font, so nothing is ever in the
+       wrong typeface at the wrong size. There is no DOM text below this line —
+       the Sprite Lab is a separate page, because a tool is allowed to be a
+       tool. -->
   <canvas id="c" width="384" height="216"></canvas>
 
   <div id="touch" aria-hidden="true">
@@ -28,10 +29,12 @@
   </div>
 </div>
 
-<script src="sound.js?v=1"></script>
-<script src="dex.js?v=1"></script>
-<script src="sprites.js?v=1"></script>
-<script src="art.js?v=1"></script>
-<script src="game.js?v=1"></script>
+<script src="sound.js?v=4"></script>
+<script src="dex.js?v=4"></script>
+<script src="folks.js?v=4"></script>
+<script src="sprites.js?v=4"></script>
+<script src="art.js?v=4"></script>
+<script src="world.js?v=4"></script>
+<script src="game.js?v=4"></script>
 </body>
 </html>

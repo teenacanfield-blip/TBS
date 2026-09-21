@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <title>Sprite Lab — Pokémon Rip and Go</title>
-<meta name="description" content="Load a PNG sprite sheet, cut it into frames, and point a frame at any creature in the game." />
+<meta name="description" content="Load a PNG sprite sheet, cut it into frames, and point a frame at any creature or any person in the game." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230c1020'/%3E%3Crect x='2' y='2' width='12' height='12' fill='%2326c6da'/%3E%3Crect x='3' y='3' width='4' height='4' fill='%230c1020'/%3E%3Crect x='9' y='3' width='4' height='4' fill='%230c1020'/%3E%3Crect x='3' y='9' width='4' height='4' fill='%230c1020'/%3E%3Crect x='9' y='9' width='4' height='4' fill='%230c1020'/%3E%3C/svg%3E" />
 <style>
 /* The Sprite Lab is a tool, not a game, so it is allowed real buttons and a
@@ -91,7 +91,7 @@ button.danger:hover { border-color: #ef5350; color: #ef9a9a; }
 
 <header>
   <h1>SPRITE LAB</h1>
-  <p>Cut a PNG into frames and point a frame at any creature in the game.</p>
+  <p>Cut a PNG into frames and point a frame at any creature — or any person — in the game.</p>
   <span class="spacer"></span>
   <a href="index.html">&larr; back to the game</a>
 </header>
@@ -157,12 +157,13 @@ button.danger:hover { border-color: #ef5350; color: #ef9a9a; }
   </section>
 </main>
 
-<script src="dex.js?v=1"></script>
-<script src="sprites.js?v=1"></script>
-<script src="art.js?v=1"></script>
+<script src="dex.js?v=4"></script>
+<script src="folks.js?v=4"></script>
+<script src="sprites.js?v=4"></script>
+<script src="art.js?v=4"></script>
 <script>
 /* The lab is DOM because a file picker, a number field and a scrolling list of
- * forty-eight names are things the browser already does better than a canvas
+ * ninety names are things the browser already does better than a canvas
  * would. It writes to the same store the game reads (sprites.js), so going
  * back to the game is enough to see the change. */
 (function () {
@@ -179,13 +180,33 @@ button.danger:hover { border-color: #ef5350; color: #ef9a9a; }
   let target = 'trainer.down';
   let hover = null;
 
-  const TARGETS = [
-    { key: 'trainer.down', name: 'TRAINER — facing you', tag: 'trainer' },
-    { key: 'trainer.up', name: 'TRAINER — from behind', tag: 'trainer' },
-    { key: 'trainer.side', name: 'TRAINER — side, step 1', tag: 'trainer' },
-    { key: 'trainer.sideb', name: 'TRAINER — side, step 2', tag: 'trainer' },
-  ].concat(Dex.SPECIES.map((s) => ({
-    key: s.id, name: s.name, tag: s.type + ' · ' + Dex.RARITY[s.rarity].name.toLowerCase(), sp: s,
+  /* Four frames a person: facing you, from behind, and two steps of the walk
+   * seen from the side. The player is listed first and keeps the old
+   * 'trainer.*' names so a sheet cut for the earlier build still lands. */
+  const FRAMES = [
+    { suffix: 'down', label: 'facing you' },
+    { suffix: 'up', label: 'from behind' },
+    { suffix: 'side', label: 'side, step 1' },
+    { suffix: 'sideb', label: 'side, step 2' },
+  ];
+
+  const PEOPLE_TARGETS = [];
+  Object.keys(Folks.PEOPLE).forEach((id) => {
+    const p = Folks.PEOPLE[id];
+    FRAMES.forEach((f) => {
+      PEOPLE_TARGETS.push({
+        key: id === 'player' ? 'trainer.' + f.suffix : 'folk.' + id + '.' + f.suffix,
+        name: p.name + ' — ' + f.label,
+        tag: 'person · ' + id,
+        folk: id,
+        dir: f.suffix === 'up' ? 'up' : f.suffix.indexOf('side') === 0 ? 'right' : 'down',
+        step: f.suffix.slice(-1) === 'b' ? 1 : 0,
+      });
+    });
+  });
+
+  const TARGETS = PEOPLE_TARGETS.concat(Dex.SPECIES.map((s) => ({
+    key: s.id, name: s.name, tag: Dex.typeLabel(s) + ' · ' + Dex.RARITY[s.rarity].name.toLowerCase(), sp: s,
   })));
 
   function say(msg, bad) {
@@ -393,13 +414,8 @@ button.danger:hover { border-color: #ef5350; color: #ef9a9a; }
     c.width = 32; c.height = 32;
     const cg = c.getContext('2d');
     cg.imageSmoothingEnabled = false;
-    if (entry.sp) {
-      Art.mon(cg, entry.sp, false, 0, 0, 32, false);
-    } else {
-      const dir = entry.key.indexOf('up') >= 0 ? 'up'
-        : entry.key.indexOf('side') >= 0 ? 'right' : 'down';
-      Art.trainer(cg, dir, entry.key.slice(-1) === 'b' ? 1 : 0, 4, 0, 32);
-    }
+    if (entry.sp) Art.mon(cg, entry.sp, false, 0, 0, 32, false);
+    else Folks.draw(cg, entry.folk, entry.dir, entry.step, 0, 0, 32);
     return c;
   }
 

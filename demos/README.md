@@ -45,11 +45,21 @@ says so in the console rather than waiting to be found on the fifth league.
 
 Pokémon Rip and Go holds to the same rule, and it is the one demo where that
 took some arguing with itself: a game about collecting creature art, with no
-creature art in it. The forty-eight creatures are sixteen typed-out body plans
-in `dex.js` wearing three palettes each, and a shiny is the palette turned
-rather than a second drawing. It checks them on load, the way The Show checks
-its levels — a row of pixels one character short shifts a whole creature and is
-nearly impossible to spot by eye, so it says so in the console instead.
+creature art in it. It used to cheat — nineteen body plans wearing three
+palettes each — and you could feel it, because three creatures that share a
+drawing are one creature with three names. So every one of the thirty-three is
+now typed out on its own in `dex.js`, sixteen rows of sixteen characters, and
+the people in `folks.js` the same way: four bodies, six frames apiece, a
+palette and a name each. A shiny is still the palette turned, because that one
+really is the same creature.
+
+`world.js` is the rest of it — every town, route, cave and interior as a block
+of text, one character per tile, with the doors, the encounter tables and
+everyone standing in one listed underneath. All three files check themselves on
+load, the way The Show checks its levels: a row one character short shifts a
+whole creature, a map that names a tile nobody drew is a typo, and a door
+pointing at a room that does not exist is a dead end nobody would find until
+they walked into it. They say so in the console instead of waiting.
 
 The one thing it does load is whatever you give it. `lab.html` takes a PNG
 sprite sheet off your desktop, cuts it into frames, and lets you point a frame

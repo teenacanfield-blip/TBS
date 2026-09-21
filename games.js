@@ -25,23 +25,30 @@ const DEMOS = [
   {
     id: 'rip-and-go',
     title: 'Pokémon Rip and Go',
-    tagline: 'Buy packs. Rip them. Keep five.',
-    motif: 'card',
+    tagline: 'One of three, and one road out.',
+    motif: 'ball',
     accent: '#5ce08a',
     accentDark: '#08210f',
     url: '',
     blurb:
-      'A fan-made collector built around the one decision a booster pack ' +
-      'actually gives you. Fight at the Battle Court for coins, spend them ' +
-      'on a pack, turn the cards over one at a time — and then keep five. A ' +
-      'prism pack holds eight, so the three you leave behind get torn up in ' +
-      'front of you for coins, which means a legendary is never free. ' +
-      'Forty-eight creatures across eight types, six on the team and the ' +
-      'rest in the box. None of the art is fetched: the creatures are typed ' +
-      'out as letters, the sound is oscillators. And if you would rather ' +
-      'they looked like something else, the Sprite Lab takes your own PNG ' +
-      'sheet, cuts it into frames, and lets you point a frame at any ' +
-      'creature in the game — it sticks everywhere, for good.',
+      'A fan-made creature collector, and this time it is the whole game: a ' +
+      'town with one road out of it, a professor with three on a table, a ' +
+      'boy your age who takes the one that beats yours, and long grass ' +
+      'between you and everywhere else. Walk into it, wear something down, ' +
+      'throw a ball, and keep it. Thirty-three creatures in ten families, ' +
+      'each one drawn from scratch rather than recoloured — a family grows ' +
+      'into a different animal, picks up a second type on the way, and the ' +
+      'nine-type chart is the whole puzzle of a gym. Six travel with you, ' +
+      'the rest wait in the box, and every move has PP, which is what makes ' +
+      'the walk between two towns a decision. Three badges, a cave you ' +
+      'cannot see the far side of, and something standing at the end of the ' +
+      'keep that has been standing there a while. The card shop is still ' +
+      'open in Willowbank: buy a pack, turn eight over, keep five, and the ' +
+      'rest come apart for coins. Nothing is fetched — the creatures and ' +
+      'the people are typed out as letters, one character per pixel, and ' +
+      'the sound is oscillators. If you would rather they looked like ' +
+      'something else, the Sprite Lab takes your own PNG sheet, cuts it ' +
+      'into frames, and lets you point a frame at any creature in the game.',
   },
   {
     id: 'the-show',

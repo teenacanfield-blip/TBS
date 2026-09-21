@@ -4,7 +4,7 @@
  * trainer is typed out below, and everything else — cards, shopfronts, the
  * town, the menus — is rectangles. That buys the same three things it buys
  * the rest of the demos in this folder: nothing to fetch, a flipped copy for
- * free, and palette swaps, which is how sixteen drawings cover forty-eight
+ * free, and palette swaps, which is how nineteen drawings cover fifty-four
  * creatures and a shiny costs nothing at all.
  *
  * Two rules the art follows, and they are why it reads at this size:
@@ -237,7 +237,7 @@ const Art = (() => {
   function monCanvas(sp, shiny) {
     const key = 'm.' + sp.id + (shiny ? '.s' : '');
     if (baked[key]) return baked[key];
-    return bake(Dex.FORMS[sp.form], Dex.paletteFor(sp, shiny), key);
+    return bake(Dex.ART[sp.id], Dex.paletteFor(sp, shiny), key);
   }
 
   /* A creature, at whatever size the screen has room for. Asks the Sprite Lab
@@ -348,7 +348,7 @@ const Art = (() => {
     opt = opt || {};
     const sp = Dex.byId(c.species);
     const rar = Dex.RARITY[sp.rarity];
-    const t = Dex.TYPES[sp.type];
+    const t = Dex.TYPES[sp.types[0]];
 
     panel(g, x, y, w, h, '#101728', rar.colour);
     frame(g, x + 1, y + 1, w - 2, h - 2, rar.colour);
@@ -402,53 +402,168 @@ const Art = (() => {
 
   function paintTile(c, kind) {
     const f = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+
+    /* ---------------------------------------------------------- outdoors */
     if (kind === 'grass') {
-      f(0, 0, 16, 16, '#2f6b3a');
-      f(0, 0, 16, 1, '#3c7f46');
-      f(3, 5, 2, 1, '#3f8a4b'); f(10, 9, 2, 1, '#3f8a4b'); f(6, 12, 2, 1, '#276032');
-    } else if (kind === 'grass2') {
-      f(0, 0, 16, 16, '#2b6436');
-      f(0, 0, 16, 1, '#37773f');
-      f(8, 3, 1, 2, '#48934f'); f(2, 10, 1, 2, '#48934f');
+      f(0, 0, 16, 16, '#3a7a45');
+      f(0, 0, 16, 1, '#478c52');
+      f(3, 5, 2, 1, '#4d9558'); f(10, 9, 2, 1, '#4d9558'); f(6, 12, 2, 1, '#2f6a3a');
+    } else if (kind === 'tall') {
+      /* The tile the whole game turns on, so it is louder than the grass
+       * beside it: darker ground, blades that break the top edge. */
+      f(0, 0, 16, 16, '#2a5f33');
+      f(0, 0, 16, 1, '#35723d');
+      f(1, 2, 2, 6, '#4f9c58'); f(4, 4, 2, 8, '#3f8a4a');
+      f(7, 1, 2, 7, '#56a75f'); f(10, 4, 2, 8, '#3f8a4a');
+      f(13, 2, 2, 6, '#4f9c58');
+      f(0, 14, 16, 2, '#22502b');
     } else if (kind === 'path') {
-      f(0, 0, 16, 16, '#9c8663');
-      f(0, 0, 16, 1, '#b39b76');
-      f(0, 15, 16, 1, '#7d6a4e');
-      f(4, 4, 3, 2, '#8d7959'); f(11, 9, 3, 2, '#8d7959'); f(2, 11, 2, 2, '#ab9470');
+      f(0, 0, 16, 16, '#b9a077');
+      f(0, 0, 16, 1, '#cdb389');
+      f(0, 15, 16, 1, '#96805e');
+      f(4, 4, 3, 2, '#a88f68'); f(11, 9, 3, 2, '#a88f68'); f(2, 11, 2, 2, '#c6ad84');
+    } else if (kind === 'flower') {
+      f(0, 0, 16, 16, '#3a7a45');
+      f(0, 0, 16, 1, '#478c52');
+      f(4, 5, 2, 2, '#f06292'); f(5, 4, 1, 1, '#ffffff');
+      f(10, 10, 2, 2, '#ffd54f'); f(11, 9, 1, 1, '#ffffff');
+    } else if (kind === 'sand') {
+      f(0, 0, 16, 16, '#d8c48c');
+      f(0, 0, 16, 1, '#e7d5a2');
+      f(5, 7, 2, 1, '#c6b07a'); f(11, 3, 2, 1, '#c6b07a');
     } else if (kind === 'water') {
       f(0, 0, 16, 16, '#2a6ea8');
       f(0, 0, 16, 2, '#3c85c0');
       f(2, 6, 6, 1, '#6fb4e6'); f(9, 11, 5, 1, '#6fb4e6');
-    } else if (kind === 'sand') {
-      f(0, 0, 16, 16, '#d8c48c');
-      f(0, 0, 16, 1, '#e7d5a2');
-      f(5, 7, 2, 1, '#c6b07a');
-    } else if (kind === 'flower') {
-      f(0, 0, 16, 16, '#2f6b3a');
-      f(0, 0, 16, 1, '#3c7f46');
-      f(4, 5, 2, 2, '#f06292'); f(5, 4, 1, 1, '#ffffff');
-      f(10, 10, 2, 2, '#ffd54f'); f(11, 9, 1, 1, '#ffffff');
-    } else if (kind === 'fence') {
-      f(0, 0, 16, 16, '#2f6b3a');
-      f(0, 6, 16, 2, '#8d6e50'); f(0, 10, 16, 2, '#8d6e50');
-      f(3, 3, 3, 12, '#a3815f'); f(11, 3, 3, 12, '#a3815f');
-      f(3, 3, 3, 1, '#c3a179'); f(11, 3, 3, 1, '#c3a179');
+      f(4, 13, 4, 1, '#1f5686');
     } else if (kind === 'tree') {
-      f(0, 0, 16, 16, '#2f6b3a');
+      f(0, 0, 16, 16, '#3a7a45');
       f(6, 10, 4, 6, '#6b4a2a');
       f(2, 1, 12, 10, '#1f5a2c');
       f(3, 0, 10, 2, '#2d7a3a');
       f(2, 1, 2, 8, '#2d7a3a');
       f(11, 6, 3, 5, '#164522');
       f(5, 3, 2, 2, '#3b9a4a');
-    } else if (kind === 'sign') {
-      f(0, 0, 16, 16, '#2f6b3a');
-      f(7, 9, 2, 7, '#6b4a2a');
-      f(2, 2, 12, 8, '#a3815f');
-      f(2, 2, 12, 1, '#c3a179');
-      f(3, 4, 10, 1, '#5c4430'); f(3, 6, 7, 1, '#5c4430');
+    } else if (kind === 'rock') {
+      f(0, 0, 16, 16, '#3a7a45');
+      f(2, 4, 12, 11, '#8d7b6a');
+      f(3, 3, 9, 3, '#a89785');
+      f(2, 4, 2, 9, '#a89785');
+      f(10, 8, 4, 7, '#6a5b4d');
+      f(2, 14, 12, 1, '#4a3f35');
+    } else if (kind === 'ledge') {
+      /* A drop, seen from above: grass on top, a lip, shadow under it. The
+       * arrow is the only instruction the tile gets and it points the one way
+       * you are allowed to go. */
+      f(0, 0, 16, 16, '#3a7a45');
+      f(0, 0, 16, 5, '#2f6a3a');
+      f(0, 5, 16, 4, '#8d7b6a');
+      f(0, 5, 16, 1, '#a89785');
+      f(0, 9, 16, 3, '#4a3f35');
+      f(0, 12, 16, 4, '#2b5c34');
+      f(6, 12, 4, 1, '#cdb389'); f(7, 13, 2, 1, '#cdb389'); f(7, 14, 2, 1, '#cdb389');
+    } else if (kind === 'fence') {
+      f(0, 0, 16, 16, '#3a7a45');
+      f(0, 6, 16, 2, '#8d6e50'); f(0, 10, 16, 2, '#8d6e50');
+      f(3, 3, 3, 12, '#a3815f'); f(11, 3, 3, 12, '#a3815f');
+      f(3, 3, 3, 1, '#c3a179'); f(11, 3, 3, 1, '#c3a179');
+
+    /* -------------------------------------------------------- buildings */
+    } else if (kind === 'roof') {
+      f(0, 0, 16, 16, '#b4453a');
+      f(0, 0, 16, 2, '#d4655a');
+      f(0, 15, 16, 1, '#7d2b24');
+      f(0, 5, 16, 1, '#96362e'); f(0, 11, 16, 1, '#96362e');
+      f(4, 2, 1, 3, '#c9564b'); f(11, 8, 1, 3, '#c9564b');
+    } else if (kind === 'wall') {
+      f(0, 0, 16, 16, '#c9b394');
+      f(0, 0, 16, 1, '#ded0b6');
+      f(0, 15, 16, 1, '#9e8a6e');
+      f(3, 4, 9, 7, '#2b3a5a');
+      f(3, 4, 9, 1, '#6f5c44'); f(3, 10, 9, 1, '#6f5c44');
+      f(4, 5, 3, 3, '#5a76ab');
+    } else if (kind === 'door') {
+      f(0, 0, 16, 16, '#c9b394');
+      f(2, 1, 12, 15, '#6b4a2a');
+      f(2, 1, 12, 1, '#8d6540');
+      f(3, 2, 10, 14, '#4a3218');
+      f(11, 8, 1, 2, '#e0c088');
+      f(4, 3, 6, 4, '#5f4426');
+
+    /* --------------------------------------------------------- indoors */
+    } else if (kind === 'floor') {
+      f(0, 0, 16, 16, '#7e6a52');
+      f(0, 0, 16, 1, '#96805f');
+      f(0, 8, 16, 1, '#6e5c46');
+      f(8, 0, 1, 8, '#6e5c46'); f(0, 9, 1, 7, '#6e5c46');
+    } else if (kind === 'mat') {
+      f(0, 0, 16, 16, '#7e6a52');
+      f(1, 2, 14, 12, '#b4453a');
+      f(1, 2, 14, 1, '#d4655a');
+      f(3, 5, 10, 1, '#96362e'); f(3, 9, 10, 1, '#96362e');
+    } else if (kind === 'table') {
+      f(0, 0, 16, 16, '#7e6a52');
+      f(0, 2, 16, 11, '#a3815f');
+      f(0, 2, 16, 2, '#c3a179');
+      f(0, 12, 16, 1, '#6b4a2a');
+      f(2, 13, 3, 3, '#6b4a2a'); f(11, 13, 3, 3, '#6b4a2a');
+    } else if (kind === 'counter') {
+      f(0, 0, 16, 16, '#7e6a52');
+      f(0, 3, 16, 13, '#8d6e50');
+      f(0, 3, 16, 2, '#b08a63');
+      f(0, 10, 16, 1, '#6b4a2a');
+      f(3, 6, 3, 2, '#c9b394');
+    } else if (kind === 'shelf') {
+      f(0, 0, 16, 16, '#7e6a52');
+      f(0, 0, 16, 15, '#6b4a2a');
+      f(1, 1, 14, 5, '#3a2818'); f(1, 8, 14, 5, '#3a2818');
+      f(2, 2, 2, 4, '#c05a4a'); f(5, 2, 2, 4, '#4a8ec0'); f(8, 2, 2, 4, '#c9b394');
+      f(2, 9, 2, 4, '#7cb342'); f(6, 9, 2, 4, '#ffd166'); f(10, 9, 2, 4, '#9575cd');
+    } else if (kind === 'machine') {
+      /* The thing the nurse puts your team on. Two lit slots, because you
+       * should be able to tell at a glance that it is the healing one. */
+      f(0, 0, 16, 16, '#7e6a52');
+      f(1, 1, 14, 14, '#cfd8dc');
+      f(1, 1, 14, 2, '#eceff1');
+      f(2, 5, 12, 8, '#546e7a');
+      f(4, 7, 3, 3, '#ff8a80'); f(9, 7, 3, 3, '#ff8a80');
+      f(4, 7, 3, 1, '#ffcdd2'); f(9, 7, 3, 1, '#ffcdd2');
+    } else if (kind === 'pc') {
+      f(0, 0, 16, 16, '#7e6a52');
+      f(1, 1, 14, 14, '#455a64');
+      f(1, 1, 14, 2, '#607d8b');
+      f(3, 4, 10, 7, '#0f1c24');
+      f(4, 5, 8, 5, '#4dd0e1');
+      f(5, 6, 3, 1, '#0f1c24'); f(5, 8, 5, 1, '#0f1c24');
+      f(5, 12, 6, 2, '#37474f');
+    } else if (kind === 'gymfloor') {
+      f(0, 0, 16, 16, '#3b4a63');
+      f(0, 0, 16, 1, '#4b5c79');
+      f(0, 15, 16, 1, '#2c3850');
+      f(7, 7, 2, 2, '#54678a');
+    } else if (kind === 'gymmat') {
+      f(0, 0, 16, 16, '#3b4a63');
+      f(1, 1, 14, 14, '#ffd166');
+      f(1, 1, 14, 2, '#ffe1a0');
+      f(4, 5, 8, 6, '#3b4a63');
+      f(6, 7, 4, 2, '#ffd166');
+
+    /* ------------------------------------------------------------- cave */
+    } else if (kind === 'cavefloor') {
+      f(0, 0, 16, 16, '#4a4238');
+      f(0, 0, 16, 1, '#5a5145');
+      f(3, 6, 3, 1, '#3c352d'); f(10, 11, 3, 1, '#3c352d');
+      f(8, 3, 2, 1, '#5f574a');
+    } else if (kind === 'cavewall') {
+      f(0, 0, 16, 16, '#2a251f');
+      f(0, 0, 16, 3, '#3d362d');
+      f(2, 4, 12, 10, '#37302a');
+      f(2, 4, 10, 1, '#4a4238');
+      f(11, 7, 3, 7, '#211d18');
+    } else if (kind === 'dark') {
+      f(0, 0, 16, 16, '#05070c');
     } else {
-      f(0, 0, 16, 16, '#2f6b3a');
+      f(0, 0, 16, 16, '#3a7a45');
     }
   }
 
