@@ -1844,7 +1844,7 @@ function drawLearn() {
 
 /* ==================================================================== menus */
 
-const MENU_ITEMS = ['TEAM', 'BAG', 'DEX', 'SAVE', 'SOUND', 'SPRITE LAB', 'HOW TO PLAY', 'BACK'];
+const MENU_ITEMS = ['TEAM', 'BAG', 'DEX', 'TEAM CODE', 'SAVE', 'SOUND', 'SPRITE LAB', 'HOW TO PLAY', 'BACK'];
 
 function updateMenu() {
   const n = MENU_ITEMS.length;
@@ -1857,6 +1857,10 @@ function updateMenu() {
     if (item === 'TEAM') { ui.cursor = 0; go('party'); }
     else if (item === 'BAG') { ui.cursor = 0; go('bag'); }
     else if (item === 'DEX') { ui.cursor = 0; go('dex'); }
+    else if (item === 'TEAM CODE') {
+      if (!S.party.length) { Sound.deny(); flash('You have nothing to write down.'); return; }
+      ui.cursor = 0; go('code');
+    }
     else if (item === 'SAVE') { flash(save() ? 'Saved.' : 'This browser will not keep it.'); }
     else if (item === 'SOUND') { muteFlash = 1.2; Sound.toggleMute(); }
     else if (item === 'SPRITE LAB') { save(); location.href = 'lab.html'; }
@@ -2816,8 +2820,262 @@ const HELP = [
   ['PP', 'Every move has a number of uses and the walk between towns is long. ' +
     'The red roof heals everything, including PP, and it is free.'],
   ['BADGES', 'Three gyms, and somebody standing in the road until you have beaten each one. ' +
-    'What is at the end of the keep is not a gym.'],
+    'Each leader will take the badge off you two ways: your six against theirs, or a sealed ' +
+    'pack each. What is at the end of the keep is not a gym.'],
+  ['PACK BATTLES', 'Eight cards, keep five, and that is the match — no team, no bag, no running. ' +
+    'Every card enters at fighting weight, so a legendary is a good card rather than a won game. ' +
+    'The back room of the card shop runs brackets for a purse.'],
+  ['TEAM CODES', 'The menu turns your team into about twenty letters. Read it to somebody and they ' +
+    'can type it in and fight it. Nothing is sent anywhere and nothing changes hands — your team ' +
+    'comes back exactly as it went in.'],
 ];
+
+/* ============================================================== team codes */
+/* The oldest multiplayer there is: you read a string of letters to somebody
+ * and they type it back in. No server, no account, no waiting for anyone to
+ * be online. What arrives is a team to fight, never a team to keep — nothing
+ * that comes out of a code can be caught, kept, or walked out of the room. */
+
+const CODE_MENU = ['SHOW MY CODE', 'TYPE IN A CODE', 'BACK'];
+
+function updateCode() {
+  const n = CODE_MENU.length;
+  if (eat('back') || eat('start')) { Sound.back(); go('menu'); return; }
+  if (eat('up')) { ui.cursor = (ui.cursor + n - 1) % n; Sound.cursor(); }
+  if (eat('down')) { ui.cursor = (ui.cursor + 1) % n; Sound.cursor(); }
+  if (eat('ok')) {
+    Sound.ok();
+    const item = CODE_MENU[ui.cursor];
+    if (item === 'SHOW MY CODE') { ui.myCode = Codes.encode(S.party); go('codeshow'); }
+    else if (item === 'TYPE IN A CODE') { beginCodeEntry(); }
+    else go('menu');
+  }
+}
+
+function drawCode() {
+  box(0, 0, W, H, '#0a0f1c');
+  txt('TEAM CODE', 10, 8, '#ffd166', 1);
+  box(8, 18, W - 16, 1, '#2b3c6b');
+
+  panel(8, 26, 170, 80, '#101728', '#4d5f96');
+  CODE_MENU.forEach((s, i) => {
+    const y = 36 + i * 22;
+    const on = ui.cursor === i;
+    if (on) { box(14, y - 4, 158, 18, '#243157'); frame(14, y - 4, 158, 18, '#5aa9f0'); }
+    txt(s, 20, y, on ? '#ffffff' : '#c8d4f0', 1);
+  });
+
+  panel(186, 26, W - 194, 174, '#101728', '#4d5f96');
+  let y = 34;
+  txt('HOW IT WORKS', 194, y, '#ffd166', 1); y += 12;
+  y = wrapText('A code is your team turned into about twenty letters. Read it to '
+    + 'somebody and they can fight it.', 194, y, W - 210, 10, '#cfd8dc') + 6;
+  y = wrapText('What arrives is a team to fight, never a team to keep.',
+    194, y, W - 210, 10, '#9fb0d8') + 6;
+  y = wrapText('Moves are not in the code. They come from the learnset at that '
+    + 'level, so a team you trained oddly will turn up knowing the ordinary thing.',
+    194, y, W - 210, 10, '#9fb0d8') + 6;
+  y = wrapText('Nothing is sent anywhere. The code is the whole message.',
+    194, y, W - 210, 10, '#5d6b92');
+
+  txt('B TO GO BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+}
+
+/* --------------------------------------------------------- showing yours */
+
+function drawCodeShow() {
+  box(0, 0, W, H, '#0a0f1c');
+  txt('YOUR CODE', 10, 8, '#ffd166', 1);
+  box(8, 18, W - 16, 1, '#2b3c6b');
+
+  const pretty = Codes.format(ui.myCode);
+  panel(20, 30, W - 40, 40, '#131b2e', '#ffd166');
+  txs(pretty, W / 2, 44, '#ffd166', 2, 'center');
+
+  txt('WRITE IT DOWN OR READ IT OUT', W / 2, 78, '#9fb0d8', 1, 'center');
+
+  let y = 96;
+  txt('THIS CODE IS', 20, y, '#7f8db5', 1); y += 12;
+  S.party.forEach((m) => {
+    Art.mon(ctx, spOf(m), m.shiny, 20, y - 3, 14, false);
+    txt(nameOf(m), 38, y, '#e8eefc', 1);
+    txt('L' + m.level, 150, y, '#9fb0d8', 1, 'right');
+    if (m.shiny) txt('ODD COLOUR', 220, y, '#fff59d', 1);
+    y += 14;
+  });
+
+  txt('B TO GO BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+}
+
+function updateCodeShow() {
+  if (eat('back') || eat('ok') || eat('start')) { Sound.back(); go('code'); }
+}
+
+/* --------------------------------------------------------- typing one in */
+/* Six buttons and no keyboard, so the letters are a grid you walk around —
+ * which is how every game on this hardware asked you to spell anything. */
+
+const CODE_COLS = 8;
+
+function beginCodeEntry() {
+  ui.entry = '';
+  ui.entryCur = 0;
+  ui.entryErr = '';
+  go('codein');
+}
+
+function updateCodeIn() {
+  const alpha = Codes.ALPHABET;
+  const cells = alpha.length + 2;              // + DELETE + DONE
+  const rows = Math.ceil(cells / CODE_COLS);
+
+  if (eat('start')) { Sound.back(); go('code'); return; }
+  if (eat('back')) {
+    if (ui.entry) { ui.entry = ui.entry.slice(0, -1); ui.entryErr = ''; Sound.drop(); }
+    else { Sound.back(); go('code'); }
+    return;
+  }
+  if (eat('left')) { ui.entryCur = (ui.entryCur + cells - 1) % cells; Sound.cursor(); }
+  if (eat('right')) { ui.entryCur = (ui.entryCur + 1) % cells; Sound.cursor(); }
+  if (eat('up')) { ui.entryCur = (ui.entryCur + cells - CODE_COLS) % cells; Sound.cursor(); }
+  if (eat('down')) { ui.entryCur = (ui.entryCur + CODE_COLS) % cells; Sound.cursor(); }
+  ui.entryCur = clamp(ui.entryCur, 0, cells - 1);
+
+  if (eat('ok')) {
+    const i = ui.entryCur;
+    if (i === alpha.length) {                   // DELETE
+      if (ui.entry) { ui.entry = ui.entry.slice(0, -1); Sound.drop(); }
+      else Sound.deny();
+      ui.entryErr = '';
+      return;
+    }
+    if (i === alpha.length + 1) {               // DONE
+      const out = Codes.decode(ui.entry);
+      if (!out.ok) { Sound.deny(); ui.entryErr = out.error; return; }
+      Sound.ok();
+      ui.rival = out.team.map((c) => makeMon(c.species, c.level, { shiny: c.shiny }));
+      ui.rivalCode = Codes.strip(ui.entry);
+      ui.cursor = 0;
+      go('codeteam');
+      return;
+    }
+    if (ui.entry.length >= 40) { Sound.deny(); ui.entryErr = 'That is longer than any code.'; return; }
+    ui.entry += alpha[i];
+    ui.entryErr = '';
+    Sound.cursor();
+  }
+}
+
+function drawCodeIn() {
+  box(0, 0, W, H, '#0a0f1c');
+  txt('TYPE IN A CODE', 10, 8, '#ffd166', 1);
+  box(8, 18, W - 16, 1, '#2b3c6b');
+
+  // What has been typed so far, in fives.
+  panel(20, 26, W - 40, 26, '#131b2e', ui.entryErr ? '#e2483c' : '#4d5f96');
+  // The caret is drawn rather than typed: the font is twenty-six letters and
+  // ten digits, and an underscore it does not have comes out as a question
+  // mark sitting in the middle of somebody's code.
+  const shown = Codes.format(ui.entry) || '';
+  const wide = Art.width(shown, 1);
+  txs(shown, W / 2, 36, '#ffd166', 1, 'center');
+  if (Math.floor(t * 3) % 2 === 0) box(W / 2 + wide / 2 + 2, 41, 4, 1, '#ffd166');
+
+  if (ui.entryErr) txt(ui.entryErr, W / 2, 58, '#e2483c', 1, 'center');
+  else txt('A TYPES   B RUBS OUT   START LEAVES', W / 2, 58, '#5d6b92', 1, 'center');
+
+  const alpha = Codes.ALPHABET;
+  const cells = alpha.length + 2;
+  const cw = 34, ch = 20;
+  const gridW = CODE_COLS * cw;
+  const x0 = (W - gridW) / 2, y0 = 74;
+
+  for (let i = 0; i < cells; i++) {
+    const cx = x0 + (i % CODE_COLS) * cw;
+    const cy = y0 + Math.floor(i / CODE_COLS) * ch;
+    const on = ui.entryCur === i;
+    const label = i < alpha.length ? alpha[i] : (i === alpha.length ? 'DEL' : 'DONE');
+    const col = i < alpha.length ? '#c8d4f0' : (i === alpha.length ? '#ef9a9a' : '#5ce08a');
+    if (on) { box(cx + 1, cy, cw - 2, ch - 2, '#243157'); frame(cx + 1, cy, cw - 2, ch - 2, '#5aa9f0'); }
+    txt(label, cx + cw / 2, cy + 6, on ? '#ffffff' : col, 1, 'center');
+  }
+}
+
+/* ------------------------------------------------------ what turned up */
+
+function updateCodeTeam() {
+  if (eat('back') || eat('start')) { Sound.back(); go('code'); return; }
+  if (eat('up')) { ui.cursor = ui.cursor ? 0 : 1; Sound.cursor(); }
+  if (eat('down')) { ui.cursor = ui.cursor ? 0 : 1; Sound.cursor(); }
+  if (eat('ok')) {
+    Sound.ok();
+    if (ui.cursor === 1) { go('code'); return; }
+    if (!S.party.some(alive)) { Sound.deny(); flash('Nothing of yours can stand up.'); return; }
+    startLinkBattle(ui.rival);
+  }
+}
+
+function drawCodeTeam() {
+  box(0, 0, W, H, '#0a0f1c');
+  txt('THEIR TEAM', 10, 8, '#ffd166', 1);
+  txt(Codes.format(ui.rivalCode), W - 10, 8, '#5d6b92', 1, 'right');
+  box(8, 18, W - 16, 1, '#2b3c6b');
+
+  ui.rival.forEach((m, i) => {
+    const x = 12 + (i % 3) * 124, y = 26 + Math.floor(i / 3) * 62;
+    panel(x, y, 118, 56, '#131b2e', '#39476e');
+    Art.mon(ctx, spOf(m), m.shiny, x + 4, y + 4, 34, false);
+    txt(nameOf(m), x + 42, y + 6, '#e8eefc', 1);
+    txt('L' + m.level, x + 42, y + 18, '#9fb0d8', 1);
+    let cx = x + 42;
+    typesOf(m).forEach((ty) => { cx += Art.typeChip(ctx, ty, cx, y + 28, 1) + 2; });
+    if (m.shiny) txt('ODD', x + 112, y + 6, '#fff59d', 1, 'right');
+    // Two names fit in a card this wide; a third would be cut off mid-word,
+    // which reads as a bug rather than as a list that carries on.
+    const names = m.moves.map((s) => s.name);
+    txt(names.slice(0, 2).join(', ') + (names.length > 2 ? '  +' + (names.length - 2) : ''),
+      x + 4, y + 44, '#5d6b92', 1);
+  });
+
+  const opts = ['FIGHT THEM', 'NOT NOW'];
+  opts.forEach((s, i) => {
+    const x = 100 + i * 110, y = 186;
+    const on = ui.cursor === i;
+    if (on) { box(x - 6, y - 4, 96, 15, '#243157'); frame(x - 6, y - 4, 96, 15, '#5aa9f0'); }
+    txt(s, x, y, on ? '#ffffff' : '#9fb0d8', 1);
+  });
+  txt('YOUR TEAM FIGHTS AT FULL HEALTH. NOTHING IS KEPT AND NOTHING IS LOST.',
+    W / 2, H - 10, '#5d6b92', 1, 'center');
+}
+
+/* A link battle is an exhibition with your own six in it: they come in whole,
+ * they go out whole, and no experience changes hands. Otherwise a friend's
+ * code would be a training dummy you could farm all afternoon. */
+function startLinkBattle(rivalTeam) {
+  const mine = S.party.map((m) => {
+    const copy = JSON.parse(JSON.stringify(m));
+    copy.hp = maxHp(copy);
+    copy.status = ''; copy.sleep = 0;
+    copy.moves.forEach((s) => { s.pp = Dex.move(s.name).pp; });
+    return copy;
+  });
+  B.arena = {
+    winLines: ['You took the link match.', 'Nothing changes hands. That is what a link match is.'],
+    loseLines: ['Their team had the better of yours.', 'Nothing changes hands. Go again when you are ready.'],
+  };
+  B.foeParty = rivalTeam.map((m) => JSON.parse(JSON.stringify(m)));
+  B.foeIdx = 0;
+  B.foe = B.foeParty[0];
+  B.trainer = {
+    id: null, who: 'rival', name: 'THE CHALLENGER', prize: 0,
+    defeat: ['That is the match.'], npc: null, noPenalty: true,
+  };
+  beginBattle('trainer', { team: mine, exhibition: true });
+  push('A team arrives out of the code.');
+  push('They sent out ' + nameOf(B.foe) + '!');
+  push('Go, ' + nameOf(myMon()) + '!');
+  after('menu');
+}
 
 function updateHelp() {
   const n = HELP.length;
@@ -2829,14 +3087,24 @@ function updateHelp() {
 function drawHelp() {
   box(0, 0, W, H, '#0a0f1c');
   txt('HOW TO PLAY', 10, 8, '#ffd166', 1);
+  txt('ARROWS PICK   B GOES BACK', W - 10, 8, '#5d6b92', 1, 'right');
   box(8, 18, W - 16, 1, '#2b3c6b');
-  let y = 28;
-  HELP.forEach(([head, body], i) => {
+
+  // A list and a panel, because eight of these stacked on one screen runs off
+  // the bottom of it and the last two are the new ones nobody would find.
+  panel(8, 26, 120, 182, '#101728', '#4d5f96');
+  HELP.forEach(([head], i) => {
+    const y = 34 + i * 14;
     const on = ui.cursor === i;
-    txt(head, 14, y, on ? '#5ce08a' : '#7f8db5', 1);
-    y = wrapText(body, 14, y + 11, W - 28, 10, on ? '#e8eefc' : '#8d9ac0') + 4;
+    if (on) { box(12, y - 3, 112, 13, '#243157'); frame(12, y - 3, 112, 13, '#5aa9f0'); }
+    txt(head, 18, y, on ? '#ffffff' : '#8d9ac0', 1);
   });
-  txt('ANY KEY GOES BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+
+  const entry = HELP[clamp(ui.cursor, 0, HELP.length - 1)];
+  panel(136, 26, W - 144, 182, '#101728', '#4d5f96');
+  txt(entry[0], 146, 34, '#5ce08a', 1);
+  box(144, 46, W - 160, 1, '#2b3c6b');
+  wrapText(entry[1], 146, 54, W - 164, 11, '#e8eefc');
 }
 
 /* ===================================================================== loop */
@@ -2863,6 +3131,10 @@ function update(dt) {
     case 'pick': updatePick(); break;
     case 'starter': updateStarter(); break;
     case 'battle': updateBattle(dt); break;
+    case 'code': updateCode(); break;
+    case 'codeshow': updateCodeShow(); break;
+    case 'codein': updateCodeIn(); break;
+    case 'codeteam': updateCodeTeam(); break;
     case 'help': updateHelp(); break;
   }
   for (const k in tap) tap[k] = false;
@@ -2887,6 +3159,10 @@ function draw() {
     case 'pick': drawPick(); break;
     case 'starter': drawStarter(); break;
     case 'battle': drawBattle(); break;
+    case 'code': drawCode(); break;
+    case 'codeshow': drawCodeShow(); break;
+    case 'codein': drawCodeIn(); break;
+    case 'codeteam': drawCodeTeam(); break;
     case 'help': drawHelp(); break;
   }
 

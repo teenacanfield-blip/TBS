@@ -52,11 +52,17 @@ const DEMOS = [
       'is the five you kept and the chart. Every gym leader will take the ' +
       'badge off you that way too, out of a pack stacked toward their own ' +
       'type, if you would rather not bring a team at all. ' +
+      'Two people and no server is still multiplayer: the menu turns your ' +
+      'team into about twenty letters, and anyone who types that back in ' +
+      'gets your six to fight. Both teams come in at full health, nothing ' +
+      'changes hands, and nothing is sent anywhere — the code is the whole ' +
+      'message. ' +
       'Nothing is fetched — the creatures and ' +
       'the people are typed out as letters, one character per pixel, and ' +
       'the sound is oscillators. If you would rather they looked like ' +
       'something else, the Sprite Lab takes your own PNG sheet, cuts it ' +
-      'into frames, and lets you point a frame at any creature in the game.',
+      'into frames, and lets you point a frame at any of eighty-nine ' +
+      'targets — every creature and every person in the game.',
   },
   {
     id: 'the-show',

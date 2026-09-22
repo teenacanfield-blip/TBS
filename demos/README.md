@@ -71,6 +71,18 @@ at fighting weight, their level set from their own base total, which put a
 same-skill match back to roughly a coin flip and left the draft and the chart
 to decide it.
 
+`codes.js` is the multiplayer, such as it is. There is no server behind any of
+this, so a team code is the oldest kind there is: your six turned into about
+twenty characters you can read down a phone, and a battle against whatever
+somebody types back in. It carries which creature, what level and whether it is
+the odd colour — fourteen bits each — and deliberately not the moves, which are
+worked out from the learnset instead. That trade is what keeps the code at
+twenty characters rather than fifty, and it also means nobody can hand you
+something holding four moves it could never learn. Base 32 without I, O, 0 or
+1, a ten-bit checksum so a mistyped letter is caught rather than arriving as a
+level 93 nothing, and a self-check that round-trips every creature at five
+levels and confirms single-character typos actually fail.
+
 The one thing it does load is whatever you give it. `lab.html` takes a PNG
 sprite sheet off your desktop, cuts it into frames, and lets you point a frame
 at any of eighty-nine targets — all thirty-three creatures and all fourteen
