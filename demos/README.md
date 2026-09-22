@@ -71,6 +71,17 @@ at fighting weight, their level set from their own base total, which put a
 same-skill match back to roughly a coin flip and left the draft and the chart
 to decide it.
 
+`codes.js` also holds the pack seeds, which are the other half of the same
+idea. Every draft runs on a seed, shown while you choose, and six characters
+carry a version, a bracket and twenty-five bits of it. The generator is a
+mulberry32 sitting behind one swappable source that every `rnd`, `pick` and
+`chance` in the game already goes through, so a pack can be torn open on a
+seeded run and the real dice put back the moment it is done — restored in a
+`finally`, because a game left running on a seeded generator repeats itself
+forever. The house draws one step along the same seed, so two people on the
+same six characters face the same table rather than the same hand and a
+different opponent.
+
 `codes.js` is the multiplayer, such as it is. There is no server behind any of
 this, so a team code is the oldest kind there is: your six turned into about
 twenty characters you can read down a phone, and a battle against whatever

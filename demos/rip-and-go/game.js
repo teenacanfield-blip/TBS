@@ -64,9 +64,23 @@ const panel = (x, y, w, h, f, e) => Art.panel(ctx, x, y, w, h, f, e);
 const frame = (x, y, w, h, c) => Art.frame(ctx, x, y, w, h, c);
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const rnd = (n) => Math.floor(Math.random() * n);
+/* Everything random in the game goes through one source, so that one source
+ * can be swapped for a seeded one while a pack is being torn open and put
+ * back the moment it is done. That is the whole mechanism behind two people
+ * opening the same eight cards on two different machines. */
+let rngSource = Math.random;
+const rand = () => rngSource();
+const rnd = (n) => Math.floor(rand() * n);
 const pick = (a) => a[rnd(a.length)];
-const chance = (pct) => Math.random() * 100 < pct;
+const chance = (pct) => rand() * 100 < pct;
+
+/* Runs fn with the dice replaced. Restores them even if fn throws, because a
+ * game left running on a seeded generator would repeat itself forever. */
+function withSeed(seed, fn) {
+  const prev = rngSource;
+  rngSource = Codes.rng(seed);
+  try { return fn(); } finally { rngSource = prev; }
+}
 
 /* ==================================================================== input */
 
@@ -920,7 +934,7 @@ function startWild() {
   if (!table.length) return;
   let total = 0;
   table.forEach((e) => { total += e.w; });
-  let n = Math.random() * total;
+  let n = rand() * total;
   let picked = table[0];
   for (const e of table) { n -= e.w; if (n <= 0) { picked = e; break; } }
   const level = picked.min + rnd(picked.max - picked.min + 1);
@@ -981,7 +995,7 @@ function damageOf(att, def, move, aMods, dMods) {
   const stab = typesOf(att).indexOf(move.type) >= 0 ? 1.5 : 1;
   const dt = typesOf(def);
   const eff = Dex.effect(move.type, dt[0], dt[1]);
-  const roll = 0.85 + Math.random() * 0.15;
+  const roll = 0.85 + rand() * 0.15;
   return { dmg: Math.max(1, Math.floor(base * stab * eff * roll)), eff, crit: critRoll };
 }
 
@@ -1258,7 +1272,7 @@ function useItemInBattle(name) {
     if (a < 255) {
       const b = 65536 / Math.pow(255 / a, 0.1875);
       shakes = 0;
-      for (let i = 0; i < 4; i++) { if (Math.random() * 65536 < b) shakes++; else break; }
+      for (let i = 0; i < 4; i++) { if (rand() * 65536 < b) shakes++; else break; }
     }
     push('You threw a ' + name + '.', { fn: () => { B.ballT = 0.01; B.ballShakes = shakes; } });
     push('', { silent: true, wait: 0.5 + shakes * 0.45 });
@@ -2264,7 +2278,7 @@ function drawShop() {
 function rollRarity(odds) {
   let total = 0;
   Dex.RARITY_ORDER.forEach((r) => { total += odds[r] || 0; });
-  let n = Math.random() * total;
+  let n = rand() * total;
   for (const r of Dex.RARITY_ORDER) {
     n -= odds[r] || 0;
     if (n <= 0) return r;
@@ -2405,6 +2419,7 @@ function drawRip() {
     if (i < ui.flipped) Art.card(ctx, c, x, y, L.cw, L.ch, { tick: Math.floor(t * 4) });
     else Art.cardBack(ctx, x, y, L.cw, L.ch);
   });
+  if (ui.pickMode === 'draft') txt('SEED ' + seedCodeOf(ui.arena), W - 8, 8, '#ce93d8', 1, 'right');
   txt(ui.flipped < ui.cards.length ? 'A TO TURN THE NEXT ONE   B FOR ALL OF THEM' : 'A TO CHOOSE',
     W / 2, H - 12, '#9fb0d8', 1, 'center');
 }
@@ -2463,29 +2478,51 @@ function draftCards(pack, target) {
 
 function housePack(setup) {
   const pack = draftPack(setup.foePack || setup.pack, setup.count);
-  const cards = draftCards(pack, setup.level);
-  if (setup.type) {
-    const pool = Dex.SPECIES.filter((s) => s.types.indexOf(setup.type) >= 0);
-    const stack = Math.min(cards.length, setup.stack || 4);
-    for (let i = 0; i < stack && pool.length; i++) {
-      const sp = pick(pool);
-      cards[i] = { species: sp.id, level: fightingLevel(sp.id, setup.level), shiny: false };
+
+  // All of the house's randomness sits inside one seeded run — the pack and
+  // the type stacking both — or two people on the same seed would get the
+  // same eight cards and a different opponent.
+  const build = () => {
+    const cards = draftCards(pack, setup.level);
+    if (setup.type) {
+      const pool = Dex.SPECIES.filter((s) => s.types.indexOf(setup.type) >= 0);
+      const stack = Math.min(cards.length, setup.stack || 4);
+      for (let i = 0; i < stack && pool.length; i++) {
+        const sp = pick(pool);
+        cards[i] = { species: sp.id, level: fightingLevel(sp.id, setup.level), shiny: false };
+      }
     }
-  }
+    return cards;
+  };
+
+  const seeded = setup.seed !== undefined && setup.seed !== null;
+  const cards = seeded ? withSeed(setup.seed + 1, build) : build();
+
   cards.sort((a, b) => draftScore(b, setup.type) - draftScore(a, setup.type));
   return cards.slice(0, KEEP_MAX).map((c) => makeMon(c.species, c.level, { shiny: c.shiny }));
 }
 
+/* Every draft has a seed, whether you asked for one or not. A random entry
+ * rolls one and shows it to you; a typed one reproduces somebody else's pack
+ * exactly. The house draws from the seed too — one step along it — so two
+ * people playing the same six characters face the same table. */
 function beginDraft(setup) {
+  if (setup.seed === undefined || setup.seed === null) setup.seed = Codes.randomSeed();
   ui.arena = setup;
   ui.pack = draftPack(setup.pack, setup.count);
-  ui.cards = draftCards(ui.pack, setup.level);
+  ui.cards = withSeed(setup.seed, () => draftCards(ui.pack, setup.level));
   ui.flipped = 0;
   ui.keep = ui.cards.map(() => false);
   ui.pickMode = 'draft';
   ui.cursor = 0;
   Sound.rip();
   go('rip');
+}
+
+/* The six characters that open this pack again, anywhere. */
+function seedCodeOf(setup) {
+  if (!setup || setup.seed === undefined || setup.seed === null) return '';
+  return Codes.seedEncode(setup.tier || 0, setup.seed);
 }
 
 function startPackBattle(setup, mine) {
@@ -2523,25 +2560,35 @@ const ARENA_TIERS = [
 
 const ARENA_FOES = ['rival', 'hiker', 'angler', 'picnicker', 'youngster', 'elder', 'clerk'];
 
+function enterBracket(tierIdx, seed) {
+  const t = ARENA_TIERS[tierIdx];
+  if (S.money < t.fee) { Sound.deny(); flash('The fee is ' + t.fee + '.'); return false; }
+  S.money -= t.fee;
+  Sound.buy();
+  const who = pick(ARENA_FOES);
+  beginDraft({
+    id: null, tier: tierIdx, seed, pack: t.pack, level: t.level, prize: t.purse,
+    who, name: Folks.name(who),
+    defeat: ['A better five. That is all it ever is.'],
+    winLines: ['You took the bracket. The purse is yours.'],
+    loseLines: ['The house drafted better.', 'Another pack is another draw.'],
+  });
+  return true;
+}
+
 function updateArena() {
-  const n = ARENA_TIERS.length + 1;
+  const n = ARENA_TIERS.length + 2;          // brackets, PLAY A SEED, leave
   if (eat('back') || eat('start')) { Sound.back(); go('world'); return; }
   if (eat('up')) { ui.cursor = (ui.cursor + n - 1) % n; Sound.cursor(); }
   if (eat('down')) { ui.cursor = (ui.cursor + 1) % n; Sound.cursor(); }
   if (eat('ok')) {
-    if (ui.cursor >= ARENA_TIERS.length) { Sound.back(); go('world'); return; }
-    const t = ARENA_TIERS[ui.cursor];
-    if (S.money < t.fee) { Sound.deny(); flash('The fee is ' + t.fee + '.'); return; }
-    S.money -= t.fee;
-    Sound.buy();
-    const who = pick(ARENA_FOES);
-    beginDraft({
-      id: null, pack: t.pack, level: t.level, prize: t.purse,
-      who, name: Folks.name(who),
-      defeat: ['A better five. That is all it ever is.'],
-      winLines: ['You took the bracket. The purse is yours.'],
-      loseLines: ['The house drafted better.', 'Another pack is another draw.'],
-    });
+    if (ui.cursor === ARENA_TIERS.length) {   // PLAY A SEED
+      Sound.ok();
+      beginCodeEntry('seed');
+      return;
+    }
+    if (ui.cursor > ARENA_TIERS.length) { Sound.back(); go('world'); return; }
+    enterBracket(ui.cursor);
   }
 }
 
@@ -2560,14 +2607,29 @@ function drawArena() {
     txt('FEE ' + t.fee, 28, y + 8, S.money >= t.fee ? '#5ce08a' : '#e2483c', 1);
     txt('WIN ' + t.purse, 194, y + 8, '#ffd166', 1, 'right');
   });
-  const iy = 46 + ARENA_TIERS.length * 18;
-  const on = ui.cursor === ARENA_TIERS.length;
+  const sy = 46 + ARENA_TIERS.length * 18;
+  const onSeed = ui.cursor === ARENA_TIERS.length;
+  if (onSeed) { box(22, sy - 3, 178, 13, '#243157'); frame(22, sy - 3, 178, 13, '#ce93d8'); }
+  txt('PLAY A SEED', 28, sy, onSeed ? '#ffffff' : '#c8d4f0', 1);
+
+  const iy = sy + 14;
+  const on = ui.cursor === ARENA_TIERS.length + 1;
   if (on) { box(22, iy - 3, 178, 13, '#243157'); frame(22, iy - 3, 178, 13, '#5aa9f0'); }
   txt('NOT TODAY', 28, iy, on ? '#ffffff' : '#9fb0d8', 1);
 
   panel(214, 20, W - 230, 150, '#101728', '#4d5f96');
   const t = ARENA_TIERS[clamp(ui.cursor, 0, ARENA_TIERS.length - 1)];
-  if (ui.cursor < ARENA_TIERS.length) {
+  if (ui.cursor === ARENA_TIERS.length) {
+    txt('PLAY A SEED', 222, 28, '#ce93d8', 1);
+    let y = wrapText('Six characters that decide exactly which eight cards fall out '
+      + 'of the pack.', 222, 42, W - 248, 10, '#cfd8dc') + 6;
+    y = wrapText('Give somebody your seed and they open the same eight. Draft your '
+      + 'five each, swap team codes, and fight the other one\'s draft.',
+      222, y, W - 248, 10, '#9fb0d8') + 6;
+    y = wrapText('The house draws from the seed too, so the table is the same on '
+      + 'both sides of it.', 222, y, W - 248, 10, '#9fb0d8') + 8;
+    txt('THE FEE IS THE BRACKET\'S OWN.', 222, y, '#5d6b92', 1);
+  } else if (ui.cursor < ARENA_TIERS.length) {
     txt(t.name, 222, 28, '#ce93d8', 1);
     let y = wrapText(t.blurb, 222, 42, W - 248, 10, '#cfd8dc') + 6;
     box(220, y, W - 244, 1, '#2b3c6b'); y += 8;
@@ -2579,6 +2641,45 @@ function drawArena() {
     txt('THE DRAFT AND THE CHART DECIDE IT.', 222, y, '#5d6b92', 1);
   }
   txt('A TO ENTER   B TO LEAVE', W / 2, 182, '#5d6b92', 1, 'center');
+}
+
+/* ------------------------------------------------------- what you drafted */
+/* The moment between keeping five and fighting with them, which exists so
+ * there is somewhere to read your five back and, more to the point, somewhere
+ * to copy the code for them down. Two people on one seed meet here. */
+
+function updateDrafted() {
+  if (eat('up')) { ui.cursor = ui.cursor ? 0 : 1; Sound.cursor(); }
+  if (eat('down')) { ui.cursor = ui.cursor ? 0 : 1; Sound.cursor(); }
+  if (eat('back') || eat('start') || eat('ok')) {
+    Sound.ok();
+    startPackBattle(ui.arena, ui.drafted);
+  }
+}
+
+function drawDrafted() {
+  box(0, 0, W, H, '#0a0f1c');
+  txt('YOUR FIVE', 10, 8, '#ce93d8', 1);
+  txt('SEED ' + seedCodeOf(ui.arena), W - 10, 8, '#ce93d8', 1, 'right');
+  box(8, 18, W - 16, 1, '#2b3c6b');
+
+  ui.drafted.forEach((m, i) => {
+    const x = 10 + i * 75, y = 26;
+    panel(x, y, 70, 68, '#131b2e', '#39476e');
+    Art.mon(ctx, spOf(m), m.shiny, x + 11, y + 4, 48, false);
+    txt(nameOf(m).slice(0, 10), x + 35, y + 54, '#e8eefc', 1, 'center');
+    txt('L' + m.level, x + 35, y + 62, '#9fb0d8', 1, 'center');
+  });
+
+  panel(20, 104, W - 40, 34, '#131b2e', '#ffd166');
+  txt('THE CODE FOR THESE FIVE', W / 2, 110, '#7f8db5', 1, 'center');
+  txs(Codes.format(ui.draftCode), W / 2, 122, '#ffd166', 1, 'center');
+
+  wrapText('Send that to whoever else opened this seed and they can fight the five you kept. '
+    + 'Their code does the same for you, from the TEAM CODE menu.',
+    20, 146, W - 40, 11, '#9fb0d8');
+
+  txt('A FIGHTS THE HOUSE WITH THEM', W / 2, H - 12, '#5ce08a', 1, 'center');
 }
 
 /* ------------------------------------------------------ a two-way question */
@@ -2649,7 +2750,12 @@ function updatePick() {
       ui.cards.forEach((c, i) => {
         if (ui.keep[i]) mine.push(makeMon(c.species, c.level, { shiny: c.shiny }));
       });
-      startPackBattle(ui.arena, mine);
+      // The five you kept get a code of their own, so the other half of a
+      // shared seed is "now send me yours" rather than "describe them to me".
+      ui.drafted = mine;
+      ui.draftCode = Codes.encode(mine);
+      ui.cursor = 0;
+      go('drafted');
       return;
     }
 
@@ -2672,6 +2778,7 @@ function drawPick() {
   const draft = ui.pickMode === 'draft';
   box(0, 0, W, H, '#0a0f1c');
   txt(draft ? 'DRAFT FIVE' : 'KEEP FIVE', W / 2, 6, draft ? '#ce93d8' : '#ffd166', 1, 'center');
+  if (draft) txt('SEED ' + seedCodeOf(ui.arena), W - 8, 6, '#ce93d8', 1, 'right');
   txt(keptCount() + ' OF ' + KEEP_MAX, W / 2, 16, keptCount() >= KEEP_MAX ? '#5ce08a' : '#9fb0d8', 1, 'center');
   const L = layoutCards(ui.cards.length);
   ui.cards.forEach((c, i) => {
@@ -2828,6 +2935,9 @@ const HELP = [
   ['TEAM CODES', 'The menu turns your team into about twenty letters. Read it to somebody and they ' +
     'can type it in and fight it. Nothing is sent anywhere and nothing changes hands — your team ' +
     'comes back exactly as it went in.'],
+  ['PACK SEEDS', 'Every draft has a six-character seed, shown while you are choosing. Give it to ' +
+    'somebody and they open the same eight cards. Draft your five each, swap the team codes the ' +
+    'game hands you, and fight the other one\'s draft: same pack, two reads of it.'],
 ];
 
 /* ============================================================== team codes */
@@ -2917,10 +3027,11 @@ function updateCodeShow() {
 
 const CODE_COLS = 8;
 
-function beginCodeEntry() {
+function beginCodeEntry(kind) {
   ui.entry = '';
   ui.entryCur = 0;
   ui.entryErr = '';
+  ui.entryKind = kind || 'team';
   go('codein');
 }
 
@@ -2929,10 +3040,10 @@ function updateCodeIn() {
   const cells = alpha.length + 2;              // + DELETE + DONE
   const rows = Math.ceil(cells / CODE_COLS);
 
-  if (eat('start')) { Sound.back(); go('code'); return; }
+  if (eat('start')) { Sound.back(); go(ui.entryKind === 'seed' ? 'arena' : 'code'); return; }
   if (eat('back')) {
     if (ui.entry) { ui.entry = ui.entry.slice(0, -1); ui.entryErr = ''; Sound.drop(); }
-    else { Sound.back(); go('code'); }
+    else { Sound.back(); go(ui.entryKind === 'seed' ? 'arena' : 'code'); }
     return;
   }
   if (eat('left')) { ui.entryCur = (ui.entryCur + cells - 1) % cells; Sound.cursor(); }
@@ -2950,6 +3061,13 @@ function updateCodeIn() {
       return;
     }
     if (i === alpha.length + 1) {               // DONE
+      if (ui.entryKind === 'seed') {
+        const out = Codes.seedDecode(ui.entry);
+        if (!out.ok) { Sound.deny(); ui.entryErr = out.error; return; }
+        Sound.ok();
+        if (!enterBracket(out.tier, out.seed)) { ui.entryErr = 'You cannot cover that bracket.'; }
+        return;
+      }
       const out = Codes.decode(ui.entry);
       if (!out.ok) { Sound.deny(); ui.entryErr = out.error; return; }
       Sound.ok();
@@ -2968,7 +3086,7 @@ function updateCodeIn() {
 
 function drawCodeIn() {
   box(0, 0, W, H, '#0a0f1c');
-  txt('TYPE IN A CODE', 10, 8, '#ffd166', 1);
+  txt(ui.entryKind === 'seed' ? 'TYPE IN A PACK SEED' : 'TYPE IN A CODE', 10, 8, '#ffd166', 1);
   box(8, 18, W - 16, 1, '#2b3c6b');
 
   // What has been typed so far, in fives.
@@ -3126,6 +3244,7 @@ function update(dt) {
     case 'shop': updateShop(); break;
     case 'packs': updatePacks(); break;
     case 'arena': updateArena(); break;
+    case 'drafted': updateDrafted(); break;
     case 'ask': updateAsk(); break;
     case 'rip': updateRip(); break;
     case 'pick': updatePick(); break;
@@ -3154,6 +3273,7 @@ function draw() {
     case 'shop': drawShop(); break;
     case 'packs': drawPacks(); break;
     case 'arena': drawArena(); break;
+    case 'drafted': drawDrafted(); break;
     case 'ask': drawAsk(); break;
     case 'rip': drawRip(); break;
     case 'pick': drawPick(); break;

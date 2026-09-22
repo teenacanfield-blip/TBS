@@ -52,11 +52,14 @@ const DEMOS = [
       'is the five you kept and the chart. Every gym leader will take the ' +
       'badge off you that way too, out of a pack stacked toward their own ' +
       'type, if you would rather not bring a team at all. ' +
-      'Two people and no server is still multiplayer: the menu turns your ' +
-      'team into about twenty letters, and anyone who types that back in ' +
-      'gets your six to fight. Both teams come in at full health, nothing ' +
-      'changes hands, and nothing is sent anywhere — the code is the whole ' +
-      'message. ' +
+      'Two people and no server is still multiplayer, and it works twice ' +
+      'over. The menu turns your team into about twenty letters, and anyone ' +
+      'who types that back in gets your six to fight — full health both ' +
+      'sides, nothing changes hands, nothing sent anywhere. And every draft ' +
+      'has a six-character seed: give somebody yours and the same eight ' +
+      'cards fall out of their pack. Keep five each, swap the codes the game ' +
+      'hands you, and fight the other one\'s draft. Same pack, two reads of ' +
+      'it, and the only thing between you is which five you trusted. ' +
       'Nothing is fetched — the creatures and ' +
       'the people are typed out as letters, one character per pixel, and ' +
       'the sound is oscillators. If you would rather they looked like ' +

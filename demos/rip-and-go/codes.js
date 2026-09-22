@@ -155,6 +155,59 @@ const Codes = (() => {
     };
   }
 
+  /* ============================================================ pack seeds */
+  /* A pack seed is six characters that decide exactly which eight cards fall
+   * out of a pack. Two people who type in the same six get the same eight,
+   * draft their own five out of them, and then swap team codes to find out
+   * whose five were the better read of the same hand.
+   *
+   * Three bits of version, two of bracket and twenty-five of seed. Thirty
+   * bits, six characters, and no checksum — a mistyped seed is a different
+   * pack rather than a broken one, and telling somebody their seed is invalid
+   * when it would happily open is worse than letting them open it. */
+
+  const SEED_VERSION = 1;
+  const SEED_BITS = 25;
+
+  /* Mulberry32. Small, fast, and the same everywhere — which is the only
+   * property that matters when two machines have to agree on a pack. */
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function seedEncode(tier, seed) {
+    const w = writer();
+    w.push(SEED_VERSION, 3);
+    w.push(tier & 3, 2);
+    w.push(seed >>> 0 & ((1 << SEED_BITS) - 1), SEED_BITS);
+    return w.finish();
+  }
+
+  function seedDecode(str) {
+    const clean = strip(str);
+    if (!clean) return { ok: false, error: 'Nothing typed in.' };
+    if (clean.length !== 6) return { ok: false, error: 'A pack seed is six characters.' };
+    const r = reader(clean);
+    if (!r) return { ok: false, error: 'That has a letter a seed cannot contain.' };
+    const version = r.pull(3);
+    if (version !== SEED_VERSION) return { ok: false, error: 'That seed is from a different build.' };
+    const tier = r.pull(2);
+    const seed = r.pull(SEED_BITS);
+    if (tier === null || seed === null) return { ok: false, error: 'That seed is too short.' };
+    return { ok: true, tier, seed };
+  }
+
+  function randomSeed() {
+    return Math.floor(Math.random() * (1 << SEED_BITS)) >>> 0;
+  }
+
   /* ================================================================ pretty */
   /* Five at a time, because that is how people read a string of letters back
    * to each other without losing their place. */
@@ -205,11 +258,33 @@ const Codes = (() => {
       bad.push('single-character typos are getting through: only ' + caught + ' of ' + code.length + ' caught');
     }
 
+    // Seeds: six characters, round-trip, and the same seed must give the same
+    // numbers on every call — the whole feature is worthless if it drifts.
+    for (let tier = 0; tier < 4; tier++) {
+      [0, 1, 12345, (1 << SEED_BITS) - 1].forEach((seed) => {
+        const code = seedEncode(tier, seed);
+        if (code.length !== 6) bad.push('seed ' + tier + '/' + seed + ' encoded to ' + code.length + ' characters');
+        const out = seedDecode(code);
+        if (!out.ok) bad.push('seed ' + tier + '/' + seed + ': ' + out.error);
+        else if (out.tier !== tier || out.seed !== seed) {
+          bad.push('seed ' + tier + '/' + seed + ' came back as ' + out.tier + '/' + out.seed);
+        }
+      });
+    }
+    const a = rng(999), b = rng(999);
+    for (let i = 0; i < 50; i++) {
+      if (a() !== b()) { bad.push('the same seed gave two different sequences'); break; }
+    }
+    if (rng(1)() === rng(2)()) bad.push('two different seeds opened with the same number');
+
     if (bad.length) console.error('Codes: ' + bad.length + ' problem(s)\n' + bad.slice(0, 20).join('\n'));
     return bad;
   }
 
-  return { ALPHABET, MAX_TEAM, encode, decode, format, strip, validate };
+  return {
+    ALPHABET, MAX_TEAM, encode, decode, format, strip, validate,
+    rng, seedEncode, seedDecode, randomSeed,
+  };
 })();
 
 Codes.validate();
