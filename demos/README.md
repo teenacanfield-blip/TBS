@@ -71,6 +71,19 @@ at fighting weight, their level set from their own base total, which put a
 same-skill match back to roughly a coin flip and left the draft and the chart
 to decide it.
 
+`ladder.js` is the only file in this folder that wants something outside the
+browser, and it is written so that not having it costs nothing. With no
+Supabase configured, `Ladder.state()` reports why — no account files, no
+project, or nobody signed in — and the menu prints that reason instead of
+failing at a blank screen. There is no password field in the game and there
+will not be one: the board reads the session the hub already made, and posting
+without one is refused rather than prompted for. Rows arriving from the server
+are treated as data from somebody else's browser, so a row whose team code does
+not decode is dropped before anything tries to draw it. Records are
+self-reported, which the board says on its own face — a static site has no
+referee, and the database trigger in `LADDER-SETUP.md` only makes lying
+tedious rather than impossible.
+
 `codes.js` also holds the pack seeds, which are the other half of the same
 idea. Every draft runs on a seed, shown while you choose, and six characters
 carry a version, a bracket and twenty-five bits of it. The generator is a

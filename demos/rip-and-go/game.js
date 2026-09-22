@@ -1557,6 +1557,11 @@ function leaveBattle() {
   if (B.exhibition) {
     const arena = B.arena || {};
     const tr = B.trainer;
+    // Filed and forgotten: if the board is unreachable the match still
+    // happened, so a failed report is a shrug rather than an error screen.
+    if (arena.ladder) {
+      try { Ladder.record(!!r.win).catch(() => {}); } catch (e) { /* board is optional */ }
+    }
     B.team = null; B.exhibition = false; B.arena = null;
     go('world');
     Sound.playSong(map.song || 'town');
@@ -1858,7 +1863,7 @@ function drawLearn() {
 
 /* ==================================================================== menus */
 
-const MENU_ITEMS = ['TEAM', 'BAG', 'DEX', 'TEAM CODE', 'SAVE', 'SOUND', 'SPRITE LAB', 'HOW TO PLAY', 'BACK'];
+const MENU_ITEMS = ['TEAM', 'BAG', 'DEX', 'TEAM CODE', 'LADDER', 'SAVE', 'SOUND', 'SPRITE LAB', 'HOW TO PLAY', 'BACK'];
 
 function updateMenu() {
   const n = MENU_ITEMS.length;
@@ -1875,6 +1880,7 @@ function updateMenu() {
       if (!S.party.length) { Sound.deny(); flash('You have nothing to write down.'); return; }
       ui.cursor = 0; go('code');
     }
+    else if (item === 'LADDER') { openLadder(); }
     else if (item === 'SAVE') { flash(save() ? 'Saved.' : 'This browser will not keep it.'); }
     else if (item === 'SOUND') { muteFlash = 1.2; Sound.toggleMute(); }
     else if (item === 'SPRITE LAB') { save(); location.href = 'lab.html'; }
@@ -2643,6 +2649,147 @@ function drawArena() {
   txt('A TO ENTER   B TO LEAVE', W / 2, 182, '#5d6b92', 1, 'center');
 }
 
+/* ================================================================= ladder */
+/* Other people's teams, and a way to fight them. Everything here is async in
+ * a game that is otherwise entirely synchronous, so the scene holds a state
+ * rather than a result: it is loading, or it has rows, or it has a reason it
+ * has none. Every one of those three draws something.
+ *
+ * Nothing on this screen can hurt the save. A ladder fight is the same link
+ * match a team code gives you — both sides whole, no experience, your own
+ * team copied rather than used. */
+
+const LAD = { phase: 'idle', rows: [], error: '', cursor: 0, busy: '', note: '' };
+
+function openLadder() {
+  LAD.cursor = 0; LAD.note = '';
+  go('ladder');
+  refreshLadder();
+}
+
+function refreshLadder() {
+  const s = Ladder.state();
+  if (!s.ok) { LAD.phase = 'off'; LAD.error = ''; LAD.rows = []; return; }
+  LAD.phase = 'loading'; LAD.error = ''; LAD.rows = [];
+  Ladder.list().then((rows) => {
+    LAD.rows = rows;
+    LAD.phase = 'ok';
+    LAD.cursor = clamp(LAD.cursor, 0, Math.max(0, rows.length - 1));
+  }).catch((e) => {
+    LAD.phase = 'error';
+    LAD.error = (e && e.message) || 'The board would not load.';
+  });
+}
+
+function updateLadder() {
+  if (eat('back') || eat('start')) { Sound.back(); go('menu'); return; }
+
+  if (eat('right')) {                       // post or replace my team
+    const s = Ladder.state();
+    if (!s.ok) { Sound.deny(); return; }
+    if (!S.party.length) { Sound.deny(); LAD.note = 'You have no team to post.'; return; }
+    if (LAD.busy) return;
+    Sound.ok();
+    LAD.busy = 'posting';
+    Ladder.post(Codes.encode(S.party), S.badges.length)
+      .then(() => { LAD.busy = ''; LAD.note = 'Posted as ' + s.name + '.'; refreshLadder(); })
+      .catch((e) => { LAD.busy = ''; LAD.note = (e && e.message) || 'That would not post.'; });
+    return;
+  }
+
+  if (eat('left')) { Sound.cursor(); refreshLadder(); return; }
+
+  if (LAD.phase !== 'ok' || !LAD.rows.length) return;
+
+  const n = LAD.rows.length;
+  if (eat('up')) { LAD.cursor = (LAD.cursor + n - 1) % n; Sound.cursor(); }
+  if (eat('down')) { LAD.cursor = (LAD.cursor + 1) % n; Sound.cursor(); }
+  if (eat('ok')) {
+    const row = LAD.rows[clamp(LAD.cursor, 0, n - 1)];
+    if (!S.party.some(alive)) { Sound.deny(); LAD.note = 'Nothing of yours can stand up.'; return; }
+    Sound.ok();
+    ui.rival = Ladder.teamOf(row).map((c) => makeMon(c.species, c.level, { shiny: c.shiny }));
+    ui.rivalCode = Codes.strip(row.code);
+    ui.ladderFoe = row.username;
+    startLinkBattle(ui.rival, row.username);
+  }
+}
+
+function drawLadder() {
+  box(0, 0, W, H, '#0a0f1c');
+  txt('THE LADDER', 10, 8, '#ffd166', 1);
+  const s = Ladder.state();
+  txt(s.ok ? 'AS ' + s.name : 'NOT SIGNED IN', W - 10, 8, s.ok ? '#5ce08a' : '#5d6b92', 1, 'right');
+  box(8, 18, W - 16, 1, '#2b3c6b');
+
+  if (LAD.phase === 'off') {
+    panel(20, 40, W - 40, 110, '#101728', '#4d5f96');
+    txt('THE BOARD IS NOT ON', 34, 50, '#e2483c', 1);
+    let y = 66;
+    Ladder.explain(Ladder.state().why).forEach((line) => {
+      y = wrapText(line, 34, y, W - 68, 11, '#cfd8dc') + 4;
+    });
+    txt('B GOES BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+    return;
+  }
+
+  if (LAD.phase === 'loading') {
+    txt('LOADING THE BOARD' + '.'.repeat(1 + Math.floor(t * 2) % 3), W / 2, 100, '#9fb0d8', 1, 'center');
+    return;
+  }
+
+  if (LAD.phase === 'error') {
+    panel(20, 50, W - 40, 80, '#101728', '#e2483c');
+    txt('THE BOARD WOULD NOT LOAD', 34, 60, '#e2483c', 1);
+    wrapText(LAD.error, 34, 76, W - 68, 11, '#cfd8dc');
+    txt('LEFT TRIES AGAIN   B GOES BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+    return;
+  }
+
+  if (!LAD.rows.length) {
+    txt('Nobody has posted a team yet.', W / 2, 90, '#9fb0d8', 1, 'center');
+    txt('RIGHT POSTS YOURS', W / 2, 106, '#5ce08a', 1, 'center');
+    txt('B GOES BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+    return;
+  }
+
+  // The board.
+  panel(8, 26, 186, 172, '#101728', '#4d5f96');
+  txt('W-L', 140, 32, '#7f8db5', 1);
+  txt('BADGES', 188, 32, '#7f8db5', 1, 'right');
+  const rows = Math.min(12, LAD.rows.length);
+  const from = clamp(LAD.cursor - 5, 0, Math.max(0, LAD.rows.length - rows));
+  for (let i = 0; i < rows; i++) {
+    const idx = from + i;
+    const row = LAD.rows[idx];
+    const y = 44 + i * 12;
+    const on = LAD.cursor === idx;
+    if (on) { box(12, y - 3, 178, 12, '#243157'); frame(12, y - 3, 178, 12, '#5aa9f0'); }
+    txt(String(idx + 1).padStart(2, '0'), 16, y, '#5d6b92', 1);
+    txt(row.username.slice(0, 14), 34, y, on ? '#ffffff' : '#c8d4f0', 1);
+    txt((row.wins | 0) + '-' + (row.losses | 0), 140, y, '#9fb0d8', 1);
+    txt(String(row.badges | 0), 188, y, '#5ce08a', 1, 'right');
+  }
+
+  // Whoever is under the cursor, drawn out.
+  const row = LAD.rows[clamp(LAD.cursor, 0, LAD.rows.length - 1)];
+  const team = Ladder.teamOf(row);
+  panel(200, 26, W - 208, 172, '#101728', '#4d5f96');
+  txt(row.username.slice(0, 16), 210, 34, '#ffd166', 1);
+  txt((row.wins | 0) + ' W   ' + (row.losses | 0) + ' L', W - 16, 34, '#9fb0d8', 1, 'right');
+  box(208, 46, W - 224, 1, '#2b3c6b');
+  team.slice(0, 6).forEach((c, i) => {
+    const sp = Dex.byId(c.species);
+    const x = 210 + (i % 3) * 56, y = 54 + Math.floor(i / 3) * 46;
+    Art.mon(ctx, sp, c.shiny, x, y, 32, false);
+    txt(sp.name.slice(0, 9), x, y + 34, '#c8d4f0', 1);
+    txt('L' + c.level, x, y + 42, '#7f8db5', 1);
+  });
+
+  txt(LAD.busy ? 'POSTING...' : (LAD.note || 'A FIGHTS THEM   RIGHT POSTS YOURS   LEFT REFRESHES'),
+    W / 2, H - 10, LAD.note ? '#ffd166' : '#5d6b92', 1, 'center');
+}
+
 /* ------------------------------------------------------- what you drafted */
 /* The moment between keeping five and fighting with them, which exists so
  * there is somewhere to read your five back and, more to the point, somewhere
@@ -2935,6 +3082,9 @@ const HELP = [
   ['TEAM CODES', 'The menu turns your team into about twenty letters. Read it to somebody and they ' +
     'can type it in and fight it. Nothing is sent anywhere and nothing changes hands — your team ' +
     'comes back exactly as it went in.'],
+  ['THE LADDER', 'If the site has a ladder switched on, the menu shows teams other people ' +
+    'have posted and lets you fight them. Records are self-reported — it is a place to find ' +
+    'teams worth fighting, not a rank. Posting needs an account, made on the main site.'],
   ['PACK SEEDS', 'Every draft has a six-character seed, shown while you are choosing. Give it to ' +
     'somebody and they open the same eight cards. Draft your five each, swap the team codes the ' +
     'game hands you, and fight the other one\'s draft: same pack, two reads of it.'],
@@ -3169,7 +3319,7 @@ function drawCodeTeam() {
 /* A link battle is an exhibition with your own six in it: they come in whole,
  * they go out whole, and no experience changes hands. Otherwise a friend's
  * code would be a training dummy you could farm all afternoon. */
-function startLinkBattle(rivalTeam) {
+function startLinkBattle(rivalTeam, whoFrom) {
   const mine = S.party.map((m) => {
     const copy = JSON.parse(JSON.stringify(m));
     copy.hp = maxHp(copy);
@@ -3177,19 +3327,28 @@ function startLinkBattle(rivalTeam) {
     copy.moves.forEach((s) => { s.pp = Dex.move(s.name).pp; });
     return copy;
   });
+  const fromLadder = !!whoFrom;
   B.arena = {
-    winLines: ['You took the link match.', 'Nothing changes hands. That is what a link match is.'],
-    loseLines: ['Their team had the better of yours.', 'Nothing changes hands. Go again when you are ready.'],
+    // A ladder result is filed against your own row and nobody else's, which
+    // is the only kind of result a page holding a public key can be trusted
+    // to file at all.
+    ladder: fromLadder,
+    winLines: ['You took the link match.',
+      fromLadder ? 'Filed as a win on your own row. Theirs is theirs to keep.'
+        : 'Nothing changes hands. That is what a link match is.'],
+    loseLines: ['Their team had the better of yours.',
+      fromLadder ? 'Filed as a loss on your own row.'
+        : 'Nothing changes hands. Go again when you are ready.'],
   };
   B.foeParty = rivalTeam.map((m) => JSON.parse(JSON.stringify(m)));
   B.foeIdx = 0;
   B.foe = B.foeParty[0];
   B.trainer = {
-    id: null, who: 'rival', name: 'THE CHALLENGER', prize: 0,
+    id: null, who: 'rival', name: (whoFrom || 'THE CHALLENGER').slice(0, 16), prize: 0,
     defeat: ['That is the match.'], npc: null, noPenalty: true,
   };
   beginBattle('trainer', { team: mine, exhibition: true });
-  push('A team arrives out of the code.');
+  push(fromLadder ? whoFrom + ' is on the board.' : 'A team arrives out of the code.');
   push('They sent out ' + nameOf(B.foe) + '!');
   push('Go, ' + nameOf(myMon()) + '!');
   after('menu');
@@ -3254,6 +3413,7 @@ function update(dt) {
     case 'codeshow': updateCodeShow(); break;
     case 'codein': updateCodeIn(); break;
     case 'codeteam': updateCodeTeam(); break;
+    case 'ladder': updateLadder(); break;
     case 'help': updateHelp(); break;
   }
   for (const k in tap) tap[k] = false;
@@ -3283,6 +3443,7 @@ function draw() {
     case 'codeshow': drawCodeShow(); break;
     case 'codein': drawCodeIn(); break;
     case 'codeteam': drawCodeTeam(); break;
+    case 'ladder': drawLadder(); break;
     case 'help': drawHelp(); break;
   }
 

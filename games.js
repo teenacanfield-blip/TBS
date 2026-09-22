@@ -52,6 +52,9 @@ const DEMOS = [
       'is the five you kept and the chart. Every gym leader will take the ' +
       'badge off you that way too, out of a pack stacked toward their own ' +
       'type, if you would rather not bring a team at all. ' +
+      'Give the site a free Supabase project and a ladder appears in the ' +
+      'menu: teams other people have posted, and a match against any of ' +
+      'them. Without one the game is exactly as it is now and says so. ' +
       'Two people and no server is still multiplayer, and it works twice ' +
       'over. The menu turns your team into about twenty letters, and anyone ' +
       'who types that back in gets your six to fight — full health both ' +
