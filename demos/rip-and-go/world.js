@@ -255,13 +255,17 @@ const World = (() => {
         lines: ['A creature at half health is far easier to catch.',
           'A creature asleep is easier still. Ask anyone with SPORE.'] },
     ],
+    /* Route 1 is the only ground between a level 5 starter and a gym leader
+     * whose last one is fifteen, and there are two trainers on it. If the
+     * grass tops out at five, the only way across that gap is an hour of
+     * walking in circles — so it tops out at seven instead. */
     encounters: [
-      { id: 'gnawkin', min: 2, max: 5, w: 30 },
-      { id: 'nibbug', min: 2, max: 4, w: 25 },
-      { id: 'pipeep', min: 3, max: 5, w: 20 },
-      { id: 'spriglet', min: 3, max: 5, w: 8 },
-      { id: 'cindpup', min: 3, max: 5, w: 8 },
-      { id: 'puddlet', min: 3, max: 5, w: 9 },
+      { id: 'gnawkin', min: 3, max: 7, w: 30 },
+      { id: 'nibbug', min: 3, max: 6, w: 25 },
+      { id: 'pipeep', min: 4, max: 7, w: 20 },
+      { id: 'spriglet', min: 4, max: 7, w: 8 },
+      { id: 'cindpup', min: 4, max: 7, w: 8 },
+      { id: 'puddlet', min: 4, max: 7, w: 9 },
     ],
   };
 
@@ -285,8 +289,8 @@ const World = (() => {
       '###.=.............=.####',
       '###.===============.####',
       '###.~...............####',
-      '###.....WWWW........####',
-      '###.....WWWW........####',
+      '###..WWWW...........####',
+      '###..WWWW...........####',
       '##########==############',
     ],
     warps: [
@@ -443,7 +447,7 @@ const World = (() => {
         defeat: ['You did not wait. That is cheating and it worked.'] },
       { id: 'leader1', x: 7, y: 2, dir: 'down', who: 'leader1', leader: 1, badge: 'LEAF BADGE',
         type: 'LEAF', packTier: 'scrub', packLevel: 16,
-        party: [['chitling', 13], ['spriglet', 14], ['fernaut', 16]], prize: 900,
+        party: [['chitling', 12], ['spriglet', 13], ['fernaut', 15]], prize: 900,
         intro: ['MARLOW. I grow things and I do not rush.',
           'Show me what you have got before the light goes.'],
         lines: ['Take the road east. It is open now, and I have told the man on it so.'],
@@ -467,7 +471,7 @@ const World = (() => {
       '###.=...............rr.#',
       '###.=.,,,,,,,,,,,,.rOO.#',
       '###.=.,,,,,,,,,,,,.rOO.#',
-      '###.=..............rDO.#',
+      '###.=...............DO.#',
       '###.=...rr.........rrr.#',
       '###.=...rr.............#',
       '###.=..................#',
@@ -591,7 +595,7 @@ const World = (() => {
       '4,14': 'EMBERSIDE. Built on a vent. The floors are warm in winter and in summer.',
     },
     people: [
-      { id: 'gate3', x: 10, y: 15, dir: 'down', who: 'clerk', opensAt: 2, aside: { x: 9, y: 15 },
+      { id: 'gate3', x: 10, y: 15, dir: 'down', who: 'clerk', opensAt: 2, aside: { x: 9, y: 14 },
         lines: ['South road is shut. Rockfall took out the whole bend last night.',
           'Crew is on it. They work faster for people with two badges, oddly enough.'],
         pass: ['Two badges. Right, the road is clear. Mind the loose edge.'] },
@@ -798,7 +802,7 @@ const World = (() => {
         intro: ['People come in here looking for the warden. Nobody comes in looking for me.'],
         lines: ['The thing at the back of the hall is not the warden either.'],
         defeat: ['Go up. He is expecting somebody.'] },
-      { id: 'legend', x: 8, y: 13, dir: 'up', who: 'elder', legendary: 'stoneward', needs: 3,
+      { id: 'legend', x: 2, y: 13, dir: 'right', who: 'elder', legendary: 'stoneward', needs: 3,
         lines: ['Something is standing in the dark at the end of the hall.',
           'It has not moved. It is waiting to see whether you will.'] },
     ],
@@ -861,81 +865,132 @@ const World = (() => {
   };
 
   /* ================================================================== checks */
-
-  /* Walk the map from the tile you arrive on and see what you can get to. A
-   * door you cannot reach, or a trainer standing behind a wall, is the kind of
-   * mistake that costs somebody twenty minutes of walking into scenery before
-   * they conclude the game is broken — and it is invisible in the text, where
-   * a wall and a floor are one character apart. Ledges are one-way, so they
-   * are followed downward only, exactly as the game follows them. */
-  function reachability(name, m) {
+  /* Is everything in this map in the same place as everything else?
+   *
+   * The first version of this flooded outward from every door at once and
+   * asked what it had missed. That check passes on a map you cannot cross:
+   * the keep shipped with its legendary parked in the only corridor to the
+   * third gym, and because the gym's own exit was also a starting point, the
+   * sealed half looked perfectly reachable from inside itself. Nobody could
+   * walk there, and the checker agreed that nobody needed to.
+   *
+   * So the question is not "what can I reach" but "is this one place". Every
+   * door, every person and every readable thing has to sit in a single
+   * connected region. Two regions means a map in two halves, however each
+   * half looks on its own.
+   *
+   * People count as walls, because a person standing in a one-tile corridor
+   * closes it as surely as a wall does — except the two kinds whose whole job
+   * is to be in the way until something happens, who would otherwise report
+   * every road they guard as a dead end. Ledges are one-way in play, but for
+   * this they join both sides: a one-way drop is a design decision, not a
+   * region you cannot get to. */
+  function reachability(name, m, gatesAside) {
     const problems = [];
 
-    // You arrive somewhere because a door in some *other* map points here, so
-    // the tiles to start walking from are the destinations those doors name —
-    // not this map's own, which are coordinates in the rooms it leads to.
-    const starts = [];
-    Object.keys(MAPS).forEach((other) => {
-      (MAPS[other].warps || []).forEach((w) => {
-        if (w.to === name) starts.push(w.tx + ',' + w.ty);
-      });
+    const blocked = {};
+    (m.people || []).forEach((p) => {
+      if (p.opensAt || p.block) {
+        // A guard who has stepped aside is still a person standing on a tile.
+        // Moving one off the road and onto the next square of the same road
+        // is not stepping aside, and it looks like stepping aside right up
+        // until somebody with the badge walks into them.
+        if (gatesAside && p.opensAt && p.aside) blocked[p.aside.x + ',' + p.aside.y] = p.id || p.who;
+        return;
+      }
+      blocked[p.x + ',' + p.y] = p.id || p.who;
     });
-    if (name === 'house') starts.push('5,5');            // where a new game begins
-    if (!starts.length) {
-      problems.push(name + ': no door anywhere leads here');
-      return problems;
-    }
 
-    const seen = {};
-    const queue = [];
-    starts.forEach((s) => { if (!seen[s]) { seen[s] = true; queue.push(s); } });
-
-    const walkable = (x, y) => {
+    const open = (x, y) => {
       const ch = tileAt(m, x, y);
-      return ch !== null && !info(ch).solid;
+      if (ch === null || info(ch).solid) return false;
+      return !blocked[x + ',' + y];
     };
 
-    while (queue.length) {
-      const [x, y] = queue.shift().split(',').map(Number);
-      const steps = [[x, y - 1], [x, y + 1], [x - 1, y], [x + 1, y]];
-      steps.forEach(([nx, ny]) => {
-        const ch = tileAt(m, nx, ny);
-        if (ch === null || info(ch).solid) return;
-        // A ledge can only be entered going south, and drops you past it.
-        if (info(ch).ledge) {
-          if (ny !== y + 1 || !walkable(nx, ny + 1)) return;
-          const key = nx + ',' + (ny + 1);
-          if (!seen[key]) { seen[key] = true; queue.push(key); }
-          return;
+    /* Label every open tile with the region it belongs to. */
+    const region = {};
+    let regions = 0;
+    for (let y = 0; y < m.rows.length; y++) {
+      for (let x = 0; x < m.rows[y].length; x++) {
+        const key = x + ',' + y;
+        if (!open(x, y) || region[key] !== undefined) continue;
+        const id = regions++;
+        const queue = [[x, y]];
+        region[key] = id;
+        while (queue.length) {
+          const [cx, cy] = queue.shift();
+          [[cx, cy - 1], [cx, cy + 1], [cx - 1, cy], [cx + 1, cy]].forEach(([nx, ny]) => {
+            if (!open(nx, ny)) return;
+            const k = nx + ',' + ny;
+            if (region[k] === undefined) { region[k] = id; queue.push([nx, ny]); }
+          });
         }
-        const key = nx + ',' + ny;
-        if (!seen[key]) { seen[key] = true; queue.push(key); }
-      });
+      }
     }
 
+    /* Everything anybody has to be able to walk to, and which region it is in.
+     * A person or a sign is reached from beside it, so it counts as being in
+     * whichever region its neighbours are. */
+    const points = [];
     (m.warps || []).forEach((w) => {
-      if (!seen[w.x + ',' + w.y]) {
-        problems.push(name + ': the door at ' + w.x + ',' + w.y + ' (to ' + w.to + ') cannot be walked to');
-      }
+      points.push({ what: 'the door at ' + w.x + ',' + w.y + ' (to ' + w.to + ')',
+        ids: [region[w.x + ',' + w.y]].filter((v) => v !== undefined) });
     });
+    const beside = (x, y) => [[x, y - 1], [x, y + 1], [x - 1, y], [x + 1, y]]
+      .map(([bx, by]) => region[bx + ',' + by])
+      .filter((v) => v !== undefined);
     (m.people || []).forEach((p) => {
-      const beside = [[p.x, p.y - 1], [p.x, p.y + 1], [p.x - 1, p.y], [p.x + 1, p.y]];
-      if (!beside.some(([bx, by]) => seen[bx + ',' + by])) {
-        problems.push(name + ': nobody can get next to ' + (p.id || p.who) + ' at ' + p.x + ',' + p.y);
-      }
+      points.push({ what: (p.id || p.who) + ' at ' + p.x + ',' + p.y, ids: beside(p.x, p.y) });
     });
     Object.keys(m.spots || {}).forEach((key) => {
       const [sx, sy] = key.split(',').map(Number);
-      const beside = [[sx, sy - 1], [sx, sy + 1], [sx - 1, sy], [sx + 1, sy]];
-      if (!beside.some(([bx, by]) => seen[bx + ',' + by])) {
-        problems.push(name + ': the spot at ' + key + ' cannot be reached');
-      }
+      points.push({ what: 'the spot at ' + key, ids: beside(sx, sy) });
     });
+
+    points.forEach((p) => {
+      if (!p.ids.length) problems.push(name + ': ' + p.what + ' has no open tile next to it');
+    });
+
+    /* The region most of the map's business happens in is the one the map is
+     * about; anything sitting in a different one is cut off from it. */
+    const tally = {};
+    points.forEach((p) => p.ids.forEach((id) => { tally[id] = (tally[id] || 0) + 1; }));
+    const ids = Object.keys(tally);
+    if (ids.length > 1) {
+      const main = ids.reduce((a, b) => (tally[a] >= tally[b] ? a : b));
+      points.forEach((p) => {
+        if (p.ids.length && p.ids.indexOf(+main) < 0) {
+          problems.push(name + ': ' + p.what + ' is cut off from the rest of the map');
+        }
+      });
+    }
+
     return problems;
+  }
+
+  /* A map can be internally perfect and still be somewhere nobody can get to.
+   * This walks the doors from where a new game starts, which is the only
+   * definition of "in the game" that matters. */
+  function reachableMaps() {
+    const seen = { house: true };
+    const queue = ['house'];
+    while (queue.length) {
+      const id = queue.shift();
+      (MAPS[id].warps || []).forEach((w) => {
+        if (MAPS[w.to] && !seen[w.to]) { seen[w.to] = true; queue.push(w.to); }
+      });
+    }
+    return seen;
   }
 
   function validate() {
     const bad = [];
+
+    const reached = reachableMaps();
+    Object.keys(MAPS).forEach((k) => {
+      if (!reached[k]) bad.push(k + ': no way to walk there from the start of the game');
+      if (!(MAPS[k].warps || []).length) bad.push(k + ': has no door out of it');
+    });
     Object.keys(MAPS).forEach((k) => {
       const m = MAPS[k];
       const w = m.rows[0].length;
@@ -960,7 +1015,19 @@ const World = (() => {
         if (ch === null) bad.push(k + ': ' + (p.id || p.who) + ' stands off the edge at ' + p.x + ',' + p.y);
         else if (info(ch).solid) bad.push(k + ': ' + (p.id || p.who) + ' stands inside a "' + ch + '" at ' + p.x + ',' + p.y);
       });
-      bad.push.apply(bad, reachability(k, m));
+      // Twice: once with the road guards gone, and once with them standing
+      // wherever they stand after you have earned the badge.
+      bad.push.apply(bad, reachability(k, m, false));
+      reachability(k, m, true).forEach((p) => {
+        if (bad.indexOf(p) < 0) bad.push(p + ' (once the guard has stepped aside)');
+      });
+      (m.people || []).forEach((p) => {
+        if (!p.aside) return;
+        const ch = tileAt(m, p.aside.x, p.aside.y);
+        if (ch === null || info(ch).solid) {
+          bad.push(k + ': ' + (p.id || p.who) + ' steps aside into a wall');
+        }
+      });
     });
     if (bad.length) console.error('World: ' + bad.length + ' problem(s)\n' + bad.join('\n'));
     return bad;

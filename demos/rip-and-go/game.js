@@ -1099,19 +1099,34 @@ function foeChoice() {
   const f = foeMon(), me = myMon();
   const usable = f.moves.filter((mv) => mv.pp > 0);
   const pool = usable.length ? usable : [{ name: 'STRUGGLE', pp: 1, struggle: true }];
-  if (chance(20)) return pick(pool);
-  let best = pool[0], bestScore = -1;
-  pool.forEach((slot) => {
-    const d = Dex.move(slot.name);
+  /* A move that cannot do anything scores below zero and is not picked, not
+   * even by the coin flip. Without that rule two creatures holding a stat
+   * move will sit at plus six sharpening themselves at each other until the
+   * PP runs out, which is fifty turns of a fight that is not happening. */
+  const scored = pool.map((slot) => {
+    const mv = Dex.move(slot.name);
     let score;
-    if (d.power > 0) {
+    if (mv.power > 0) {
       const dt = typesOf(me);
-      score = d.power * Dex.effect(d.type, dt[0], dt[1]) *
-        (typesOf(f).indexOf(d.type) >= 0 ? 1.5 : 1);
+      score = mv.power * Dex.effect(mv.type, dt[0], dt[1]) *
+        (typesOf(f).indexOf(mv.type) >= 0 ? 1.5 : 1);
+    } else if (mv.stat) {
+      const mods = mv.stat.who === 'self' ? B.mods.foe : B.mods.me;
+      const now = mods[mv.stat.key];
+      const spent = mv.stat.by > 0 ? now >= 6 : now <= -6;
+      score = spent ? -1 : 30;
+    } else if (mv.heal) {
+      score = f.hp < maxHp(f) * 0.55 ? 90 : -1;
+    } else if (mv.status) {
+      score = me.status ? -1 : 34;          // it is already asleep; let it be
     } else score = 28;
-    if (score > bestScore) { bestScore = score; best = slot; }
+    return { slot, score };
   });
-  return best;
+
+  const useful = scored.filter((s) => s.score >= 0);
+  const choices = useful.length ? useful : scored;
+  if (chance(20)) return pick(choices).slot;
+  return choices.reduce((a, b) => (a.score >= b.score ? a : b)).slot;
 }
 
 function takeTurn(action) {
