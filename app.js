@@ -70,6 +70,39 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
 const byId = (id) => GAMES.find((g) => g.id === id);
 const byDemo = (id) => DEMOS.find((d) => d.id === id);
 
+/* --------------------------------------------------------- age ratings */
+
+/* Every game and demo carries a `rating` id from the RATINGS list in games.js.
+   Anything that somehow does not comes back as Unrated rather than being
+   quietly waved through as Everyone — the safe way round for a label whose
+   whole job is telling a parent what is in a game. */
+
+const UNRATED = {
+  id: 'unrated', short: '?', label: 'Unrated', age: 'Not rated yet', min: -1,
+  blurb: 'Nobody has given this one a rating yet.',
+};
+
+const ratingOf = (entry) =>
+  RATINGS.find((r) => r.id === (entry && entry.rating)) || UNRATED;
+
+// Youngest first, which is the order the tabs run in.
+const ratingsInOrder = () => RATINGS.slice().sort((a, b) => a.min - b.min);
+
+// Everything on the shelf, games and demos together, as one list to filter.
+const everything = () =>
+  [...GAMES.map((g) => ({ kind: 'game', entry: g })),
+   ...DEMOS.map((d) => ({ kind: 'demo', entry: d }))];
+
+const atRating = (id) =>
+  id === 'all' ? everything() : everything().filter(({ entry }) => ratingOf(entry).id === id);
+
+// The little boxed letter, the shape everyone already reads as an age rating.
+const ratingPill = (entry, big) => {
+  const r = ratingOf(entry);
+  return `<span class="rating-pill${big ? ' big' : ''}" data-rating="${r.id}"
+    title="${esc(r.label)} — ${esc(r.age)}">${esc(r.short)}</span>`;
+};
+
 /* ------------------------------------------------------- finding demos */
 
 /* Nobody should have to type a path to play a demo. Drop the demo in a folder
@@ -604,6 +637,7 @@ function card(g) {
       <div class="card-title">${pixTitle(fullTitle(g), 3, 12)}</div>
       <div class="card-tag">${esc(g.tagline)}</div>
       <div class="card-meta">
+        ${ratingPill(g)}
         <span>${esc(g.genres[0])}</span><span class="dot"></span>
         <span>${playtime(st.seconds)}</span>
       </div>
@@ -625,6 +659,7 @@ function demoCard(d) {
       <div class="card-title">${pixTitle(d.title, 3, 12)}</div>
       <div class="card-tag">${esc(d.tagline)}</div>
       <div class="card-meta">
+        ${ratingPill(d)}
         ${n ? `${starRow(averageStars(d.id))}<span>${n}</span>`
             : '<span>No reviews yet</span>'}
       </div>
@@ -709,7 +744,8 @@ function viewDemo(id) {
           <dl class="kv">
             <dt>Stage</dt><dd>${demoUrl(d) ? 'Playable demo' : 'In progress'}</dd>
             <dt>Reviews</dt><dd>${n}</dd>
-            <dt>Rating</dt><dd>${n ? `${averageStars(d.id).toFixed(1)} / 5` : '—'}</dd>
+            <dt>Review score</dt><dd>${n ? `${averageStars(d.id).toFixed(1)} / 5` : '—'}</dd>
+            <dt>Age rating</dt><dd>${ratingPill(d)} ${esc(ratingOf(d).label)}</dd>
           </dl>
         </div>
         <div class="panel">
@@ -981,7 +1017,33 @@ function viewGame(id) {
             <dt>Released</dt><dd>${esc(g.released)}</dd>
             <dt>Price</dt><dd style="color:var(--accent)">Free</dd>
             <dt>Runs in</dt><dd>Any browser</dd>
+            <dt>Age rating</dt><dd>${ratingPill(g)} ${esc(ratingOf(g).label)}</dd>
           </dl>
+        </div>
+
+        ${/* Why it got that rating. A letter on its own tells a parent nothing,
+              so the reasons sit under it — and a game with nothing worth
+              flagging says so rather than showing an empty box. */ ''}
+        <div class="panel">
+          <h3>Age rating</h3>
+          <div class="rating-note">
+            ${ratingPill(g, true)}
+            <div>
+              <b>${esc(ratingOf(g).label)}</b> · <span>${esc(ratingOf(g).age)}</span>
+              <p>${esc(ratingOf(g).blurb)}</p>
+            </div>
+          </div>
+          ${(g.ratingNotes || []).length ? `
+            <div class="chips" style="margin-top:14px">
+              ${g.ratingNotes.map((n) => `<span class="chip">${esc(n)}</span>`).join('')}
+            </div>` : `
+            <p style="margin-top:14px;font-size:13px;color:var(--text-mute)">
+              Nothing in it worth flagging.
+            </p>`}
+          <p style="margin-top:12px;font-size:12px;color:var(--text-mute)">
+            Our own label, not an official ESRB or PEGI rating.
+            <a href="#/rated/${esc(ratingOf(g).id)}" style="color:var(--accent)">See everything rated this</a>
+          </p>
         </div>
 
         <div class="panel">
@@ -1000,6 +1062,95 @@ function viewGame(id) {
         </div>
       </div>
     </div>
+  </div>`;
+}
+
+/* -------------------------------------------------------- ratings view */
+
+/* One tab per age rating, plus All. Games and demos sit together here on
+   purpose: somebody checking what is suitable does not care which shelf a
+   thing came off. */
+
+function ratingTabs(current) {
+  const tabs = [{ id: 'all', label: 'All', short: '' }, ...ratingsInOrder()];
+  return `<div class="rating-tabs" role="tablist">
+    ${tabs.map((r) => {
+      const n = atRating(r.id).length;
+      return `<a class="rating-tab ${r.id === current ? "on" : ""} ${r.short ? "" : "no-pill"}" data-rating="${r.id}"
+        role="tab" aria-selected="${r.id === current}" href="#/rated/${r.id}">
+        ${r.short ? `<span class="rating-pill" data-rating="${r.id}">${esc(r.short)}</span>` : ''}
+        <span class="rating-tab-label">${esc(r.label)}</span>
+        <span class="rating-tab-count">${n}</span>
+      </a>`;
+    }).join('')}
+  </div>`;
+}
+
+function viewRatings(q, which) {
+  const all = ratingsInOrder();
+  const current = which === 'all' || all.some((r) => r.id === which) ? which : 'all';
+  const meta = all.find((r) => r.id === current);
+
+  let list = atRating(current);
+  if (q) {
+    const t = q.toLowerCase();
+    list = list.filter(({ entry }) =>
+      (entry.title + ' ' + entry.tagline + ' ' + (entry.short || entry.blurb || ''))
+        .toLowerCase().includes(t));
+  }
+
+  const games = list.filter((x) => x.kind === 'game');
+  const demos = list.filter((x) => x.kind === 'demo');
+
+  return `
+  <div class="wrap">
+    <div class="sec-head" style="margin-bottom:6px">
+      <h2>${pixTitle('Ratings', 5)}</h2>
+      <span class="sub">${everything().length} games and demos, labelled</span>
+    </div>
+    <p style="margin:0 0 20px;color:var(--text-dim);max-width:62ch">
+      What is in each game, so you can tell at a glance whether it suits whoever is
+      about to play it. These are our own labels, not official ESRB or PEGI ones.
+    </p>
+
+    ${ratingTabs(current)}
+
+    ${meta ? `
+    <div class="rating-note">
+      ${ratingPill({ rating: meta.id }, true)}
+      <div>
+        <b>${esc(meta.label)}</b> · <span>${esc(meta.age)}</span>
+        <p>${esc(meta.blurb)}</p>
+      </div>
+    </div>` : ''}
+
+    ${!list.length ? `
+      <div class="empty">
+        <b>${q ? `Nothing rated ${esc(meta ? meta.label : current)} matches “${esc(q)}”`
+                : `Nothing is rated ${esc(meta ? meta.label : current)}`}</b>
+        ${q ? 'Try a different search, or another tab.'
+            : `Every game on the shelf so far is ${esc(all.filter((r) => atRating(r.id).length)
+                  .map((r) => r.label).join(' or '))}.`}
+      </div>` : `
+
+      ${games.length ? `
+      <section class="sec">
+        <div class="sec-head">
+          <h2>${pixTitle('Games', 3)}</h2>
+          <span class="sub">${games.length} finished · free · nothing to install</span>
+        </div>
+        <div class="grid">${games.map((x) => card(x.entry)).join('')}</div>
+      </section>` : ''}
+
+      ${demos.length ? `
+      <section class="sec">
+        <div class="sec-head">
+          <h2>${pixTitle('Demos', 3)}</h2>
+          <span class="sub">${demos.length} still being made</span>
+        </div>
+        <div class="grid">${demos.map((x) => demoCard(x.entry)).join('')}</div>
+      </section>` : ''}
+    `}
   </div>`;
 }
 
@@ -1139,13 +1290,15 @@ function route() {
   if (h.startsWith('demo/')) return { name: 'demo', id: h.slice(5) };
   if (h === 'library') return { name: 'library' };
   if (h === 'demos') return { name: 'demos' };
+  if (h.startsWith('rated/')) return { name: 'ratings', id: h.slice(6) };
+  if (h === 'rated' || h === 'ratings') return { name: 'ratings', id: 'all' };
   if (h === 'community') return { name: 'community' };
   return { name: 'home' };
 }
 
 // Which top tab lights up for each view.
 const TAB_FOR = { game: 'library', library: 'library', demo: 'demos', demos: 'demos',
-                  community: 'community', home: 'home' };
+                  community: 'community', ratings: 'ratings', home: 'home' };
 
 function render() {
   const r = route();
@@ -1157,6 +1310,7 @@ function render() {
     r.name === 'library' ? viewLibrary(q) :
     r.name === 'demos' ? viewDemos(q) :
     r.name === 'community' ? viewCommunity(q) :
+    r.name === 'ratings' ? viewRatings(q, r.id) :
     viewHome(q);
 
   document.querySelectorAll('.tabs a').forEach((a) =>

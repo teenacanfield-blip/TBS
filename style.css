@@ -386,6 +386,112 @@ button { font: inherit; color: inherit; }
   color: var(--accent);
 }
 
+/* --------------------------------------------------------- age ratings */
+
+/* The boxed letter, in the shape people already read as an age rating.
+   Colour carries meaning here, so the letter inside carries it too — nobody
+   should have to tell green from amber to know what they are looking at. */
+.rating-pill {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+.rating-pill.big {
+  min-width: 46px;
+  height: 40px;
+  font-size: 18px;
+  border-width: 3px;
+}
+
+.rating-pill[data-rating="everyone"] { border-color: #5ce08a; color: #5ce08a; }
+.rating-pill[data-rating="e10"]      { border-color: #7ce6ff; color: #7ce6ff; }
+.rating-pill[data-rating="teen"]     { border-color: #ffd166; color: #ffd166; }
+.rating-pill[data-rating="adult"]    { border-color: #ff5f6d; color: #ff5f6d; }
+.rating-pill[data-rating="unrated"]  { border-color: var(--line); color: var(--text-mute); }
+
+/* One tab per rating. A second strip under the top nav rather than in it —
+   these filter what you are looking at, they are not another section. */
+.rating-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 3px solid var(--line-soft);
+}
+
+.rating-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border: 3px solid var(--line-soft);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.rating-tab:hover { border-color: var(--line); color: var(--text); }
+.rating-tab.on {
+  border-color: var(--accent);
+  background: var(--panel-2);
+  color: var(--text);
+}
+.rating-tab-count {
+  font-size: 11px;
+  color: var(--text-mute);
+  border-left: 2px solid var(--line-soft);
+  padding-left: 9px;
+}
+.rating-tab.on .rating-tab-count { color: var(--accent); }
+
+/* The explainer that sits under the tabs, and on each game's page. */
+.rating-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 26px;
+  padding: 16px;
+  border: 3px solid var(--line-soft);
+  background: var(--panel);
+}
+.rating-note b { font-size: 14px; }
+.rating-note > div > span {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+}
+.rating-note p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  max-width: 60ch;
+}
+.panel .rating-note { margin-bottom: 0; border: 0; padding: 0; background: none; }
+
+@media (max-width: 620px) {
+  .rating-tab { padding: 8px 10px; gap: 7px; }
+  .rating-tab-label { display: none; }
+  /* The All tab has no letter, so its word has to stay. */
+  .rating-tab.no-pill .rating-tab-label { display: inline; }
+  .rating-tab-count { border-left: 0; padding-left: 0; }
+}
+
 /* ------------------------------------------------------------- buttons */
 
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }

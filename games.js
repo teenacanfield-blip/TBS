@@ -5,6 +5,57 @@
  * — is built from this list. See README.md in this folder for the walkthrough.
  */
 
+/* -------------------------------------------------------------- ratings */
+/* Age ratings, youngest first. Every game and demo carries a `rating` id from
+ * this list, and an optional `ratingNotes` saying *why* — a letter on its own
+ * tells a parent nothing.
+ *
+ * `min` is the age the rating is aimed at; it is what the Ratings page sorts
+ * by, so adding a rating in the middle later does not need any other change.
+ *
+ * Nothing here is an official ESRB or PEGI rating — those cost money and are
+ * for boxed games. These are our own honest labels, in the shape people already
+ * recognise.
+ */
+const RATINGS = [
+  {
+    id: 'everyone',
+    short: 'E',
+    label: 'Everyone',
+    age: 'All ages',
+    min: 0,
+    blurb: 'Fine for anybody. No fighting worth the name, nothing frightening.',
+  },
+  {
+    id: 'e10',
+    short: '10+',
+    label: 'Everyone 10+',
+    age: '10 and up',
+    min: 10,
+    blurb:
+      'Cartoon scrapping, mild peril, the odd spooky corner. About what a ' +
+      'Saturday morning cartoon does.',
+  },
+  {
+    id: 'teen',
+    short: 'T',
+    label: 'Teen',
+    age: '13 and up',
+    min: 13,
+    blurb:
+      'Rougher violence, darker subjects, or language a younger player should ' +
+      'not meet yet.',
+  },
+  {
+    id: 'adult',
+    short: 'A',
+    label: 'Adult',
+    age: '18 and up',
+    min: 18,
+    blurb: 'Grown-ups only. Strong content of a kind children should not see.',
+  },
+];
+
 /* ---------------------------------------------------------------- demos */
 /* Works in progress. These show up in their own section with a review box
  * underneath each one, so people can tell you what they think before the game
@@ -24,6 +75,8 @@
 const DEMOS = [
   {
     id: 'rip-and-go',
+    rating: 'everyone',
+    ratingNotes: ['Cartoon battling'],
     title: 'Pokémon Rip and Go',
     tagline: 'One of three, one road out, and 1089 ways to splice them.',
     motif: 'ball',
@@ -81,6 +134,8 @@ const DEMOS = [
   },
   {
     id: 'the-show',
+    rating: 'everyone',
+    ratingNotes: ['Cartoon action'],
     title: 'The Show',
     tagline: 'Sandlot to the big leagues',
     motif: 'batter',
@@ -100,6 +155,7 @@ const DEMOS = [
   },
   {
     id: '2b-or-not-2b',
+    rating: 'everyone',
     title: '2B or Not 2B',
     tagline: 'The long way back to the desk',
     motif: 'pencil',
@@ -117,6 +173,7 @@ const DEMOS = [
   },
   {
     id: 'rc-craze',
+    rating: 'everyone',
     title: 'RC Craze',
     tagline: 'Radio-controlled, barely controlled',
     motif: 'car',
@@ -127,6 +184,7 @@ const DEMOS = [
   },
   {
     id: 'liz',
+    rating: 'everyone',
     title: 'Liz',
     tagline: 'Pick a colour, roam the island',
     motif: 'lizard',
@@ -137,6 +195,8 @@ const DEMOS = [
   },
   {
     id: 'ninja-wing-wing',
+    rating: 'e10',
+    ratingNotes: ['Cartoon fighting'],
     title: 'Ninja Wing Wing',
     tagline: 'Throw first, land later',
     motif: 'star',
@@ -154,6 +214,8 @@ const DEMOS = [
   },
   {
     id: 'legend-cart',
+    rating: 'e10',
+    ratingNotes: ['Cartoon combat'],
     title: 'Legend Cart',
     tagline: 'A rock & roll combat racer',
     motif: 'sword',
@@ -164,6 +226,7 @@ const DEMOS = [
   },
   {
     id: 'animabal1',
+    rating: 'everyone',
     title: 'Animabal1',
     tagline: 'Three innings, one creature',
     motif: 'ball',
@@ -174,6 +237,8 @@ const DEMOS = [
   },
   {
     id: 'dragons-last-breath',
+    rating: 'everyone',
+    ratingNotes: ['Mild fantasy peril'],
     title: 'The Dragon’s Last Breath',
     tagline: 'One breath left. Make it count.',
     motif: 'dragon',
@@ -189,6 +254,8 @@ const DEMOS = [
 const GAMES = [
   {
     id: 'the-13-dynasties',
+    rating: 'e10',
+    ratingNotes: ['Fantasy violence', 'Mild peril'],
     title: 'The 13 Dynasties',
     suffix: '.net',
     tagline: 'A survival story',
@@ -261,6 +328,8 @@ const GAMES = [
 
   {
     id: 'ugg-and-the-undersaucer',
+    rating: 'e10',
+    ratingNotes: ['Cartoon peril'],
     title: 'Ugg & the Undersaucer',
     suffix: '',
     tagline: 'The cave lies to you',
@@ -320,6 +389,8 @@ const GAMES = [
 
   {
     id: 'roaminals',
+    rating: 'e10',
+    ratingNotes: ['Mild spooky themes', 'Cartoon battling'],
     title: 'Roaminals',
     suffix: '',
     tagline: 'Catch the hotel',
