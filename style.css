@@ -1172,3 +1172,10 @@ table.keys td:last-child { color: var(--text-dim); }
     transition-duration: .001ms !important;
   }
 }
+
+/* A phone card is about 150px across, and the rating pill takes a chunk of
+   that. The genre is the one thing in the row that is already said by the
+   tagline above it, so it is what gives way. */
+@media (max-width: 620px) {
+  .card-genre, .card-meta .dot { display: none; }
+}

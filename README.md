@@ -66,6 +66,8 @@ folder names.
 | `stages` | Optional. Triples of `['number', 'name', 'description']`. |
 | `stagesTitle` | Optional heading above that table — `The three worlds`, `The five stages`. Defaults to `Stages`. |
 | `notes` | Optional. Honest caveats worth knowing before playing. |
+| `rating` | An id from the `RATINGS` list at the top of `games.js` — `everyone`, `e10`, `teen` or `adult`. Required: leave it off and the game shows as **Unrated**, which is the safe way round but looks unfinished. |
+| `ratingNotes` | Optional. Short reasons for the rating, like `['Fantasy violence']`. A letter on its own tells a parent nothing. |
 
 4. Add cover art in `art.js`. Write a `yourGameScene(w, h, focal)` function
    alongside the two that are there, then add its `id` to `scene()`, `defs()`
@@ -78,6 +80,30 @@ folder names.
    filled with it. The site works fine with a plain coloured card.
 
 That is the whole job. Nothing else needs editing.
+
+## Age ratings
+
+Every game and demo carries an age rating, and the **Ratings** tab is one tab
+per rating — All, Everyone, Everyone 10+, Teen, Adult — showing games and demos
+together, because somebody checking what is suitable does not care which shelf
+a thing came off.
+
+The four ratings are defined at the top of `games.js`, in `RATINGS`. Each one
+has a letter for the little box, an age, and a sentence saying what it means.
+To add a rating in the middle later, add it to that list with the right `min`
+age; the tabs sort by `min`, so nothing else needs changing.
+
+Each game's own page gets an **Age rating** panel: the letter, what the rating
+means, and the specific reasons from `ratingNotes`. A game with nothing worth
+flagging says so rather than showing an empty box.
+
+**These are our own labels, not official ones.** A real ESRB or PEGI rating
+costs money and is meant for boxed games. The site says so on every rating, so
+nobody mistakes them for the real thing.
+
+Right now everything on the shelf is **Everyone** or **Everyone 10+**. The Teen
+and Adult tabs are there and empty — which is the honest answer, and means
+nothing needs building if that ever changes.
 
 ## Path gotcha
 

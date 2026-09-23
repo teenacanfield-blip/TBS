@@ -638,7 +638,7 @@ function card(g) {
       <div class="card-tag">${esc(g.tagline)}</div>
       <div class="card-meta">
         ${ratingPill(g)}
-        <span>${esc(g.genres[0])}</span><span class="dot"></span>
+        <span class="card-genre">${esc(g.genres[0])}</span><span class="dot"></span>
         <span>${playtime(st.seconds)}</span>
       </div>
     </div>
