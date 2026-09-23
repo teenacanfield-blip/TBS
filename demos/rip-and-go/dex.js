@@ -216,6 +216,28 @@ const Dex = (() => {
   mv('NIGHTFALL',      'SHADE', 110,  80,  5);
   mv('CURSE EYE',      'SHADE',   0, 100, 20, { stat: { who: 'foe', key: 'spd', by: -2 } });
 
+  /* ================================================================ strikes */
+  /* One move per type that only a spliced creature can know. Nothing in the
+   * wild learns a STRIKE and no learnset lists one: a fusion gets the one
+   * matching its head, which means it is always the fusion's own type and
+   * always hits at full strength.
+   *
+   * This is the reward for splicing. Two creatures put together lose the
+   * evolution they might have had and half a learnset each, so they get back
+   * something neither half could do on its own — a heavy, reliable move that
+   * splits what it hits. Nine of them, one per type, so every one of the
+   * thousand-odd fusions has exactly one. */
+
+  const STRIKES = {};
+  TYPE_LIST.forEach((type) => {
+    const name = type + ' STRIKE';
+    STRIKES[type] = name;
+    mv(name, type, 90, 95, 10, {
+      strike: true,
+      stat: { who: 'foe', key: 'def', by: -1, chance: 20 },
+    });
+  });
+
   /* The card shop still sells packs, and a pack still needs to know what a
    * lucky pull looks like, so rarity survives as a property of the species
    * rather than as a system of its own. */
@@ -1297,13 +1319,16 @@ const Dex = (() => {
     if (!h || !b || h.fusion || b.fusion) return null;
 
     const lean = (mine, theirs) => Math.round((2 * mine + theirs) / 3);
+    const types = fuseTypes(h, b);
     const sp = {
       id, no: 0, fusion: true, headId, bodyId,
+      // The one thing neither half could do alone, typed off the head.
+      signature: STRIKES[types[0]],
       name: fuseName(h.name, b.name),
       // The drawing is cut in half, so the colours are too: the head keeps
       // its own, the body keeps its own, and the seam is the point.
       body: b.body, accent: h.accent, belly: b.belly,
-      types: fuseTypes(h, b),
+      types,
       base: {
         hp: lean(b.base.hp, h.base.hp),
         atk: lean(h.base.atk, b.base.atk),
@@ -1365,10 +1390,17 @@ const Dex = (() => {
     for (let i = all.length - 1; i >= 0 && out.length < 4; i--) {
       if (out.indexOf(all[i]) < 0) out.unshift(all[i]);
     }
-    if (!out.length) return ['TACKLE'];
+    if (!out.length) out.push('TACKLE');
     if (!out.some((n) => MOVES[n] && MOVES[n].power > 0)) {
       const hit = all.slice().reverse().find((n) => MOVES[n] && MOVES[n].power > 0);
       out[out.length - 1] = hit || 'TACKLE';
+    }
+    // A fusion always carries its strike. It is not on any learnset — it is
+    // the thing being two creatures gets you — so it is put in here rather
+    // than waited for, taking the oldest slot if all four are full.
+    if (sp.signature && out.indexOf(sp.signature) < 0) {
+      if (out.length < 4) out.push(sp.signature);
+      else out[0] = sp.signature;
     }
     return out;
   }

@@ -951,9 +951,28 @@ function startWild() {
   let picked = table[0];
   for (const e of table) { n -= e.w; if (n <= 0) { picked = e; break; } }
   const level = picked.min + rnd(picked.max - picked.min + 1);
-  B.foe = makeMon(picked.id, level);
+
+  /* Once you have a badge, the long grass starts turning up things that are
+   * already two creatures. It is rare on purpose — a fusion you walked into
+   * should be a story, not a Tuesday — and it is gated behind the first badge
+   * so the opening hours stay legible while you are still learning what a
+   * creature even is. The body comes from the same table, so a route's
+   * fusions are made of that route's animals. */
+  let species = picked.id;
+  let wildFusion = false;
+  if (S.badges.length >= 1 && table.length > 1 && chance(7)) {
+    let other = pick(table);
+    for (let i = 0; i < 4 && other.id === picked.id; i++) other = pick(table);
+    if (other.id !== picked.id) {
+      const made = Dex.fuse(picked.id, other.id);
+      if (made) { species = made.id; wildFusion = true; }
+    }
+  }
+
+  B.foe = makeMon(species, level);
   B.foeParty = null; B.trainer = null;
   beginBattle('wild');
+  if (wildFusion) push('Something in the grass is two creatures at once.');
   push('A wild ' + nameOf(B.foe) + ' jumped out!');
   push('Go, ' + nameOf(myMon()) + '!', { fn: () => { B.intro = 0.4; } });
   after('menu');
@@ -2119,10 +2138,18 @@ function updateDex() {
 
 function drawDex() {
   box(0, 0, W, H, '#0a0f1c');
-  const caught = Object.keys(S.caught).length, seen = Object.keys(S.seen).length;
+  // Fusions are counted apart from the dex proper. There are 1089 of them and
+  // listing them would bury the thirty-three the game is actually about, but
+  // how many you have found is worth knowing — it is the other collection.
+  const keys = Object.keys(S.caught);
+  const fused = keys.filter((k) => Dex.isFusionId(k)).length;
+  const caught = keys.length - fused;
+  const seen = Object.keys(S.seen).filter((k) => !Dex.isFusionId(k)).length;
   txt('THE DEX', 10, 8, '#ffd166', 1);
   txt('CAUGHT ' + caught + '   SEEN ' + seen + '   OF ' + Dex.SPECIES.length,
     W - 10, 8, '#9fb0d8', 1, 'right');
+  txt('FUSIONS FOUND ' + fused + ' OF ' + (Dex.SPECIES.length * Dex.SPECIES.length),
+    10, 200, fused ? '#ce93d8' : '#3d4a6b', 1);
   box(8, 18, W - 16, 1, '#2b3c6b');
 
   const rows = 16;
@@ -3289,7 +3316,9 @@ const HELP = [
     'the head of the first on the body of the second. It brings the attack, the speed and the ' +
     'first type; the body brings the health, the defence and the rest. Thirty-three creatures ' +
     'make one thousand and eighty-nine fusions. Feed a fusion back in on its own and it comes ' +
-    'apart again, both halves at the level it reached.'],
+    'apart again, both halves at the level it reached. A fusion also knows a STRIKE, a heavy ' +
+    'move of its own type that nothing unspliced can learn — and once you have a badge, the ' +
+    'long grass starts turning up things that are already two creatures.'],
   ['PACK SEEDS', 'Every draft has a six-character seed, shown while you are choosing. Give it to ' +
     'somebody and they open the same eight cards. Draft your five each, swap the team codes the ' +
     'game hands you, and fight the other one\'s draft: same pack, two reads of it.'],

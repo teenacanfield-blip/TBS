@@ -37,7 +37,10 @@ const DEMOS = [
       'real creature — its own name, its own sprite cut from both halves, ' +
       'the attack and speed of the head, the health and defence of the body, both ' +
       'their types and both their learnsets. Feed it back in and it comes ' +
-      'apart again. Around that: the whole game. A ' +
+      'apart again. A fusion also knows a STRIKE, a heavy move of its own ' +
+      'type that nothing unspliced can learn, and once you have a badge the ' +
+      'long grass starts turning up things that are already two creatures. ' +
+      'Around that: the whole game. A ' +
       'town with one road out of it, a professor with three on a table, a ' +
       'boy your age who takes the one that beats yours, and long grass ' +
       'between you and everywhere else. Walk into it, wear something down, ' +
