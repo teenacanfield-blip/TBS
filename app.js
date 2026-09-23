@@ -103,6 +103,36 @@ const ratingPill = (entry, big) => {
     title="${esc(r.label)} — ${esc(r.age)}">${esc(r.short)}</span>`;
 };
 
+/* The rating with its reasons. Games and demos both get this — a demo is the
+   half of the shelf most likely to be handed to somebody without being looked
+   at first, so it is the half that needs the reasons most. */
+function ratingPanel(entry) {
+  const r = ratingOf(entry);
+  const notes = entry.ratingNotes || [];
+  return `
+    <div class="panel">
+      <h3>Age rating</h3>
+      <div class="rating-note">
+        ${ratingPill(entry, true)}
+        <div>
+          <b>${esc(r.label)}</b> · <span>${esc(r.age)}</span>
+          <p>${esc(r.blurb)}</p>
+        </div>
+      </div>
+      ${notes.length ? `
+        <div class="chips" style="margin-top:14px">
+          ${notes.map((n) => `<span class="chip">${esc(n)}</span>`).join('')}
+        </div>` : `
+        <p style="margin-top:14px;font-size:13px;color:var(--text-mute)">
+          Nothing in it worth flagging.
+        </p>`}
+      <p style="margin-top:12px;font-size:12px;color:var(--text-mute)">
+        Our own label, not an official ESRB or PEGI rating.
+        <a href="#/rated/${esc(r.id)}" style="color:var(--accent)">See everything rated this</a>
+      </p>
+    </div>`;
+}
+
 /* ------------------------------------------------------- finding demos */
 
 /* Nobody should have to type a path to play a demo. Drop the demo in a folder
@@ -748,6 +778,7 @@ function viewDemo(id) {
             <dt>Age rating</dt><dd>${ratingPill(d)} ${esc(ratingOf(d).label)}</dd>
           </dl>
         </div>
+        ${ratingPanel(d)}
         <div class="panel">
           <h3>Making it playable</h3>
           ${demoUrl(d) ? `
@@ -1020,31 +1051,7 @@ function viewGame(id) {
             <dt>Age rating</dt><dd>${ratingPill(g)} ${esc(ratingOf(g).label)}</dd>
           </dl>
         </div>
-
-        ${/* Why it got that rating. A letter on its own tells a parent nothing,
-              so the reasons sit under it — and a game with nothing worth
-              flagging says so rather than showing an empty box. */ ''}
-        <div class="panel">
-          <h3>Age rating</h3>
-          <div class="rating-note">
-            ${ratingPill(g, true)}
-            <div>
-              <b>${esc(ratingOf(g).label)}</b> · <span>${esc(ratingOf(g).age)}</span>
-              <p>${esc(ratingOf(g).blurb)}</p>
-            </div>
-          </div>
-          ${(g.ratingNotes || []).length ? `
-            <div class="chips" style="margin-top:14px">
-              ${g.ratingNotes.map((n) => `<span class="chip">${esc(n)}</span>`).join('')}
-            </div>` : `
-            <p style="margin-top:14px;font-size:13px;color:var(--text-mute)">
-              Nothing in it worth flagging.
-            </p>`}
-          <p style="margin-top:12px;font-size:12px;color:var(--text-mute)">
-            Our own label, not an official ESRB or PEGI rating.
-            <a href="#/rated/${esc(ratingOf(g).id)}" style="color:var(--accent)">See everything rated this</a>
-          </p>
-        </div>
+        ${ratingPanel(g)}
 
         <div class="panel">
           <h3>Features</h3>
