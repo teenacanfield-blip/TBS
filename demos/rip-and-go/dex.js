@@ -1189,7 +1189,7 @@ const Dex = (() => {
   sp({
     name: 'PYREWING', t1: 'EMBER', t2: 'GALE', rarity: 'legend',
     body: '#e64a19', accent: '#ffd54f', belly: '#ffab91',
-    base: { hp: 96, atk: 120, def: 88, spd: 110 }, catch: 3, yield: 340,
+    base: { hp: 96, atk: 120, def: 88, spd: 110 }, catch: 8, yield: 340,
     learn: [[1, 'FLAME BURST'], [1, 'WING SLASH'], [1, 'TAILWIND'], [50, 'SEAR'],
       [58, 'CYCLONE'], [64, 'INFERNO']],
     dex: 'Burns down to nothing roughly once a century, on purpose, and comes back cross.',
@@ -1197,7 +1197,7 @@ const Dex = (() => {
   sp({
     name: 'TIDEMAW', t1: 'WAVE', t2: 'SHADE', rarity: 'legend',
     body: '#0277bd', accent: '#4dd0e1', belly: '#b3e5fc',
-    base: { hp: 120, atk: 112, def: 100, spd: 82 }, catch: 3, yield: 340,
+    base: { hp: 120, atk: 112, def: 100, spd: 82 }, catch: 8, yield: 340,
     learn: [[1, 'TIDAL CRASH'], [1, 'NIGHT BITE'], [1, 'MIST VEIL'], [50, 'CURSE EYE'],
       [58, 'SETTLE'], [64, 'NIGHTFALL']],
     dex: 'The part you can see is the neck. Nobody has volunteered to check the rest.',
@@ -1205,7 +1205,7 @@ const Dex = (() => {
   sp({
     name: 'STONEWARD', t1: 'STONE', t2: 'SHADE', rarity: 'legend',
     body: '#8d6e63', accent: '#ffd54f', belly: '#d7ccc8',
-    base: { hp: 110, atk: 104, def: 140, spd: 60 }, catch: 3, yield: 340,
+    base: { hp: 110, atk: 104, def: 140, spd: 60 }, catch: 8, yield: 340,
     learn: [[1, 'ROCKFALL'], [1, 'CURSE EYE'], [1, 'SHELL UP'], [50, 'NIGHT BITE'],
       [58, 'BODY SLAM'], [64, 'NIGHTFALL']],
     dex: 'Guarding something. Will not say what. Has been at it since before the road.',

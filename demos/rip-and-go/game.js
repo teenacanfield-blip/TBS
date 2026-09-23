@@ -180,7 +180,10 @@ const ITEMS = {
 
 const SHOPS = {
   basic: ['BALL', 'POTION', 'REMEDY'],
-  good: ['BALL', 'GREAT BALL', 'POTION', 'SUPER POTION', 'REMEDY', 'REVIVE'],
+  /* The Emberside shop is behind two badges, which is where the best ball
+   * belongs: it existed in the item table from the start and nothing sold
+   * it, so the best ball in the game was unobtainable. */
+  good: ['BALL', 'GREAT BALL', 'ULTRA BALL', 'POTION', 'SUPER POTION', 'REMEDY', 'REVIVE'],
 };
 
 /* ==================================================================== packs */
