@@ -234,7 +234,38 @@ const Art = (() => {
     return cv;
   }
 
+  /* A fusion has no drawing of its own — it has two, cut across and stitched.
+   * The top seven rows come from the head with the head's colours and the
+   * rest from the body with the body's, which is why a fusion reads as two
+   * creatures that have been put together rather than one that was averaged.
+   * The seam is the whole point and it is not smoothed over. */
+  const FUSE_SPLIT = 7;
+
+  function fusionCanvas(sp, shiny) {
+    const key = 'f.' + sp.id + (shiny ? '.s' : '');
+    if (baked[key]) return baked[key];
+    const head = Dex.byId(sp.headId), body = Dex.byId(sp.bodyId);
+    const rows = [Dex.ART[head.id], Dex.ART[body.id]];
+    const pals = [Dex.paletteFor(head, shiny), Dex.paletteFor(body, shiny)];
+    const cv = document.createElement('canvas');
+    cv.width = 16; cv.height = 16;
+    const g = cv.getContext('2d');
+    for (let y = 0; y < 16; y++) {
+      const half = y < FUSE_SPLIT ? 0 : 1;
+      const row = rows[half][y];
+      for (let x = 0; x < 16; x++) {
+        const c = row[x];
+        if (c === '.') continue;
+        g.fillStyle = pals[half][+c] || '#ff00ff';
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+    baked[key] = cv;
+    return cv;
+  }
+
   function monCanvas(sp, shiny) {
+    if (sp.fusion) return fusionCanvas(sp, shiny);
     const key = 'm.' + sp.id + (shiny ? '.s' : '');
     if (baked[key]) return baked[key];
     return bake(Dex.ART[sp.id], Dex.paletteFor(sp, shiny), key);
@@ -528,6 +559,15 @@ const Art = (() => {
       f(2, 5, 12, 8, '#546e7a');
       f(4, 7, 3, 3, '#ff8a80'); f(9, 7, 3, 3, '#ff8a80');
       f(4, 7, 3, 1, '#ffcdd2'); f(9, 7, 3, 1, '#ffcdd2');
+    } else if (kind === 'splicer') {
+      /* Two slots and one chute, which is the whole machine. */
+      f(0, 0, 16, 16, '#7e6a52');
+      f(1, 1, 14, 14, '#4a3a5e');
+      f(1, 1, 14, 2, '#6b558a');
+      f(3, 5, 4, 5, '#0f1c24'); f(9, 5, 4, 5, '#0f1c24');
+      f(4, 6, 2, 3, '#ce93d8'); f(10, 6, 2, 3, '#80deea');
+      f(6, 11, 4, 3, '#0f1c24');
+      f(7, 12, 2, 1, '#ffd166');
     } else if (kind === 'pc') {
       f(0, 0, 16, 16, '#7e6a52');
       f(1, 1, 14, 14, '#455a64');

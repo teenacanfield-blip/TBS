@@ -71,6 +71,20 @@ at fighting weight, their level set from their own base total, which put a
 same-skill match back to roughly a coin flip and left the draft and the chart
 to decide it.
 
+The splicer is the reason the roster is bigger than the number of drawings.
+Two creatures go in and one comes out: the head of the first on the body of
+the second, cut across row seven, each half keeping its own palette so the
+seam is visible on purpose. Thirty-three drawings make 1089 fusions, and a
+fusion is a species like any other — an id of `head+body`, blended base stats
+leaning two-to-one toward whichever parent owns them, the first type of the
+head and the last of the body, and both learnsets merged with the earlier
+level winning. Once it exists nothing else in the game needs to know it is
+unusual: it fights, it levels, it saves, it fits in a team code. `Dex.byId`
+builds one on demand, which is what lets a save file come back holding
+`pyrehound+stormwing` and get a creature rather than a hole. Feeding a fusion
+back to the machine splits it again, because a mechanic that can only destroy
+things is one people stop touching.
+
 `ladder.js` is the only file in this folder that wants something outside the
 browser, and it is written so that not having it costs nothing. With no
 Supabase configured, `Ladder.state()` reports why — no account files, no

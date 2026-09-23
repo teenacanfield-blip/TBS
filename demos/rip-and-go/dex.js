@@ -1216,6 +1216,122 @@ const Dex = (() => {
   const BY_ID = {};
   SPECIES.forEach((s) => { BY_ID[s.id] = s; });
 
+  /* ================================================================ fusion */
+  /* Two creatures spliced into one: the head of the first on the body of the
+   * second. Thirty-three of them make one thousand and eighty-nine fusions,
+   * which is a roster nobody drew and everybody can find something new in.
+   *
+   * A fusion is a species like any other — it has an id, a name, base stats,
+   * types and a learnset — so once it exists, nothing else in the game needs
+   * to know it is unusual. It fights, it levels, it goes in the box, it shows
+   * up in the dex. The id is 'head+body', which is also what a save file
+   * stores, so `byId` builds one on demand when a save comes back with a
+   * fusion in it rather than dropping the creature on the floor.
+   *
+   * ------------------------------------------------------------ the split
+   *
+   * The head brings what a head does: attack, speed, the first type, and the
+   * top seven rows of the drawing. The body brings the rest. Stats are two
+   * parts the one that owns them to one part the other, so a fusion is
+   * recognisably built out of its parents rather than an average of
+   * everything, and a fast head on a bulky body is a real thing you can go
+   * looking for. */
+
+  const FUSE = '+';
+
+  /* Names are the front of one and the back of the other, cut on syllables
+   * rather than in the middle, so SPRIGLET on CINDPUP comes out SPRIGLUP and
+   * not SPRIGLEINDP. The head keeps everything up to its second vowel sound;
+   * the body joins at its last one, backing up a syllable if that would only
+   * be a letter or two. */
+  function vowelRuns(word) {
+    const runs = [];
+    for (let i = 0; i < word.length; i++) {
+      if ('AEIOUY'.indexOf(word[i]) < 0) continue;
+      if (runs.length && runs[runs.length - 1].end === i - 1) runs[runs.length - 1].end = i;
+      else runs.push({ start: i, end: i });
+    }
+    return runs;
+  }
+
+  function fuseName(a, b) {
+    const head = a.replace(/[^A-Z]/g, ''), body = b.replace(/[^A-Z]/g, '');
+    const hr = vowelRuns(head), br = vowelRuns(body);
+
+    // The head up to where its second syllable starts.
+    const cut = hr.length > 1 ? hr[1].start : Math.ceil(head.length * 0.6);
+    let prefix = head.slice(0, Math.max(2, cut));
+
+    // The body from its last syllable, backing up if that is barely anything.
+    let from = br.length ? br[br.length - 1].start : Math.floor(body.length / 2);
+    if (body.length - from < 3 && br.length > 1) from = br[br.length - 2].start;
+    let suffix = body.slice(from);
+
+    let out = prefix + suffix;
+    if (out.length > 10) { prefix = prefix.slice(0, Math.max(2, 10 - suffix.length)); out = prefix + suffix; }
+    if (out.length < 4) out = head.slice(0, 3) + body.slice(-3);
+    return out.slice(0, 11);
+  }
+
+  function fuseTypes(h, b) {
+    const first = h.types[0];
+    const second = b.types[b.types.length - 1];
+    return first === second ? [first] : [first, second];
+  }
+
+  /* Both learnsets, the earlier level winning where they overlap. */
+  function fuseLearn(h, b) {
+    const at = {};
+    (h.learn || []).concat(b.learn || []).forEach(([lv, name]) => {
+      if (at[name] === undefined || lv < at[name]) at[name] = lv;
+    });
+    return Object.keys(at).map((name) => [at[name], name]).sort((x, y) => x[0] - y[0]);
+  }
+
+  function isFusionId(id) { return typeof id === 'string' && id.indexOf(FUSE) > 0; }
+
+  function fuse(headId, bodyId) {
+    const id = headId + FUSE + bodyId;
+    if (BY_ID[id]) return BY_ID[id];
+    const h = BY_ID[headId], b = BY_ID[bodyId];
+    if (!h || !b || h.fusion || b.fusion) return null;
+
+    const lean = (mine, theirs) => Math.round((2 * mine + theirs) / 3);
+    const sp = {
+      id, no: 0, fusion: true, headId, bodyId,
+      name: fuseName(h.name, b.name),
+      // The drawing is cut in half, so the colours are too: the head keeps
+      // its own, the body keeps its own, and the seam is the point.
+      body: b.body, accent: h.accent, belly: b.belly,
+      types: fuseTypes(h, b),
+      base: {
+        hp: lean(b.base.hp, h.base.hp),
+        atk: lean(h.base.atk, b.base.atk),
+        def: lean(b.base.def, h.base.def),
+        spd: lean(h.base.spd, b.base.spd),
+      },
+      rarity: RARITY_ORDER.indexOf(h.rarity) >= RARITY_ORDER.indexOf(b.rarity) ? h.rarity : b.rarity,
+      catch: Math.min(h.catch, b.catch),
+      yield: Math.round((h.yield + b.yield) / 2),
+      learn: fuseLearn(h, b),
+      dex: 'The head of a ' + h.name + ' on the body of a ' + b.name + '. '
+        + 'Nobody has decided yet whether that is one creature or two.',
+    };
+    BY_ID[id] = sp;
+    return sp;
+  }
+
+  /* A save that comes back holding a fusion should get the fusion, not a
+   * hole where a creature used to be. */
+  function lookup(id) {
+    if (BY_ID[id]) return BY_ID[id];
+    if (isFusionId(id)) {
+      const [a, b] = id.split(FUSE);
+      return fuse(a, b);
+    }
+    return undefined;
+  }
+
   const POOLS = {};
   RARITY_ORDER.forEach((r) => { POOLS[r] = SPECIES.filter((s) => s.rarity === r); });
 
@@ -1292,7 +1408,8 @@ const Dex = (() => {
 
   return {
     TYPES, TYPE_LIST, CHART, MOVES, ART, SPECIES, RARITY, RARITY_ORDER,
-    byId: (id) => BY_ID[id],
+    byId: lookup,
+    fuse, isFusionId, fuseName, FUSE,
     move: (name) => MOVES[name],
     pool: (r) => POOLS[r] || [],
     effect, statAt, xpForLevel, learnedBy, wildMoves,

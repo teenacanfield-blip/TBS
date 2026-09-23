@@ -25,13 +25,19 @@ const DEMOS = [
   {
     id: 'rip-and-go',
     title: 'Pokémon Rip and Go',
-    tagline: 'One of three, one road out, five out of eight.',
+    tagline: 'One of three, one road out, and 1089 ways to splice them.',
     motif: 'ball',
     accent: '#5ce08a',
     accentDark: '#08210f',
     url: '',
     blurb:
-      'A fan-made creature collector, and this time it is the whole game: a ' +
+      'A fan-made creature collector with a splicer in it: thirty-three ' +
+      'creatures, and one thousand and eighty-nine fusions you can make out ' +
+      'of them. Put the head of one on the body of another and you get a ' +
+      'real creature — its own name, its own sprite cut from both halves, ' +
+      'the attack and speed of the head, the health and defence of the body, both ' +
+      'their types and both their learnsets. Feed it back in and it comes ' +
+      'apart again. Around that: the whole game. A ' +
       'town with one road out of it, a professor with three on a table, a ' +
       'boy your age who takes the one that beats yours, and long grass ' +
       'between you and everywhere else. Walk into it, wear something down, ' +

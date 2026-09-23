@@ -32,7 +32,13 @@ const Codes = (() => {
   'use strict';
 
   const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const VERSION = 1;
+  /* Version 2 carries fusions. Each creature now opens with a bit saying
+   * whether it is one creature or two, and a spliced one spends six more bits
+   * naming the body. A team of plain creatures costs one bit each more than
+   * it used to, which is nothing; a team of fusions costs seven, which is the
+   * honest price of describing something made of two things. */
+  const VERSION = 2;
+  const FUSE_MARK = '+';
   const MAX_TEAM = 6;
 
   /* ================================================================== bits */
@@ -83,6 +89,7 @@ const Codes = (() => {
     let n = list.length * 7;
     list.forEach((m, i) => {
       n = (n * 31 + m.species * 101 + m.level * 7 + (m.shiny ? 3 : 0) + i) % 1024;
+      if (m.bodySpecies !== undefined) n = (n * 31 + m.bodySpecies * 17 + 5) % 1024;
     });
     return n;
   }
@@ -94,7 +101,16 @@ const Codes = (() => {
     (party || []).slice(0, MAX_TEAM).forEach((m) => {
       const sp = Dex.byId(m.species);
       if (!sp) return;
-      list.push({ species: sp.no - 1, level: Math.max(1, Math.min(100, m.level)), shiny: !!m.shiny });
+      const entry = { level: Math.max(1, Math.min(100, m.level)), shiny: !!m.shiny };
+      if (sp.fusion) {
+        const head = Dex.byId(sp.headId), body = Dex.byId(sp.bodyId);
+        if (!head || !body) return;
+        entry.species = head.no - 1;
+        entry.bodySpecies = body.no - 1;
+      } else {
+        entry.species = sp.no - 1;
+      }
+      list.push(entry);
     });
     if (!list.length) return '';
 
@@ -102,7 +118,10 @@ const Codes = (() => {
     w.push(VERSION, 4);
     w.push(list.length - 1, 3);
     list.forEach((m) => {
+      const fused = m.bodySpecies !== undefined;
+      w.push(fused ? 1 : 0, 1);
       w.push(m.species, 6);
+      if (fused) w.push(m.bodySpecies, 6);
       w.push(m.level, 7);
       w.push(m.shiny ? 1 : 0, 1);
     });
@@ -132,13 +151,21 @@ const Codes = (() => {
 
     const list = [];
     for (let i = 0; i < n; i++) {
-      const species = r.pull(6), level = r.pull(7), shiny = r.pull(1);
-      if (species === null || level === null || shiny === null) {
+      const fused = r.pull(1);
+      const species = r.pull(6);
+      const bodySpecies = fused === 1 ? r.pull(6) : undefined;
+      const level = r.pull(7), shiny = r.pull(1);
+      if (fused === null || species === null || level === null || shiny === null
+        || (fused === 1 && bodySpecies === null)) {
         return { ok: false, error: 'The code stops in the middle. A character is missing.' };
       }
-      if (species >= Dex.SPECIES.length) return { ok: false, error: 'That code names something not in this dex.' };
+      if (species >= Dex.SPECIES.length || (fused === 1 && bodySpecies >= Dex.SPECIES.length)) {
+        return { ok: false, error: 'That code names something not in this dex.' };
+      }
       if (level < 1 || level > 100) return { ok: false, error: 'That code has an impossible level in it.' };
-      list.push({ species, level, shiny: !!shiny });
+      const entry = { species, level, shiny: !!shiny };
+      if (fused === 1) entry.bodySpecies = bodySpecies;
+      list.push(entry);
     }
 
     const sum = r.pull(10);
@@ -148,7 +175,9 @@ const Codes = (() => {
     return {
       ok: true,
       team: list.map((m) => ({
-        species: Dex.SPECIES[m.species].id,
+        species: m.bodySpecies === undefined
+          ? Dex.SPECIES[m.species].id
+          : Dex.SPECIES[m.species].id + FUSE_MARK + Dex.SPECIES[m.bodySpecies].id,
         level: m.level,
         shiny: m.shiny,
       })),
@@ -238,6 +267,22 @@ const Codes = (() => {
           bad.push(sp.name + ' L' + lv + ': came back as ' + got.species + ' L' + got.level);
         }
       });
+    });
+
+    // Fusions have to survive the trip too, including a team that mixes
+    // spliced creatures with whole ones.
+    const fusedTeam = [
+      { species: 'pyrehound' + FUSE_MARK + 'stormwing', level: 44, shiny: false },
+      { species: 'spriglet', level: 12, shiny: true },
+      { species: 'wisplet' + FUSE_MARK + 'rimemaw', level: 31, shiny: true },
+    ];
+    const fusedBack = decode(encode(fusedTeam));
+    if (!fusedBack.ok) bad.push('a team with fusions in it: ' + fusedBack.error);
+    else fusedTeam.forEach((want, i) => {
+      const got = fusedBack.team[i];
+      if (!got || got.species !== want.species || got.level !== want.level || got.shiny !== want.shiny) {
+        bad.push('fusion slot ' + i + ' changed in transit: ' + (got && got.species));
+      }
     });
 
     // A full six, and a one-character typo in it, which must not survive.

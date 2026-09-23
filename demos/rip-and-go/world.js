@@ -15,7 +15,7 @@
  *     L  ledge — you can hop down it southward, never back up
  *     f  floor          m  doormat     T  table     C  counter
  *     b  bookshelf      P  the healing machine      c  computer
- *     g  gym floor      G  gym mat
+ *     g  gym floor      G  gym mat   X  the splicer
  *
  * ------------------------------------------------------------------ people
  *
@@ -54,6 +54,7 @@ const World = (() => {
     'G': { paint: 'gymmat' },
     'o': { paint: 'cavefloor' },
     'O': { paint: 'cavewall', solid: true },
+    'X': { paint: 'splicer', solid: true },
   };
 
   const MAPS = {};
@@ -329,7 +330,7 @@ const World = (() => {
       '#fffCPCfffff#',
       '#ffffffffffc#',
       '#ffffffffffc#',
-      '#fffffffffff#',
+      '#Xffffffffff#',
       '#fffffffffff#',
       '#fffffffffff#',
       '######mm#####',
@@ -340,6 +341,7 @@ const World = (() => {
       { x: 7, y: 8, to: 'willowbank', tx: 6, ty: 5, dir: 'down' },
     ],
     signs: { '11,3': 'THE BOX. Everything you caught and did not carry.' },
+    spots: { '1,5': 'splicer' },
     people: [
       { id: 'nurse1', x: 5, y: 3, dir: 'down', who: 'nurse', heal: true,
         lines: ['Put them on the counter. This takes no time at all.'] },
@@ -618,7 +620,7 @@ const World = (() => {
       '#fffCPCfffff#',
       '#ffffffffffc#',
       '#ffffffffffc#',
-      '#fffffffffff#',
+      '#Xffffffffff#',
       '#fffffffffff#',
       '#fffffffffff#',
       '######mm#####',
@@ -629,6 +631,7 @@ const World = (() => {
       { x: 7, y: 8, to: 'emberside', tx: 6, ty: 5, dir: 'down' },
     ],
     signs: { '11,3': 'THE BOX. Everything you caught and did not carry.' },
+    spots: { '1,5': 'splicer' },
     people: [
       { id: 'nurse2', x: 5, y: 3, dir: 'down', who: 'nurse', heal: true,
         lines: ['Straight off the cut, by the look of you. Put them down.'] },

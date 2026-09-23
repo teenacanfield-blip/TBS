@@ -577,6 +577,16 @@ function interact() {
   const key = f.x + ',' + f.y;
 
   const spot = (map.spots || {})[key];
+  if (spot === 'splicer') {
+    Sound.ok();
+    if (S.party.length < 2 && !S.party.some((m) => spOf(m).fusion)) {
+      talk(['A machine with two slots and one chute.',
+        'It wants two of yours to put together — or one you already have, to take apart.']);
+      return;
+    }
+    talk(['The splicer hums when you touch it.'], openSplicer);
+    return;
+  }
   if (spot === 'starters') {
     Sound.ok();
     if (S.flags.gotStarter) { talk(['Two empty spaces and a dent where the third one was.']); return; }
@@ -2805,6 +2815,178 @@ function drawLadder() {
     W / 2, H - 10, LAD.note ? '#ffd166' : '#5d6b92', 1, 'center');
 }
 
+/* ================================================================= splicer */
+/* Two of yours in, one of yours out — the head of the first on the body of
+ * the second. Thirty-three creatures make one thousand and eighty-nine of
+ * these, so the interesting question stops being "what did you catch" and
+ * becomes "what did you think to put together".
+ *
+ * A splice is reversible. The machine remembers what went in, and feeding a
+ * fusion back gives you both halves at the level the fusion reached, because
+ * a mechanic that can only destroy things is one people stop touching. */
+
+const SPL = { stage: 0, head: -1, body: -1, cursor: 0, note: '' };
+
+function openSplicer() {
+  SPL.stage = 0; SPL.head = -1; SPL.body = -1; SPL.cursor = 0; SPL.note = '';
+  go('splice');
+}
+
+function splicedMon(headMon, bodyMon) {
+  const sp = Dex.fuse(spOf(headMon).id, spOf(bodyMon).id);
+  if (!sp) return null;
+  const level = Math.max(headMon.level, bodyMon.level);
+  const m = makeMon(sp.id, level, { shiny: headMon.shiny || bodyMon.shiny });
+  // Carry across whatever of the two was in better shape, proportionally.
+  const frac = Math.max(headMon.hp / maxHp(headMon), bodyMon.hp / maxHp(bodyMon));
+  m.hp = Math.max(1, Math.round(maxHp(m) * frac));
+  return m;
+}
+
+function updateSplice() {
+  const n = S.party.length;
+
+  if (eat('back') || eat('start')) {
+    if (SPL.stage === 0) { Sound.back(); go('world'); return; }
+    SPL.stage--; SPL.note = ''; Sound.back();
+    SPL.cursor = clamp(SPL.cursor, 0, Math.max(0, n - 1));
+    return;
+  }
+
+  if (SPL.stage === 2) {
+    if (eat('ok')) {
+      const head = S.party[SPL.head], body = S.party[SPL.body];
+      const made = splicedMon(head, body);
+      if (!made) { Sound.deny(); SPL.note = 'Those two will not go together.'; return; }
+      // Out with two, in with one, at the slot the head came from.
+      const keep = Math.min(SPL.head, SPL.body);
+      S.party = S.party.filter((m, i) => i !== SPL.head && i !== SPL.body);
+      S.party.splice(clamp(keep, 0, S.party.length), 0, made);
+      S.seen[made.species] = true; S.caught[made.species] = true;
+      Sound.levelup();
+      save();
+      go('world');
+      talk(['The machine runs for a moment and stops.',
+        'It is a ' + nameOf(made) + ' now — the head of a ' + spOf(head).name
+          + ' on the body of a ' + spOf(body).name + '.',
+        'Bring it back any time and it comes apart again.']);
+    }
+    return;
+  }
+
+  if (!n) return;
+  if (eat('up')) { SPL.cursor = (SPL.cursor + n - 1) % n; Sound.cursor(); }
+  if (eat('down')) { SPL.cursor = (SPL.cursor + 1) % n; Sound.cursor(); }
+
+  if (eat('ok')) {
+    const m = S.party[SPL.cursor];
+    const sp = spOf(m);
+
+    // A fusion on its own comes apart instead.
+    if (sp.fusion && SPL.stage === 0) {
+      if (S.party.length >= 6) { Sound.deny(); SPL.note = 'No room for two. Leave one behind first.'; return; }
+      const head = makeMon(sp.headId, m.level, { shiny: m.shiny });
+      const body = makeMon(sp.bodyId, m.level, { shiny: m.shiny });
+      S.party.splice(SPL.cursor, 1, head, body);
+      Sound.levelup();
+      save();
+      go('world');
+      talk([nameOf(m) + ' comes apart on the table.',
+        'A ' + spOf(head).name + ' and a ' + spOf(body).name + ', both at level ' + m.level + '.']);
+      return;
+    }
+
+    if (SPL.stage === 0) {
+      SPL.head = SPL.cursor; SPL.stage = 1; SPL.note = ''; Sound.ok();
+      SPL.cursor = (SPL.cursor + 1) % n;
+      return;
+    }
+    if (SPL.cursor === SPL.head) { Sound.deny(); SPL.note = 'It cannot be spliced with itself.'; return; }
+    if (sp.fusion) { Sound.deny(); SPL.note = 'A fusion cannot be spliced again.'; return; }
+    SPL.body = SPL.cursor; SPL.stage = 2; SPL.note = ''; Sound.ok();
+  }
+}
+
+function drawSplice() {
+  box(0, 0, W, H, '#0a0f1c');
+  const titles = ['CHOOSE THE HEAD', 'CHOOSE THE BODY', 'LIKE THIS?'];
+  txt('THE SPLICER', 10, 8, '#ce93d8', 1);
+  txt(titles[SPL.stage], W - 10, 8, '#ffd166', 1, 'right');
+  box(8, 18, W - 16, 1, '#2b3c6b');
+
+  // The team, down the left.
+  panel(8, 26, 150, 182, '#101728', '#4d5f96');
+  if (!S.party.length) txt('Nothing to splice.', 16, 36, '#5d6b92', 1);
+  S.party.forEach((m, i) => {
+    const y = 34 + i * 28;
+    const on = SPL.cursor === i && SPL.stage < 2;
+    const chosen = i === SPL.head || i === SPL.body;
+    if (on) { box(12, y - 3, 142, 26, '#243157'); frame(12, y - 3, 142, 26, '#5aa9f0'); }
+    else if (chosen) frame(12, y - 3, 142, 26, '#ce93d8');
+    Art.mon(ctx, spOf(m), m.shiny, 16, y, 22, false);
+    txt(nameOf(m).slice(0, 11), 42, y, spOf(m).fusion ? '#ce93d8' : '#e8eefc', 1);
+    txt('L' + m.level, 150, y, '#9fb0d8', 1, 'right');
+    let cx = 42;
+    typesOf(m).forEach((ty) => { cx += Art.typeChip(ctx, ty, cx, y + 11, 1) + 2; });
+    if (i === SPL.head) txt('HEAD', 150, y + 12, '#ce93d8', 1, 'right');
+    if (i === SPL.body) txt('BODY', 150, y + 12, '#ce93d8', 1, 'right');
+  });
+
+  // What comes out, down the right.
+  panel(164, 26, W - 172, 182, '#101728', SPL.stage === 2 ? '#ce93d8' : '#4d5f96');
+  const head = SPL.head >= 0 ? S.party[SPL.head] : null;
+  const body = SPL.stage >= 1 && SPL.cursor !== SPL.head
+    ? S.party[SPL.stage === 2 ? SPL.body : SPL.cursor] : null;
+
+  if (!head) {
+    wrapText('Pick one to be the head. It brings the attack, the speed, the first type '
+      + 'and the top of the drawing.', 174, 38, W - 190, 11, '#9fb0d8');
+    wrapText('Pick a fusion on its own and the machine takes it apart instead.',
+      174, 80, W - 190, 11, '#5d6b92');
+    txt('A CHOOSES   B GOES BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+    return;
+  }
+
+  const preview = body && !spOf(body).fusion && !spOf(head).fusion
+    ? Dex.fuse(spOf(head).id, spOf(body).id) : null;
+
+  if (!preview) {
+    wrapText('Now pick one to be the body: the health, the defence, the second type '
+      + 'and everything below the neck.', 174, 38, W - 190, 11, '#9fb0d8');
+    if (SPL.note) txt(SPL.note, 174, 86, '#e2483c', 1);
+    txt('A CHOOSES   B GOES BACK', W / 2, H - 10, '#5d6b92', 1, 'center');
+    return;
+  }
+
+  Art.mon(ctx, preview, head.shiny || body.shiny, 174, 34, 64, false);
+  txt(preview.name, 246, 38, '#ce93d8', 1);
+  let cx = 246;
+  preview.types.forEach((ty) => { cx += Art.typeChip(ctx, ty, cx, 50, 1) + 3; });
+  txt('LEVEL ' + Math.max(head.level, body.level), 246, 66, '#9fb0d8', 1);
+  txt('FROM ' + spOf(head).name + ' AND ' + spOf(body).name, 246, 78, '#5d6b92', 1);
+
+  // Base stats, with each parent's underneath so the trade is visible.
+  let y = 110;
+  txt('HP  ATK  DEF  SPD', 174, y, '#7f8db5', 1); y += 11;
+  const row = (label, o, col) => {
+    txt(label, 174, y, col, 1);
+    txt(String(o.hp), 236, y, col, 1, 'right');
+    txt(String(o.atk), 268, y, col, 1, 'right');
+    txt(String(o.def), 300, y, col, 1, 'right');
+    txt(String(o.spd), 332, y, col, 1, 'right');
+    y += 11;
+  };
+  row('HEAD', spOf(head).base, '#5d6b92');
+  row('BODY', spOf(body).base, '#5d6b92');
+  row('FUSED', preview.base, '#5ce08a');
+
+  y += 6;
+  wrapText(preview.dex, 174, y, W - 190, 10, '#9fb0d8');
+
+  txt(SPL.stage === 2 ? 'A SPLICES THEM   B GOES BACK' : 'A CHOOSES   B GOES BACK',
+    W / 2, H - 10, SPL.stage === 2 ? '#5ce08a' : '#5d6b92', 1, 'center');
+}
+
 /* ------------------------------------------------------- what you drafted */
 /* The moment between keeping five and fighting with them, which exists so
  * there is somewhere to read your five back and, more to the point, somewhere
@@ -3100,6 +3282,11 @@ const HELP = [
   ['THE LADDER', 'If the site has a ladder switched on, the menu shows teams other people ' +
     'have posted and lets you fight them. Records are self-reported — it is a place to find ' +
     'teams worth fighting, not a rank. Posting needs an account, made on the main site.'],
+  ['THE SPLICER', 'The machine in either healing center takes two of yours and gives back one: ' +
+    'the head of the first on the body of the second. It brings the attack, the speed and the ' +
+    'first type; the body brings the health, the defence and the rest. Thirty-three creatures ' +
+    'make one thousand and eighty-nine fusions. Feed a fusion back in on its own and it comes ' +
+    'apart again, both halves at the level it reached.'],
   ['PACK SEEDS', 'Every draft has a six-character seed, shown while you are choosing. Give it to ' +
     'somebody and they open the same eight cards. Draft your five each, swap the team codes the ' +
     'game hands you, and fight the other one\'s draft: same pack, two reads of it.'],
@@ -3418,6 +3605,7 @@ function update(dt) {
     case 'shop': updateShop(); break;
     case 'packs': updatePacks(); break;
     case 'arena': updateArena(); break;
+    case 'splice': updateSplice(); break;
     case 'drafted': updateDrafted(); break;
     case 'ask': updateAsk(); break;
     case 'rip': updateRip(); break;
@@ -3448,6 +3636,7 @@ function draw() {
     case 'shop': drawShop(); break;
     case 'packs': drawPacks(); break;
     case 'arena': drawArena(); break;
+    case 'splice': drawSplice(); break;
     case 'drafted': drawDrafted(); break;
     case 'ask': drawAsk(); break;
     case 'rip': drawRip(); break;
