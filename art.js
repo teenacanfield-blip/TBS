@@ -710,6 +710,21 @@ const Art = (() => {
       R(cx + u * 11.6, cy - u * 3, u * 3.6, u * 6.4, '#ffd166') +
       R(cx + u * 14.6, cy - u * 4.4, u * 3, u * 9, '#ffe9a8') +
       `</g>`,
+
+    // Woo: a masquerade mask, one plume catching the light.
+    mask: (cx, cy, u, c) =>
+      R(cx - u * 7, cy - u * 5, u * 14, u * 10, c) +
+      R(cx - u * 8.4, cy - u * 2, u * 1.8, u * 4, c) +
+      R(cx + u * 6.6, cy - u * 2, u * 1.8, u * 4, c) +
+      R(cx - u * 5, cy - u * 2, u * 3.4, u * 2.6, '#0b0e14') +
+      R(cx + u * 1.6, cy - u * 2, u * 3.4, u * 2.6, '#0b0e14') +
+      R(cx - u * 0.6, cy - u * 0.4, u * 1.2, u * 3, c) +
+      R(cx - u * 6, cy - u * 6.6, u * 4, u * 1.4, c) +
+      R(cx + u * 2, cy - u * 6.6, u * 4, u * 1.4, c) +
+      `<g class="flick" style="transform-origin:${cx + u * 5}px ${cy - u * 6}px">` +
+      R(cx + u * 4, cy - u * 12.4, u * 1.6, u * 6.4, '#ffffff') +
+      R(cx + u * 5.2, cy - u * 14.4, u * 1.6, u * 5.6, c, ' opacity="0.85"') +
+      `</g>`,
   };
 
   const demoScene = (d, w, h, focal, ns) => {

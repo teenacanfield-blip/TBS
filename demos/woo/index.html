@@ -1,0 +1,1218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="color-scheme" content="dark" />
+<title>Woo</title>
+<meta name="description" content="A 3D masquerade murder mystery. Get guests alone, strike quietly, hide the bodies, and keep your Heat down — the detective owl is always somewhere in the house." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%23130a1c'/%3E%3Crect x='1' y='6' width='14' height='4' fill='%23100916'/%3E%3Crect x='3' y='7' width='3' height='2' fill='%23c81e3a'/%3E%3Crect x='10' y='7' width='3' height='2' fill='%23c81e3a'/%3E%3Crect x='6' y='6' width='4' height='1' fill='%23100916'/%3E%3C/svg%3E" />
+<style>
+:root {
+  --bg:             #0b0710;
+  --surface-1:      #1d1428;
+  --surface-2:      #241a30;
+  --border:         #3a2a4a;
+  --text:           #f3e9e0;
+  --text-secondary: #c1adc9;
+  --text-muted:     #8a7793;
+  --accent:         #c81e3a;
+  --accent-dim:     #7a1428;
+  --good:           #5ce08a;
+  --warn:           #f5c518;
+  --bad:            #e0524a;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
+}
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 8px;
+  padding-left: calc(8px + env(safe-area-inset-left));
+  padding-right: calc(8px + env(safe-area-inset-right));
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+#hudrow {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+#hudrow .group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#hudrow .chip {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+#detChip.calm       { color: var(--text-secondary); }
+#detChip.suspicious { color: var(--warn); border-color: var(--warn); }
+#detChip.hunting    { color: var(--bad); border-color: var(--bad); animation: pulseChip .5s ease-in-out infinite; }
+@keyframes pulseChip { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+#heattrack {
+  width: 100px;
+  height: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+#heatbar { height: 100%; width: 0%; background: var(--good); transition: background .2s ease; }
+
+#stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  line-height: 0;
+  touch-action: none;
+  background: #05030a;
+}
+#stage canvas { display: block; width: 100%; height: 100%; }
+
+#hint { flex: none; font-size: 12px; color: var(--text-muted); }
+
+#toast {
+  position: absolute;
+  left: 50%; top: 14px;
+  transform: translate(-50%, -14px);
+  background: rgba(19, 10, 28, 0.88);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  max-width: 82%;
+  text-align: center;
+  z-index: 6;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ------------------------------------------------------------- overlays */
+.overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 5%;
+  background: rgba(6, 3, 10, 0.72);
+  z-index: 10;
+}
+.overlay.hidden { display: none; }
+.panel {
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  color: var(--text);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: clamp(16px,4vw,32px) clamp(18px,5vw,40px);
+  max-width: 460px;
+  width: 100%;
+  text-align: center;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.6);
+}
+.panel h1 {
+  font-size: clamp(30px,6vw,44px);
+  margin: 0 0 6px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-shadow: 0 2px 0 rgba(0,0,0,0.4);
+}
+.panel h2 {
+  font-size: clamp(20px,4.4vw,28px);
+  margin: 0 0 10px;
+  color: var(--accent);
+}
+.panel p.tagline { margin: 0 0 18px; color: var(--text-secondary); font-style: italic; }
+.rules {
+  text-align: left;
+  font-size: 13.5px;
+  background: rgba(255,255,255,0.04);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 0 0 20px;
+  line-height: 1.55;
+}
+.rules div { margin: 3px 0; }
+.rules b { color: var(--accent); }
+.statline { font-size: 14px; margin: 4px 0; color: var(--text-secondary); }
+.statline b { color: var(--text); }
+button.bigbtn {
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff4f0;
+  border: none;
+  border-bottom: 4px solid var(--accent-dim);
+  border-radius: 6px;
+  padding: 13px 26px;
+  cursor: pointer;
+  letter-spacing: 0.6px;
+  transition: transform .08s ease, background .15s ease;
+}
+button.bigbtn:hover { background: #e0334f; }
+button.bigbtn:active { transform: translateY(3px); border-bottom-width: 1px; }
+
+/* --------------------------------------------------------- touch controls */
+#touch { display: none; }
+body.touch #touch { display: block; }
+#touch .tb {
+  position: absolute;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0; padding: 0;
+  font: inherit; font-size: 20px; line-height: 1;
+  color: var(--text);
+  background: rgba(29, 20, 40, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(2px);
+  user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+#touch .tb:active, #touch .tb.on {
+  background: rgba(200, 30, 58, 0.38);
+  border-color: var(--accent);
+}
+#touch .up, #touch .down  { width: 56px; height: 56px; left: calc(14px + 56px); }
+#touch .left, #touch .right { width: 56px; height: 56px; bottom: calc(14px + 56px); }
+#touch .up    { bottom: calc(14px + 112px); }
+#touch .down  { bottom: 14px; }
+#touch .left  { left: 14px; }
+#touch .right { left: calc(14px + 112px); }
+#touch .wide {
+  right: 14px; width: 100px; height: 46px;
+  font-size: 12px; letter-spacing: 1px;
+}
+#touch .act-strike { bottom: calc(14px + 58px); }
+#touch .act-grab   { bottom: 14px; }
+@media (max-height: 420px) {
+  #touch .up, #touch .down, #touch .left, #touch .right { width: 46px; height: 46px; }
+  #touch .up    { bottom: calc(10px + 92px); }
+  #touch .left  { left: 10px; bottom: calc(10px + 46px); }
+  #touch .right { left: calc(10px + 92px); bottom: calc(10px + 46px); }
+  #touch .down  { bottom: 10px; }
+  #touch .up, #touch .down { left: calc(10px + 46px); }
+  #touch .wide { width: 84px; height: 40px; right: 10px; }
+  #touch .act-strike { bottom: calc(10px + 50px); }
+  #touch .act-grab   { bottom: 10px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="sr-only">Woo — a masquerade murder mystery, in 3D</h1>
+
+  <div id="hudrow">
+    <div class="group">
+      <span id="killsChip" class="chip">Kills 0 / 6</span>
+      <span id="detChip" class="chip calm">Calm</span>
+    </div>
+    <div class="group">
+      <span>Heat</span>
+      <div id="heattrack"><div id="heatbar"></div></div>
+      <span id="carryChip" class="chip" style="display:none">Carrying a body</span>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="toast"></div>
+
+    <div id="touch">
+      <button type="button" class="tb up"    data-key="arrowup"    aria-label="Move away from camera">&#9650;</button>
+      <button type="button" class="tb left"  data-key="arrowleft"  aria-label="Move left">&#9664;</button>
+      <button type="button" class="tb right" data-key="arrowright" aria-label="Move right">&#9654;</button>
+      <button type="button" class="tb down"  data-key="arrowdown"  aria-label="Move toward camera">&#9660;</button>
+      <button type="button" class="tb wide act-strike" data-act="strike" aria-label="Strike">STRIKE</button>
+      <button type="button" class="tb wide act-grab"   data-act="grab"   aria-label="Grab or stash a body">GRAB</button>
+    </div>
+
+    <div id="titleOverlay" class="overlay">
+      <div class="panel">
+        <h1>WOO</h1>
+        <p class="tagline">A masquerade. A guest list. A wolf who RSVP'd yes.</p>
+        <div class="rules">
+          <div><b>Move:</b> WASD / Arrow keys, or the on-screen stick</div>
+          <div><b>Strike:</b> Space — catch a guest alone and unwatched</div>
+          <div><b>Grab / Stash:</b> E — drag a body into a glowing spot before anyone finds it</div>
+          <div><b>Goal:</b> six quiet kills, then slip out the front door — but every witness, every found body, and every clean kill still turns the Heat up. Let it max out and you get made.</div>
+        </div>
+        <button class="bigbtn" id="beginBtn">Begin</button>
+      </div>
+    </div>
+
+    <div id="caughtOverlay" class="overlay hidden">
+      <div class="panel">
+        <h2>YOU GOT MADE</h2>
+        <p class="tagline">The band stops. Every head in the room turns your way.</p>
+        <p class="statline">Kills: <b id="caughtKills">0</b></p>
+        <p class="statline">Heat reached: <b id="caughtHeat">0</b>%</p>
+        <button class="bigbtn" id="retryBtn">Try Again</button>
+      </div>
+    </div>
+
+    <div id="getawayOverlay" class="overlay hidden">
+      <div class="panel">
+        <h2>CLEAN GETAWAY</h2>
+        <p class="tagline">The carriage pulls away. Nobody even checked the guest list.</p>
+        <p class="statline">Kills: <b id="getawayKills">0</b> / 9</p>
+        <p class="statline">Bodies hidden for good: <b id="getawayHidden">0</b></p>
+        <p class="statline">Heat at the door: <b id="getawayHeat">0</b>%</p>
+        <button class="bigbtn" id="againBtn">Do It Again</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="hint">WASD/Arrows to move. Space to strike a lone guest. E to grab or stash a body in a glowing hiding spot. Six quiet kills, then out the front door.</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+const stage = document.getElementById('stage');
+
+/* ------------------------------------------------------------- constants */
+const CHAR_R = 20;
+const STRIKE_RANGE = 62;
+const WITNESS_RADIUS = 320;
+const DISCOVERY_RADIUS = 130;
+const GRAB_RANGE = 62;
+const STASH_RANGE = 72;
+const CATCH_RADIUS = 55;
+const PLAYER_SPEED = 168;
+const CARRY_SPEED = 108;
+const GUEST_SPEED = 55;
+const SPOOKED_SPEED = 130;
+const DET_SPEED_CALM = 58;
+const DET_SPEED_SUSPICIOUS = 92;
+const DET_SPEED_HUNT = 142;
+const HEAT_MAX = 100;
+const KILLS_REQUIRED = 6;
+const HEAT_DECAY_DELAY = 4000;
+const HEAT_DECAY_RATE = 4;
+const HUNT_REFRESH = 5000;
+
+const ROOMS = {
+  library:  { xMin: -730, xMax: -410, zMin: -180, zMax: 180, cx: -570, cz: 0 },
+  ballroom: { xMin: -370, xMax:  370, zMin: -180, zMax: 540, cx: 0,    cz: 180 },
+  kitchen:  { xMin:  410, xMax:  730, zMin: -180, zMax: 180, cx: 570,  cz: 0 },
+  garden:   { xMin: -730, xMax:  730, zMin: -540, zMax: -220, cx: 0,   cz: -380 },
+};
+
+/* ------------------------------------------------------------ renderer */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0611);
+scene.fog = new THREE.Fog(0x0a0611, 500, 1500);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+stage.appendChild(renderer.domElement);
+
+const camera = new THREE.PerspectiveCamera(52, 1, 1, 3000);
+
+/* ------------------------------------------------------------- lighting */
+const hemi = new THREE.HemisphereLight(0x4a3a5c, 0x120a1a, 0.65);
+scene.add(hemi);
+
+const moon = new THREE.DirectionalLight(0x8fa8d8, 0.28);
+moon.position.set(-300, 500, -600);
+scene.add(moon);
+
+const chandelier = new THREE.PointLight(0xffcf9e, 1.6, 900, 2);
+chandelier.position.set(0, 170, 150);
+chandelier.castShadow = true;
+chandelier.shadow.mapSize.set(1024, 1024);
+chandelier.shadow.camera.near = 20;
+chandelier.shadow.camera.far = 700;
+scene.add(chandelier);
+const chandelierBulb = new THREE.Mesh(new THREE.SphereGeometry(14, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffe3b0 }));
+chandelierBulb.position.copy(chandelier.position);
+scene.add(chandelierBulb);
+
+function addRoomLamp(x, z, color) {
+  const l = new THREE.PointLight(color, 0.85, 520, 2);
+  l.position.set(x, 130, z);
+  scene.add(l);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(8, 8, 8), new THREE.MeshBasicMaterial({ color }));
+  bulb.position.copy(l.position);
+  scene.add(bulb);
+}
+addRoomLamp(-570, 0, 0xffcf9e);
+addRoomLamp(570, 0, 0xffcf9e);
+addRoomLamp(0, -380, 0x9ec8ff);
+
+/* ----------------------------------------------------------------- floor */
+function makeParquetTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#3a2a24';
+  cx.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 8; i++) {
+    for (let j = 0; j < 8; j++) {
+      cx.fillStyle = (i + j) % 2 === 0 ? '#432f28' : '#3a2822';
+      cx.fillRect(i * 16, j * 16, 16, 16);
+    }
+  }
+  return new THREE.CanvasTexture(c);
+}
+const floorTex = makeParquetTexture();
+floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+floorTex.repeat.set(48, 42);
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(1560, 1360),
+  new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.95 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.position.set(0, 0, 0);
+floor.receiveShadow = true;
+scene.add(floor);
+
+function makeGrassTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#233a24';
+  cx.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 500; i++) {
+    cx.fillStyle = Math.random() > 0.5 ? '#2b4a2c' : '#1e3220';
+    cx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+  }
+  return new THREE.CanvasTexture(c);
+}
+const grassTex = makeGrassTexture();
+grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping;
+grassTex.repeat.set(20, 11);
+const gardenFloor = new THREE.Mesh(
+  new THREE.PlaneGeometry(1480, 340),
+  new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 })
+);
+gardenFloor.rotation.x = -Math.PI / 2;
+gardenFloor.position.set(0, 0.4, -380);
+gardenFloor.receiveShadow = true;
+scene.add(gardenFloor);
+
+const rug = new THREE.Mesh(
+  new THREE.CircleGeometry(150, 24),
+  new THREE.MeshStandardMaterial({ color: 0x5c1a28, roughness: 0.9 })
+);
+rug.rotation.x = -Math.PI / 2;
+rug.position.set(0, 0.3, 150);
+rug.receiveShadow = true;
+scene.add(rug);
+
+/* ------------------------------------------------------------- obstacles */
+const obstacles = [];
+function addWall(cx, cz, w, d) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w, 110, d),
+    new THREE.MeshStandardMaterial({ color: 0x241826, roughness: 0.9 })
+  );
+  mesh.position.set(cx, 55, cz);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  obstacles.push({ box: new THREE.Box3().setFromObject(mesh) });
+  return mesh;
+}
+function addFurniture(cx, cz, w, h, d, color) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.85 })
+  );
+  mesh.position.set(cx, h / 2, cz);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  obstacles.push({ box: new THREE.Box3().setFromObject(mesh) });
+  return mesh;
+}
+function addCyl(cx, cz, r, h, color) {
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, h, 14),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
+  );
+  mesh.position.set(cx, h / 2, cz);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  obstacles.push({ box: new THREE.Box3().setFromObject(mesh) });
+  return mesh;
+}
+function addHedge(cx, cz) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(46, 10, 10),
+    new THREE.MeshStandardMaterial({ color: 0x274a2a, roughness: 0.95 })
+  );
+  mesh.position.set(cx, 40, cz);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  obstacles.push({ box: new THREE.Box3().setFromObject(mesh) });
+  return mesh;
+}
+
+// Outer walls.
+addWall(-760, 0, 16, 1152);
+addWall(760, 0, 16, 1152);
+addWall(0, -560, 1536, 16);
+addWall(-415, 560, 690, 16);
+addWall(415, 560, 690, 16);
+// Library | ballroom divider (door gap z[-40,40]).
+addWall(-390, -110, 16, 140);
+addWall(-390, 110, 16, 140);
+// Kitchen | ballroom divider.
+addWall(390, -110, 16, 140);
+addWall(390, 110, 16, 140);
+// Garden | south-wing divider (door gap x[-40,40]).
+addWall(-400, -200, 720, 16);
+addWall(400, -200, 720, 16);
+
+// Furniture.
+addFurniture(-700, -110, 36, 90, 90, 0x4a3320);
+addFurniture(-700, 0, 36, 90, 90, 0x4a3320);
+addFurniture(-700, 110, 36, 90, 90, 0x4a3320);
+addFurniture(-560, -60, 70, 40, 45, 0x5a3f28);
+addFurniture(700, -110, 36, 90, 90, 0x4a3320);
+addFurniture(570, 0, 150, 65, 55, 0x5a3f28);
+addFurniture(-140, 470, 14, 85, 60, 0x3a2a1c);
+addFurniture(140, 470, 14, 85, 60, 0x3a2a1c);
+addCyl(-170, 260, 34, 42, 0x5c1a28);
+addCyl(170, 260, 34, 42, 0x5c1a28);
+addCyl(0, -380, 55, 30, 0x3a5a78);
+addHedge(-500, -320);
+addHedge(500, -320);
+addHedge(-500, -460);
+addHedge(500, -460);
+
+/* ---------------------------------------------------------- hiding spots */
+const hidingSpots = [
+  { x: -260, z: 495, r: 40, label: 'Coat closet' },
+  { x: 260, z: 495, r: 40, label: 'Coat closet' },
+  { x: -460, z: 150, r: 40, label: 'Reading nook' },
+  { x: 690, z: 150, r: 40, label: 'Pantry' },
+  { x: -500, z: -320, r: 40, label: 'Hedge' },
+  { x: 500, z: -320, r: 40, label: 'Hedge' },
+];
+hidingSpots.forEach((s) => {
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(s.r - 8, s.r, 24),
+    new THREE.MeshBasicMaterial({ color: 0xf5c518, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(s.x, 1.2, s.z);
+  scene.add(ring);
+  s.ring = ring;
+});
+
+/* Front door marker — the exit. */
+const exitPoint = { x: 0, z: 552 };
+const exitRing = new THREE.Mesh(
+  new THREE.RingGeometry(30, 46, 24),
+  new THREE.MeshBasicMaterial({ color: 0x5ce08a, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+);
+exitRing.rotation.x = -Math.PI / 2;
+exitRing.position.set(exitPoint.x, 1.2, exitPoint.z);
+scene.add(exitRing);
+
+/* -------------------------------------------------------- character kit */
+function mkBox(w, h, d, color, rough) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, roughness: rough === undefined ? 0.8 : rough }));
+  return m;
+}
+function mkSphere(r, color, rough) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 10), new THREE.MeshStandardMaterial({ color, roughness: rough === undefined ? 0.8 : rough }));
+  return m;
+}
+function part(group, mesh, x, y, z) {
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
+  return mesh;
+}
+
+// Mammal template: body, head, ears, snout — forward is +z.
+function buildMammal(bodyColor, headColor, earStyle, snoutColor) {
+  const g = new THREE.Group();
+  part(g, mkBox(34, 30, 46, bodyColor), 0, 17, -2);
+  part(g, mkBox(26, 24, 24, headColor || bodyColor), 0, 34, 26);
+  if (earStyle === 'long') {
+    part(g, mkBox(6, 26, 8, bodyColor), -8, 56, 24).rotation.z = 0.08;
+    part(g, mkBox(6, 26, 8, bodyColor), 8, 56, 24).rotation.z = -0.08;
+  } else if (earStyle === 'round') {
+    part(g, mkSphere(7, bodyColor), -10, 46, 22);
+    part(g, mkSphere(7, bodyColor), 10, 46, 22);
+  } else if (earStyle === 'point') {
+    part(g, mkBox(8, 14, 8, bodyColor), -9, 47, 20);
+    part(g, mkBox(8, 14, 8, bodyColor), 9, 47, 20);
+  } else if (earStyle === 'antler') {
+    part(g, mkBox(4, 18, 4, 0x4a3020), -9, 50, 20);
+    part(g, mkBox(4, 18, 4, 0x4a3020), 9, 50, 20);
+    part(g, mkBox(10, 4, 4, 0x4a3020), -12, 58, 20);
+    part(g, mkBox(10, 4, 4, 0x4a3020), 12, 58, 20);
+  }
+  part(g, mkBox(14, 12, 12, snoutColor || headColor || bodyColor), 0, 30, 40);
+  part(g, mkBox(10, 10, 16, bodyColor), 0, 20, -26);
+  return g;
+}
+function buildBird(bodyColor, billColor, opts) {
+  opts = opts || {};
+  const g = new THREE.Group();
+  part(g, mkSphere(19, bodyColor), 0, 24, -2);
+  const head = part(g, mkSphere(13, bodyColor), 0, 42, 22);
+  part(g, mkBox(9, 7, 14, billColor), 0, 40, 35);
+  part(g, mkBox(24, 5, 16, bodyColor), -20, 26, -4).rotation.z = 0.1;
+  part(g, mkBox(24, 5, 16, bodyColor), 20, 26, -4).rotation.z = -0.1;
+  if (opts.eyes) {
+    const eyeGeo = new THREE.SphereGeometry(6, 8, 8);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e6 });
+    const pupilGeo = new THREE.SphereGeometry(3, 8, 8);
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x110b16 });
+    [-7, 7].forEach((ex) => {
+      const e = new THREE.Mesh(eyeGeo, eyeMat);
+      e.position.set(ex, 44, 30);
+      g.add(e);
+      const p = new THREE.Mesh(pupilGeo, pupilMat);
+      p.position.set(ex, 44, 35);
+      g.add(p);
+    });
+  }
+  if (opts.hat) {
+    part(g, mkBox(24, 8, 26, 0x2a2018), 0, 54, 22);
+    part(g, mkBox(10, 6, 30, 0x2a2018), 0, 51, 38);
+  }
+  return g;
+}
+
+function buildGuestMesh(species) {
+  switch (species) {
+    case 'rabbit': return buildMammal(0xf2ece0, 0xf2ece0, 'long', 0xe8a0b0);
+    case 'pig':    return buildMammal(0xf2a6c0, 0xf2a6c0, 'round', 0xd97ea3);
+    case 'mouse':  return buildMammal(0x9a97a3, 0x9a97a3, 'round', 0xd9a7b0);
+    case 'deer':   return buildMammal(0x9a6a3f, 0xc79a6a, 'antler', 0x5a3d24);
+    case 'duck':   return buildBird(0xf0c93c, 0xff8c3d, {});
+    case 'goose':  return buildBird(0xf5f5f0, 0xff8c3d, {});
+    default:       return buildMammal(0xffffff, 0xffffff, 'round', 0xcccccc);
+  }
+}
+function buildDetectiveMesh() {
+  return buildBird(0x6b5a4a, 0xd9a35a, { eyes: true, hat: true });
+}
+function buildPlayerMesh() {
+  const g = buildMammal(0x342c3a, 0xd8d4dc, 'point', 0x201a24);
+  part(g, mkBox(30, 10, 2, 0x100c14), 0, 39, 38.5); // domino mask
+  part(g, mkBox(8, 8, 2, 0xb0203a), 0, 26, 49);      // bowtie
+  return g;
+}
+
+/* -------------------------------------------------------------- entities */
+function newAngleFromMove(mx, mz) { return Math.atan2(mx, mz); }
+
+function spawnGroup(mesh, x, z) {
+  mesh.position.set(x, 0, z);
+  scene.add(mesh);
+  return mesh;
+}
+
+function inBox(x, z, b) {
+  for (const ob of obstacles) {
+    const box = ob.box;
+    if (x + CHAR_R > box.min.x && x - CHAR_R < box.max.x && z + CHAR_R > box.min.z && z - CHAR_R < box.max.z) return true;
+  }
+  return false;
+}
+function blockedAt(x, z) { return inBox(x, z); }
+function tryMove(x, z, dx, dz) {
+  let nx = x, nz = z;
+  if (dx !== 0) { const tx = x + dx; if (!blockedAt(tx, z)) nx = tx; }
+  if (dz !== 0) { const tz = z + dz; if (!blockedAt(nx, tz)) nz = tz; }
+  return { x: nx, z: nz };
+}
+function randPointIn(room) {
+  for (let i = 0; i < 12; i++) {
+    const x = room.xMin + Math.random() * (room.xMax - room.xMin);
+    const z = room.zMin + Math.random() * (room.zMax - room.zMin);
+    if (!blockedAt(x, z)) return { x, z };
+  }
+  return { x: room.cx, z: room.cz };
+}
+
+/* Every room but the ballroom opens onto it through exactly one doorway, so
+   crossing between two side rooms means aiming at both doors in turn — a
+   straight line at the final target alone can walk an entity into the wall
+   beside the gap and leave it sliding along it forever. */
+const DOORS = { library: { x: -390, z: 0 }, kitchen: { x: 390, z: 0 }, garden: { x: 0, z: -200 } };
+function roomNameOf(x, z) {
+  for (const name in ROOMS) {
+    const r = ROOMS[name];
+    if (x >= r.xMin - 6 && x <= r.xMax + 6 && z >= r.zMin - 6 && z <= r.zMax + 6) return name;
+  }
+  return null;
+}
+function nextWaypoint(fromX, fromZ, toX, toZ) {
+  const fromRoom = roomNameOf(fromX, fromZ) || 'ballroom';
+  const toRoom = roomNameOf(toX, toZ) || 'ballroom';
+  if (fromRoom === toRoom) return { x: toX, z: toZ };
+  const door = fromRoom === 'ballroom' ? DOORS[toRoom] : DOORS[fromRoom];
+  // Once through (or nearly through) the gap, aim past it at the real target
+  // rather than homing in on the door point itself — otherwise an entity
+  // that arrives exactly at the door, still just barely on the wrong side of
+  // the room boundary, has nothing left pulling it the rest of the way and
+  // idles there forever.
+  if (dist2(fromX, fromZ, door.x, door.z) < 30) return { x: toX, z: toZ };
+  return door;
+}
+function moveToward(entity, tx, tz, speed, dt) {
+  const wp = nextWaypoint(entity.x, entity.z, tx, tz);
+  const dx = wp.x - entity.x, dz = wp.z - entity.z;
+  const d = Math.hypot(dx, dz);
+  if (d > 2) {
+    const nx = dx / d, nz = dz / d;
+    entity.angle = newAngleFromMove(nx, nz);
+    const moved = tryMove(entity.x, entity.z, nx * speed * dt, nz * speed * dt);
+    entity.x = moved.x; entity.z = moved.z;
+  }
+}
+function hasLineOfSight(x1, y1, z1, x2, y2, z2) {
+  const origin = new THREE.Vector3(x1, y1, z1);
+  const target = new THREE.Vector3(x2, y2, z2);
+  const dir = new THREE.Vector3().subVectors(target, origin);
+  const d = dir.length();
+  if (d < 1) return true;
+  dir.normalize();
+  const ray = new THREE.Ray(origin, dir);
+  const hit = new THREE.Vector3();
+  for (const ob of obstacles) {
+    if (ray.intersectBox(ob.box, hit)) {
+      if (hit.distanceTo(origin) < d - 6) return false;
+    }
+  }
+  return true;
+}
+function dist2(ax, az, bx, bz) { return Math.hypot(ax - bx, az - bz); }
+
+const GUEST_DEFS = [
+  { species: 'duck',   room: 'ballroom' },
+  { species: 'pig',    room: 'ballroom' },
+  { species: 'goose',  room: 'ballroom' },
+  { species: 'rabbit', room: 'library' },
+  { species: 'mouse',  room: 'library' },
+  { species: 'pig',    room: 'kitchen' },
+  { species: 'rabbit', room: 'kitchen' },
+  { species: 'deer',   room: 'garden' },
+  { species: 'duck',   room: 'garden' },
+];
+
+let guests = [];
+function resetGuests() {
+  guests.forEach((g) => scene.remove(g.mesh));
+  guests = GUEST_DEFS.map((def) => {
+    const room = ROOMS[def.room];
+    const p = randPointIn(room);
+    const mesh = spawnGroup(buildGuestMesh(def.species), p.x, p.z);
+    return {
+      species: def.species, room, mesh, x: p.x, z: p.z, angle: 0,
+      state: 'wander', target: null, waitTimer: 0, alive: true,
+    };
+  });
+}
+
+const detective = { x: -570, z: 0, angle: 0, state: 'calm', target: null, patrolIdx: 0, mesh: null };
+const PATROL = [ROOMS.ballroom, ROOMS.library, ROOMS.ballroom, ROOMS.garden, ROOMS.ballroom, ROOMS.kitchen];
+
+const player = { x: 0, z: 450, angle: Math.PI, carrying: null, mesh: null };
+
+let bodies = [];
+
+/* ------------------------------------------------------------------ hud */
+const killsChip = document.getElementById('killsChip');
+const detChip = document.getElementById('detChip');
+const heatbar = document.getElementById('heatbar');
+const carryChip = document.getElementById('carryChip');
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+}
+
+/* ---------------------------------------------------------------- audio */
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  else if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playSound(name) {
+  if (!audioCtx) return;
+  try {
+    const freqMap = { strike: 140, witness: 520, discover: 460, stash: 720, grab: 300, win: 620, caught: 90 };
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = name === 'caught' ? 'sawtooth' : (name === 'stash' ? 'sine' : 'triangle');
+    o.frequency.value = freqMap[name] || 300;
+    g.gain.value = 0.07;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    if (name === 'witness' || name === 'discover') {
+      o.frequency.exponentialRampToValueAtTime((freqMap[name] || 300) * 1.6, audioCtx.currentTime + 0.22);
+    }
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (name === 'caught' ? 0.6 : 0.22));
+    o.stop(audioCtx.currentTime + (name === 'caught' ? 0.62 : 0.24));
+  } catch (e) {}
+}
+
+/* --------------------------------------------------------------- state */
+let mode = 'title';
+let heat = 0;
+let maxHeatReached = 0;
+let kills = 0;
+let bodiesHidden = 0;
+let lastIncidentAt = 0;
+let huntUntil = 0;
+let huntTarget = null;
+let exitToastAt = 0;
+
+const KILL_LINES = [
+  "won't be finishing that drink.",
+  "left without saying goodbye.",
+  "took a very permanent powder break.",
+  "is done mingling for the night.",
+  "won't be missed until dessert.",
+  "just RSVP'd no, posthumously.",
+];
+function speciesName(s) {
+  return { rabbit: 'The rabbit', pig: 'The pig', mouse: 'The mouse', deer: 'The deer', duck: 'The duck', goose: 'The goose' }[s] || 'The guest';
+}
+
+function addHeat(n) {
+  heat = Math.max(0, Math.min(HEAT_MAX, heat + n));
+  maxHeatReached = Math.max(maxHeatReached, heat);
+  lastIncidentAt = performance.now();
+  if (heat >= HEAT_MAX) triggerCaught();
+}
+function engageHunt(x, z) {
+  huntUntil = performance.now() + HUNT_REFRESH;
+  huntTarget = { x, z };
+}
+
+/* ------------------------------------------------------------ actions */
+function attemptStrike() {
+  if (mode !== 'playing') return;
+  if (player.carrying) { toast("Hands are full — stash the body first."); return; }
+  let best = null, bestD = STRIKE_RANGE;
+  for (const g of guests) {
+    if (!g.alive) continue;
+    const d = dist2(player.x, player.z, g.x, g.z);
+    if (d < bestD) { bestD = d; best = g; }
+  }
+  if (!best) { toast("No one close enough."); return; }
+
+  const kx = best.x, kz = best.z;
+  let witnessed = false;
+  let sawIt = null;
+  for (const g of guests) {
+    if (g === best || !g.alive) continue;
+    if (dist2(g.x, g.z, kx, kz) < WITNESS_RADIUS && hasLineOfSight(g.x, 30, g.z, kx, 30, kz)) { witnessed = true; sawIt = g; break; }
+  }
+  let detSawIt = false;
+  if (dist2(detective.x, detective.z, kx, kz) < WITNESS_RADIUS && hasLineOfSight(detective.x, 30, detective.z, kx, 30, kz)) {
+    witnessed = true; detSawIt = true;
+  }
+
+  best.alive = false;
+  scene.remove(best.mesh);
+  guests = guests.filter((g) => g !== best);
+  bodies.push({ x: kx, z: kz, species: best.species, mesh: (function () { const m = buildGuestMesh(best.species); m.rotation.z = Math.PI / 2; m.position.set(kx, 6, kz); scene.add(m); return m; })(), hidden: false, discovered: false });
+
+  kills++;
+  playSound('strike');
+  toast(`${speciesName(best.species)} ${KILL_LINES[Math.floor(Math.random() * KILL_LINES.length)]}`);
+
+  if (detSawIt) {
+    addHeat(30);
+    playSound('witness');
+    engageHunt(player.x, player.z);
+  } else if (witnessed) {
+    addHeat(30);
+    playSound('witness');
+    sawIt.state = 'spooked';
+  } else {
+    addHeat(8);
+  }
+}
+
+function attemptGrabOrStash() {
+  if (mode !== 'playing') return;
+  if (player.carrying) {
+    const spot = hidingSpots.find((s) => dist2(player.x, player.z, s.x, s.z) < s.r + STASH_RANGE - s.r);
+    const near = hidingSpots.find((s) => dist2(player.x, player.z, s.x, s.z) < STASH_RANGE);
+    if (near) {
+      scene.remove(player.carrying.mesh);
+      bodies = bodies.filter((b) => b !== player.carrying);
+      bodiesHidden++;
+      player.carrying = null;
+      carryChip.style.display = 'none';
+      playSound('stash');
+      toast(`Hidden in the ${near.label.toLowerCase()}.`);
+    } else {
+      player.carrying.mesh.position.set(player.x, 6, player.z);
+      player.carrying.mesh.rotation.set(0, 0, Math.PI / 2);
+      player.carrying.hidden = false;
+      player.carrying = null;
+      carryChip.style.display = 'none';
+      toast('Dropped.');
+    }
+  } else {
+    let best = null, bestD = GRAB_RANGE;
+    for (const b of bodies) {
+      if (b.hidden) continue;
+      const d = dist2(player.x, player.z, b.x, b.z);
+      if (d < bestD) { bestD = d; best = b; }
+    }
+    if (!best) { toast('Nothing to grab here.'); return; }
+    player.carrying = best;
+    carryChip.style.display = '';
+    playSound('grab');
+    toast('Dragging the body.');
+  }
+}
+
+function triggerCaught() {
+  if (mode !== 'playing') return;
+  mode = 'caught';
+  playSound('caught');
+  document.getElementById('caughtKills').textContent = kills;
+  document.getElementById('caughtHeat').textContent = Math.round(maxHeatReached);
+  document.getElementById('caughtOverlay').classList.remove('hidden');
+}
+function triggerGetaway() {
+  if (mode !== 'playing') return;
+  mode = 'getaway';
+  playSound('win');
+  document.getElementById('getawayKills').textContent = kills;
+  document.getElementById('getawayHidden').textContent = bodiesHidden;
+  document.getElementById('getawayHeat').textContent = Math.round(heat);
+  document.getElementById('getawayOverlay').classList.remove('hidden');
+}
+
+/* -------------------------------------------------------------- input */
+const keys = {};
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  if (e.repeat) return;
+  if (k === ' ') attemptStrike();
+  if (k === 'e') attemptGrabOrStash();
+});
+window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+function anyMoveKey() {
+  return keys['arrowup'] || keys['arrowdown'] || keys['arrowleft'] || keys['arrowright'] ||
+         keys['w'] || keys['a'] || keys['s'] || keys['d'];
+}
+
+/* --------------------------------------------------------------- setup */
+player.mesh = spawnGroup(buildPlayerMesh(), player.x, player.z);
+detective.mesh = spawnGroup(buildDetectiveMesh(), detective.x, detective.z);
+resetGuests();
+
+function fullReset() {
+  heat = 0; maxHeatReached = 0; kills = 0; bodiesHidden = 0;
+  lastIncidentAt = 0; huntUntil = 0; huntTarget = null;
+  bodies.forEach((b) => scene.remove(b.mesh));
+  bodies = [];
+  player.x = 0; player.z = 450; player.angle = Math.PI; player.carrying = null;
+  carryChip.style.display = 'none';
+  detective.x = -570; detective.z = 0; detective.state = 'calm'; detective.target = null; detective.patrolIdx = 0;
+  resetGuests();
+}
+
+/* ---------------------------------------------------------------- update */
+function updatePlayer(dt) {
+  let mx = 0, mz = 0;
+  if (keys['arrowup'] || keys['w']) mz -= 1;
+  if (keys['arrowdown'] || keys['s']) mz += 1;
+  if (keys['arrowleft'] || keys['a']) mx -= 1;
+  if (keys['arrowright'] || keys['d']) mx += 1;
+  const speed = player.carrying ? CARRY_SPEED : PLAYER_SPEED;
+  if (mx || mz) {
+    const len = Math.hypot(mx, mz);
+    mx /= len; mz /= len;
+    player.angle = newAngleFromMove(mx, mz);
+    const moved = tryMove(player.x, player.z, mx * speed * dt, mz * speed * dt);
+    player.x = moved.x; player.z = moved.z;
+  }
+  player.mesh.position.set(player.x, 0, player.z);
+  player.mesh.rotation.y = player.angle;
+
+  if (player.carrying) {
+    const bx = player.x - Math.sin(player.angle) * 30;
+    const bz = player.z - Math.cos(player.angle) * 30;
+    player.carrying.mesh.position.set(bx, 6, bz);
+    player.carrying.x = bx; player.carrying.z = bz;
+  }
+}
+
+function pickGuestTarget(g) {
+  g.target = randPointIn(g.room);
+  g.waitTimer = 0;
+}
+function updateGuest(g, dt) {
+  if (g.state === 'wander') {
+    if (!g.target) pickGuestTarget(g);
+    const dx = g.target.x - g.x, dz = g.target.z - g.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 14) {
+      g.waitTimer += dt;
+      if (g.waitTimer > 0.6 + Math.random() * 1.4) pickGuestTarget(g);
+    } else {
+      const nx = dx / d, nz = dz / d;
+      g.angle = newAngleFromMove(nx, nz);
+      const before = { x: g.x, z: g.z };
+      const moved = tryMove(g.x, g.z, nx * GUEST_SPEED * dt, nz * GUEST_SPEED * dt);
+      g.x = moved.x; g.z = moved.z;
+      if (Math.hypot(g.x - before.x, g.z - before.z) < 0.01) pickGuestTarget(g);
+    }
+  } else if (g.state === 'spooked') {
+    const d = dist2(g.x, g.z, detective.x, detective.z);
+    if (d < 40) {
+      g.state = 'wander';
+      g.target = null;
+      addHeat(15);
+      playSound('discover');
+      engageHunt(g.reportX !== undefined ? g.reportX : g.x, g.reportZ !== undefined ? g.reportZ : g.z);
+    } else {
+      moveToward(g, detective.x, detective.z, SPOOKED_SPEED, dt);
+    }
+  }
+  g.mesh.position.set(g.x, 0, g.z);
+  g.mesh.rotation.y = g.angle;
+}
+
+function updateBodyDiscovery() {
+  const observers = guests.filter((g) => g.state === 'wander').map((g) => ({ x: g.x, z: g.z, isGuest: true, g }))
+    .concat([{ x: detective.x, z: detective.z, isGuest: false }]);
+  for (const b of bodies) {
+    if (b.hidden || b.discovered || (player.carrying === b)) continue;
+    for (const o of observers) {
+      if (dist2(o.x, o.z, b.x, b.z) < DISCOVERY_RADIUS && hasLineOfSight(o.x, 20, o.z, b.x, 6, b.z)) {
+        b.discovered = true;
+        if (o.isGuest) {
+          o.g.state = 'spooked';
+          o.g.reportX = b.x; o.g.reportZ = b.z;
+        } else {
+          addHeat(20);
+          playSound('discover');
+          engageHunt(b.x, b.z);
+        }
+        break;
+      }
+    }
+  }
+}
+
+function detectiveState() {
+  const now = performance.now();
+  if (now < huntUntil) return 'hunting';
+  return heat >= 45 ? 'suspicious' : 'calm';
+}
+function updateDetective(dt) {
+  const now = performance.now();
+  detective.state = detectiveState();
+
+  if (detective.state === 'hunting') {
+    if (hasLineOfSight(detective.x, 30, detective.z, player.x, 30, player.z) && dist2(detective.x, detective.z, player.x, player.z) < 420) {
+      huntTarget = { x: player.x, z: player.z };
+      huntUntil = now + HUNT_REFRESH;
+    }
+    detective.target = huntTarget;
+  } else if (detective.state === 'suspicious') {
+    if (!detective.target || dist2(detective.x, detective.z, detective.target.x, detective.target.z) < 20) {
+      detective.target = randPointIn(ROOMS.ballroom);
+    }
+  } else {
+    if (!detective.target || dist2(detective.x, detective.z, detective.target.x, detective.target.z) < 20) {
+      detective.patrolIdx = (detective.patrolIdx + 1) % PATROL.length;
+      detective.target = randPointIn(PATROL[detective.patrolIdx]);
+    }
+  }
+
+  const speed = detective.state === 'hunting' ? DET_SPEED_HUNT : detective.state === 'suspicious' ? DET_SPEED_SUSPICIOUS : DET_SPEED_CALM;
+  if (detective.target) {
+    moveToward(detective, detective.target.x, detective.target.z, speed, dt);
+  }
+  detective.mesh.position.set(detective.x, 0, detective.z);
+  detective.mesh.rotation.y = detective.angle;
+
+  if (detective.state === 'hunting' && dist2(detective.x, detective.z, player.x, player.z) < CATCH_RADIUS) {
+    triggerCaught();
+  }
+}
+
+function updateHeatDecay(dt) {
+  const now = performance.now();
+  if (now - lastIncidentAt > HEAT_DECAY_DELAY && heat > 0) {
+    heat = Math.max(0, heat - HEAT_DECAY_RATE * dt);
+  }
+}
+
+function checkExit() {
+  if (dist2(player.x, player.z, exitPoint.x, exitPoint.z) < 60) {
+    if (kills >= KILLS_REQUIRED) {
+      triggerGetaway();
+    } else {
+      const now = performance.now();
+      if (now - exitToastAt > 2200) {
+        exitToastAt = now;
+        toast(`Not yet — ${KILLS_REQUIRED - kills} more to go.`);
+      }
+    }
+  }
+}
+
+function updateHud() {
+  killsChip.textContent = `Kills ${kills} / ${KILLS_REQUIRED}`;
+  const pct = Math.round(heat);
+  heatbar.style.width = pct + '%';
+  heatbar.style.background = heat >= 75 ? 'var(--bad)' : heat >= 40 ? 'var(--warn)' : 'var(--good)';
+  detChip.className = 'chip ' + detective.state;
+  detChip.textContent = detective.state === 'hunting' ? 'HUNTING!' : detective.state === 'suspicious' ? 'Suspicious' : 'Calm';
+  hidingSpots.forEach((s) => { s.ring.material.opacity = 0.35 + Math.sin(performance.now() / 300) * 0.2; });
+  exitRing.material.opacity = kills >= KILLS_REQUIRED ? (0.5 + Math.sin(performance.now() / 220) * 0.3) : 0.25;
+}
+
+function update(dt) {
+  if (mode !== 'playing') return;
+  updatePlayer(dt);
+  guests.forEach((g) => updateGuest(g, dt));
+  updateBodyDiscovery();
+  updateDetective(dt);
+  updateHeatDecay(dt);
+  checkExit();
+}
+
+/* --------------------------------------------------------------- camera */
+const camPos = new THREE.Vector3(0, 420, 840);
+function updateCamera() {
+  const desired = new THREE.Vector3(player.x, 420, player.z + 340);
+  camPos.lerp(desired, 0.09);
+  camera.position.copy(camPos);
+  camera.lookAt(player.x, 20, player.z - 60);
+}
+
+/* ------------------------------------------------------------------ loop */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  update(dt);
+  updateCamera();
+  chandelierBulb.position.y = 170 + Math.sin(now / 900) * 2;
+  renderer.render(scene, camera);
+  updateHud();
+  requestAnimationFrame(loop);
+}
+
+/* ------------------------------------------------------------ fit stage */
+function fitRenderer() {
+  const w = Math.max(1, stage.clientWidth);
+  const h = Math.max(1, stage.clientHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', fitRenderer);
+window.addEventListener('orientationchange', fitRenderer);
+fitRenderer();
+
+/* --------------------------------------------------------------- touch */
+(function initTouch() {
+  const pad = document.getElementById('touch');
+  if (!pad) return;
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if (!isTouch) return;
+  document.body.classList.add('touch');
+
+  for (const btn of pad.querySelectorAll('.tb')) {
+    const key = btn.dataset.key;
+    const act = btn.dataset.act;
+    const press = (e) => {
+      e.preventDefault();
+      btn.classList.add('on');
+      ensureAudio();
+      if (act === 'strike') attemptStrike();
+      else if (act === 'grab') attemptGrabOrStash();
+      else if (key) keys[key] = true;
+      if (btn.setPointerCapture && e.pointerId !== undefined) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} }
+    };
+    const release = (e) => {
+      e.preventDefault();
+      btn.classList.remove('on');
+      if (key) keys[key] = false;
+    };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+})();
+
+/* --------------------------------------------------------------- panels */
+document.getElementById('beginBtn').addEventListener('click', () => {
+  ensureAudio();
+  document.getElementById('titleOverlay').classList.add('hidden');
+  mode = 'playing';
+});
+document.getElementById('retryBtn').addEventListener('click', () => {
+  fullReset();
+  document.getElementById('caughtOverlay').classList.add('hidden');
+  mode = 'playing';
+});
+document.getElementById('againBtn').addEventListener('click', () => {
+  fullReset();
+  document.getElementById('getawayOverlay').classList.add('hidden');
+  mode = 'playing';
+});
+
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

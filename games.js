@@ -247,6 +247,36 @@ const DEMOS = [
     url: '',
     blurb: 'A tiny adventure through Emberfen Vale — the last dragon, and the last thing it has to give.',
   },
+  {
+    id: 'woo',
+    rating: 'teen',
+    ratingNotes: ['Cartoon violence', 'Murder mystery themes'],
+    title: 'Woo',
+    tagline: 'A masquerade. A guest list. A wolf who RSVP’d yes.',
+    motif: 'mask',
+    accent: '#c81e3a',
+    accentDark: '#230910',
+    url: '',
+    blurb:
+      'A 3D stealth murder mystery, played from the wrong side of the mystery. You are a ' +
+      'wolf at a masquerade in a low-poly manor, and the guest list is the hit list: nine ' +
+      'animals — rabbits, ducks, pigs, a mouse, a deer, a goose — wandering the ballroom, ' +
+      'the library, the kitchen and the conservatory. Get one alone, unwatched, and strike. ' +
+      'Get seen, or leave a body somewhere it can be found, and the Heat meter climbs. Six ' +
+      'quiet kills unlocks the front door, and Heat maxing out ends the night for you instead ' +
+      '— the band stops, every head turns. ' +
+      'An owl detective in a deerstalker hat is somewhere in the house the whole time, calm ' +
+      'and slow until a scream or a discovered body puts him on your trail — at which point ' +
+      'he is fast enough that outrunning him in a straight line is not a plan, only losing ' +
+      'him around a corner is. Six hiding spots — two coat closets, a ' +
+      'reading nook, a pantry, two garden hedges — are the other half of the game: drag a body ' +
+      'into one and it is gone for good, never found, never counted against you. Leave it on ' +
+      'the ballroom floor instead and whoever finds it goes running to report it. ' +
+      'Walls and furniture actually block sight, not just movement, so a kill made behind a ' +
+      'bookshelf is a different bet than one made in the middle of the dance floor. Heat cools ' +
+      'on its own if nothing goes wrong for a few seconds, so patience is the whole skill here ' +
+      'as much as timing is.',
+  },
 ];
 
 /* ---------------------------------------------------------------- games */
