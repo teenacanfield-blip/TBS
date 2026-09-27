@@ -70,7 +70,7 @@ const REWARDS = {
 const Save = (() => {
   const KEY = 'bigswing.save.v1';
   const blank = () => ({
-    tokens: 150,
+    tokens: 500,
     gear: { owned: [], on: {} },
     skins: { owned: ['team'], on: 'team' },
     cards: {},
