@@ -502,6 +502,156 @@ const Art = (() => {
     return s;
   };
 
+  /* A jelly-bean ballplayer, stood on `footY`, facing right, bat raised. */
+  const beanPlayer = (cx, footY, u, jersey, trim, cap, skin, bat) => {
+    const top = footY - 20 * u;
+    let s = '';
+    // Legs and shoes.
+    s += R(cx - 3 * u, footY - 4 * u, 2 * u, 4 * u, '#f4f4f6') + R(cx + u, footY - 4 * u, 2 * u, 4 * u, '#f4f4f6');
+    s += R(cx - 3.6 * u, footY - u, 3 * u, u, '#1c1c24') + R(cx + 0.6 * u, footY - u, 3 * u, u, '#1c1c24');
+    // The bean: stacked bars, round at both ends.
+    s += R(cx - 4 * u, top + u, 8 * u, u, jersey);
+    s += R(cx - 5 * u, top + 2 * u, 10 * u, u, jersey);
+    s += R(cx - 6 * u, top + 3 * u, 12 * u, 11 * u, jersey);
+    s += R(cx - 5 * u, top + 14 * u, 10 * u, u, jersey);
+    s += R(cx - 4 * u, top + 15 * u, 8 * u, u, jersey);
+    s += R(cx - 6 * u, top + 3 * u, 2 * u, 11 * u, '#ffffff', ' opacity="0.18"');
+    s += R(cx - 6 * u, top + 11 * u, 12 * u, u, trim);
+    // Face, big eyes, a grin.
+    s += R(cx - 3 * u, top + 4 * u, 8 * u, 6 * u, skin);
+    s += R(cx - 2 * u, top + 5 * u, 2 * u, 3 * u, '#ffffff') + R(cx + 2 * u, top + 5 * u, 2 * u, 3 * u, '#ffffff');
+    s += R(cx - u, top + 6 * u, u, 2 * u, '#1c1c24') + R(cx + 3 * u, top + 6 * u, u, 2 * u, '#1c1c24');
+    s += R(cx, top + 8.6 * u, 3 * u, 0.6 * u, '#1c1c24');
+    // Cap, brim to the front.
+    s += R(cx - 4 * u, top - u, 8 * u, u, cap) + R(cx - 5 * u, top, 10 * u, 3 * u, cap);
+    s += R(cx + 3 * u, top + 2 * u, 5 * u, u, cap);
+    // Arm up, and the bat over the shoulder.
+    s += R(cx + 5 * u, top + 9 * u, 3 * u, 2 * u, jersey) + R(cx + 7 * u, top + 7 * u, 2 * u, 2 * u, '#ffffff');
+    for (let i = 0; i < 10; i++) {
+      const t = 0.9 + i * 0.09;
+      s += R(cx + 8 * u - i * 0.9 * u, top + 6 * u - i * 1.1 * u, t * u, 1.3 * u, bat);
+    }
+    return s;
+  };
+
+  const bigSwingScene = (w, h, focal, ns) => {
+    const rand = rng(2323);
+    const tall = h > w;
+    let s = `<defs>
+      <linearGradient id="${ns}-bsb-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#2f7bff"/><stop offset="100%" stop-color="#a9e2ff"/>
+      </linearGradient>
+      <radialGradient id="${ns}-bsb-glow">
+        <stop offset="0%" stop-color="#ffe98a" stop-opacity="0.8"/>
+        <stop offset="100%" stop-color="#ffd23f" stop-opacity="0"/>
+      </radialGradient></defs>`;
+    s += R(0, 0, w, h, `url(#${ns}-bsb-sky)`);
+    // Blocky clouds.
+    for (let i = 0; i < 6; i++) {
+      const cx = rand() * w, cy = h * (0.06 + rand() * 0.2), cw = w * (0.08 + rand() * 0.1);
+      s += R(cx, cy, cw, cw * 0.28, '#ffffff', ' opacity="0.9"');
+      s += R(cx + cw * 0.2, cy - cw * 0.14, cw * 0.55, cw * 0.2, '#ffffff', ' opacity="0.9"');
+    }
+    // Light towers, then the stands full of crowd.
+    const sy = h * (tall ? 0.3 : 0.34), sh = h * 0.16;
+    for (const fx of [0.08, 0.92]) {
+      s += R(w * fx - 4, sy - h * 0.2, 8, h * 0.2, '#8a93a6');
+      s += R(w * fx - w * 0.04, sy - h * 0.23, w * 0.08, h * 0.04, '#fff6c8', ' class="pulse-slow"');
+    }
+    s += R(0, sy, w, sh, '#2a3a78');
+    const cols = ['#ff4d6d', '#ffd166', '#4dabf7', '#ffffff', '#51cf66', '#f783ac', '#ff922b'];
+    const cu = Math.max(4, Math.round(w / 110));
+    for (let y = sy + cu; y < sy + sh - cu; y += cu * 2) {
+      for (let x = rand() * cu; x < w; x += cu * 1.6) {
+        if (rand() < 0.15) continue;
+        s += R(x, y, cu, cu, cols[Math.floor(rand() * cols.length)]);
+      }
+    }
+    s += R(0, sy + sh - 6, w, 6, '#1f5c3a');
+    s += R(0, sy + sh - 8, w, 3, '#ffd23f');
+    // The field: mowing stripes and a dirt diamond.
+    const fy = sy + sh;
+    for (let i = 0; fy + i * h * 0.05 < h; i++) s += R(0, fy + i * h * 0.05, w, h * 0.05, i % 2 ? '#4fb84a' : '#62c95a');
+    const dx = w * focal, dy = tall ? fy + (h - fy) * 0.34 : fy + (h - fy) * 0.62;
+    s += `<polygon points="${dx},${dy - h * 0.12} ${dx + w * 0.28},${dy + h * 0.04} ${dx},${dy + h * 0.2} ${dx - w * 0.28},${dy + h * 0.04}" fill="#d99a5e"/>`;
+    // A homer on its way out, and the golden-bat hero.
+    const u = Math.max(4, Math.round((tall ? w : h) / 46));
+    const bx = Math.min(w * 0.86, dx + w * 0.3), by = h * 0.14;
+    for (let i = 1; i < 9; i++) s += R(bx - i * u * 2.2, by + i * i * u * 0.28, u, u, '#ffffff', ` opacity="${(1 - i / 9).toFixed(2)}"`);
+    s += `<circle cx="${bx}" cy="${by}" r="${u * 1.6}" fill="#fbfaf5"/>`;
+    s += R(bx - u * 0.9, by - u * 0.9, u * 0.35, u * 1.8, '#d0202a') + R(bx + u * 0.55, by - u * 0.9, u * 0.35, u * 1.8, '#d0202a');
+    s += `<ellipse cx="${dx}" cy="${dy - u * 10}" rx="${u * 16}" ry="${u * 14}" fill="url(#${ns}-bsb-glow)" class="pulse-slow"/>`;
+    s += `<g class="bob">${beanPlayer(dx, dy, u, '#1f6fff', '#ffffff', '#0d2b66', '#c68a5b', '#ffcc33')}</g>`;
+    // Two rivals further back.
+    s += `<g opacity="0.85">${beanPlayer(dx - w * 0.22, dy - u * 3, u * 0.55, '#e63946', '#ffd166', '#7a1219', '#7a4a2c', '#c8955a')}</g>`;
+    s += `<g opacity="0.85">${beanPlayer(dx + w * 0.2, dy - u * 4, u * 0.5, '#2ec27e', '#0b3d2a', '#0b3d2a', '#f0c9a0', '#c8955a')}</g>`;
+    return s;
+  };
+
+  /* A school pencil, drawn lying along +x and then tipped by `angle`. */
+  const bigPencil = (cx, cy, u, angle) => {
+    const L = 26 * u, T = 3 * u;
+    let s = `<g transform="rotate(${angle} ${cx} ${cy})">`;
+    s += R(cx - L / 2, cy - T / 2, 3 * u, T, '#f48fb1');
+    s += R(cx - L / 2 + 3 * u, cy - T / 2, 2 * u, T, '#b8c0cc');
+    s += R(cx - L / 2 + 3 * u, cy - T / 2 + u * 0.8, 2 * u, u * 0.4, '#8a93a6');
+    s += R(cx - L / 2 + 5 * u, cy - T / 2, L - 11 * u, T, '#f5c518');
+    s += R(cx - L / 2 + 5 * u, cy - T / 2, L - 11 * u, u * 0.8, '#ffe066');
+    s += R(cx - L / 2 + 5 * u, cy + T / 2 - u * 0.8, L - 11 * u, u * 0.8, '#d9a800');
+    for (let i = 0; i < 4; i++) s += R(cx + L / 2 - 6 * u + i * u, cy - T / 2 + i * u * 0.35, u, T - i * u * 0.7, '#e8c290');
+    s += R(cx + L / 2 - 2 * u, cy - u * 0.5, 2 * u, u, '#3a3a44');
+    return s + '</g>';
+  };
+
+  const twoBScene = (w, h, focal, ns) => {
+    const rand = rng(4242);
+    const tall = h > w;
+    let s = R(0, 0, w, h, '#efe3c4');
+    // Chalkboard, with a lesson nobody finished.
+    const cbx = w * 0.06, cby = h * 0.06, cbw = w * 0.5, cbh = h * 0.24;
+    s += R(cbx - 8, cby - 8, cbw + 16, cbh + 16, '#8a5a2b');
+    s += R(cbx, cby, cbw, cbh, '#2f5a45');
+    for (let i = 0; i < 5; i++) {
+      s += R(cbx + cbw * 0.08, cby + cbh * (0.18 + i * 0.15), cbw * (0.3 + rand() * 0.5), 4, '#dfe8e0', ' opacity="0.55"');
+    }
+    // Window, with daylight.
+    s += R(w * 0.66, h * 0.05, w * 0.28, h * 0.28, '#dfeaf2');
+    s += R(w * 0.67, h * 0.065, w * 0.26, h * 0.25, '#8fd3ff');
+    s += R(w * 0.795, h * 0.065, 6, h * 0.25, '#dfeaf2');
+    // Floor: lino tiles.
+    const fy = h * 0.8;
+    const t = Math.max(20, w / 14);
+    for (let y = fy; y < h; y += t / 2) {
+      for (let x = ((y - fy) / (t / 2)) % 2 ? -t / 2 : 0; x < w; x += t) s += R(x, y, t / 2, t / 2, '#c9b98f');
+    }
+    s += R(0, fy, w, h - fy, '#dccba0', ' opacity="0.55"');
+    // The desk: a slab of a top, a drawer, and legs down to the lino.
+    const dx0 = w * 0.42, dy = h * 0.4;
+    s += R(dx0, dy, w * 0.62, h * 0.05, '#b8733f');
+    s += R(dx0, dy, w * 0.62, 6, '#d99a5e');
+    s += R(dx0 + w * 0.06, dy + h * 0.05, w * 0.4, h * 0.07, '#9c5e30');
+    s += R(dx0 + w * 0.24, dy + h * 0.075, w * 0.05, 8, '#e8c290');
+    s += R(dx0 + w * 0.02, dy + h * 0.05, 14, fy - dy - h * 0.05, '#7a4a24');
+    // A sharpener up on the desk, glowing like a checkpoint should.
+    s += `<ellipse cx="${dx0 + w * 0.42}" cy="${dy - 10}" rx="${w * 0.05}" ry="${h * 0.04}" fill="#fff3a3" opacity="0.5" class="pulse-slow"/>`;
+    s += R(dx0 + w * 0.39, dy - h * 0.035, w * 0.06, h * 0.035, '#b8c0cc');
+    s += R(dx0 + w * 0.405, dy - h * 0.025, w * 0.02, h * 0.015, '#3a3a44');
+    // The chair: seat, legs, backrest.
+    const cx0 = w * 0.08, cy = h * 0.58;
+    s += R(cx0, cy, w * 0.26, h * 0.035, '#2e6fd1');
+    s += R(cx0 + 6, cy + h * 0.035, 10, fy - cy - h * 0.035, '#8a93a6');
+    s += R(cx0 + w * 0.26 - 16, cy + h * 0.035, 10, fy - cy - h * 0.035, '#8a93a6');
+    s += R(cx0 + 4, cy - h * 0.2, 10, h * 0.2, '#8a93a6');
+    s += R(cx0, cy - h * 0.22, w * 0.12, h * 0.08, '#2e6fd1');
+    // A pink blob of gum on the chair leg, soft enough to stab.
+    s += R(cx0 + w * 0.26 - 20, cy + h * 0.1, 18, 14, '#ff8fc8');
+    // The pencil, mid-climb, tip up.
+    const u = Math.max(4, Math.round((tall ? w : h) / 50));
+    const px = w * focal, py = tall ? h * 0.52 : h * 0.6;
+    s += `<g class="bob">${bigPencil(px, py, u, -38)}</g>`;
+    return s;
+  };
+
   /* ---- shared defs ------------------------------------------------- */
 
   const roamDefs = (ns) => `
@@ -570,6 +720,8 @@ const Art = (() => {
     'the-13-dynasties': dynastiesScene,
     'ugg-and-the-undersaucer': uggScene,
     'roaminals': roaminalsScene,
+    'big-swing-bonanza': bigSwingScene,
+    '2b-or-not-2b': twoBScene,
   };
 
   const scene = (id, w, h, focal, ns) =>
@@ -836,6 +988,21 @@ const Art = (() => {
         <rect x="22" y="42" width="5" height="5" fill="#f4f7ff"/>
         <rect x="32" y="42" width="5" height="5" fill="#f4f7ff"/>
         <rect x="16" y="52" width="32" height="4" fill="#5aa8c8"/>
+      </svg>`;
+    }
+    if (id === 'big-swing-bonanza') {
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#2f7bff"/>
+        <rect y="46" width="${s}" height="18" fill="#4fb84a"/>
+        ${beanPlayer(28, 58, 2, '#ffd23f', '#1c1c24', '#e63946', '#c68a5b', '#ffcc33')}
+      </svg>`;
+    }
+    if (id === '2b-or-not-2b') {
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#2f5a45"/>
+        <rect x="8" y="12" width="30" height="3" fill="#dfe8e0" opacity="0.5"/>
+        <rect x="8" y="20" width="20" height="3" fill="#dfe8e0" opacity="0.5"/>
+        ${bigPencil(32, 36, 2, -40)}
       </svg>`;
     }
     if (id === 'the-13-dynasties') {

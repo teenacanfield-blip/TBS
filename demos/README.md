@@ -19,6 +19,7 @@ finds.
 | Legend Cart | `legend-cart` | playable | `Downloads\hyrule_speedway (8).html` |
 | Animabal1 | `animabal1` | playable | `Downloads\diamond_at_bat_3d (4).html` |
 | The Dragon's Last Breath | `dragons-last-breath` | playable | `Downloads\the-dragons-last-breath (8).html` |
+| Big Swing Bonanza | `big-swing-bonanza` | playable | written here, from nothing |
 
 Five of these were copied out of Downloads, which had many numbered versions of
 each — the newest of each was taken. The copies in here are now the real ones;
@@ -31,6 +32,15 @@ RC Craze, Liz, Legend Cart and Animabal1 are 3D and load `three.js` from
 on wifi that blocks CDNs — some school and guest networks do — they will open to
 a blank screen. The Dragon's Last Breath and both full games have no such
 dependency and always work.
+
+Big Swing Bonanza is the fifth that needs it: three.js from cdnjs, same as the
+others (the Lilita One font from Google Fonts is optional; it falls back to a
+system font). Its data is split so it can be edited without touching the
+engine: `roster.js` is the players, `maps.js` is the 25 courses as lists of
+segments, and `shop.js` is every price, reward and item. The shop's save lives
+in the browser's localStorage under `bigswing.save.v1`, so tokens, cards and
+gear are per browser, not per account. The M key or the speaker button mutes
+it, and `?mute` on the URL starts it muted.
 
 2B or Not 2B is 3D as well, and does not. It carries its own renderer in
 `gfx.js` — plain WebGL, one shader — because a game set in a classroom is the

@@ -154,24 +154,6 @@ const DEMOS = [
       'fastball, returned.',
   },
   {
-    id: '2b-or-not-2b',
-    rating: 'everyone',
-    title: '2B or Not 2B',
-    tagline: 'The long way back to the desk',
-    motif: 'pencil',
-    accent: '#f5c518',
-    accentDark: '#2a2103',
-    url: '',
-    blurb:
-      'A 3D platformer about a pencil that rolled off a school desk and has ' +
-      'ninety units of classroom to climb to get back into the groove at the ' +
-      'top of it. A pencil has a sharp end, so it can stab into anything soft ' +
-      '— cork, vinyl, chewing gum — and kick off again, and that costs the ' +
-      'sharpness that only a sharpener gives back. Falling is not death; it ' +
-      'just puts you on the lino again. Forty-four things to earn a sticker ' +
-      'for, and it brings its own 3D, so no CDN and nothing to fetch.',
-  },
-  {
     id: 'rc-craze',
     rating: 'everyone',
     title: 'RC Craze',
@@ -495,6 +477,144 @@ const GAMES = [
       'Jars are generous. A common goes in about two times in five at full health, and better than nine in ten once it is worn down — health is the big lever, and the jar multiplies it.',
       'Faint your whole party and you come to at the housekeeping cart, minus half your tokens. Nothing else is lost.',
       'A legendary you beat or run from goes back into its fitting, so it can never be missed for good.',
+    ],
+  },
+
+  {
+    id: 'big-swing-bonanza',
+    rating: 'everyone',
+    ratingNotes: ['Cartoon slapstick', 'In-game shop — earned tokens only, no real money'],
+    title: 'Big Swing Bonanza',
+    suffix: '',
+    tagline: 'Sixteen beans, one golden bat',
+    url: './demos/big-swing-bonanza/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#ffd23f',
+    accentDark: '#2b2103',
+    genres: ['Party', 'Sports', '3D platformer', 'Knockout'],
+    short:
+      'Jelly-bean ballplayers in a home run derby, and a sixteen-bean knockout ' +
+      'race to the golden bat across twenty-five obstacle courses.',
+    about: [
+      'Home Run Derby first. Aim the contact circle over where the pitch will cross the ' +
+      'plate, swing as it arrives, and watch it go. Early swings pull the ball, late ones ' +
+      'push it, and hitting under or over it decides between a moonshot and a grounder. ' +
+      'Seven outs each against the CPU — Rookie, All-Star or Legend — or a friend on the ' +
+      'same keyboard, with one golden pitch a round that counts twice.',
+      'Then the Golden Bat Bonanza, a knockout tournament in three rounds. Sixteen beans ' +
+      'race an obstacle course and the first ten across the line go through. A survival ' +
+      'round on a floating diamond, with one giant bat sweeping low and one sweeping high, ' +
+      'leaves five. The final is a harder course with the golden bat on a pedestal at the ' +
+      'end, and the first hand on it wins.',
+      'Twenty-five courses built from fifteen kinds of obstacle — spinning bats to jump or ' +
+      'dive under, bats swinging from the sky, rolling baseballs, stepping-stone bases, ' +
+      'sliding and rising platforms, trampolines, pitching machines, backwards conveyor ' +
+      'belts. Any of them can be played on its own, too.',
+      'Twenty-eight invented players across today’s stars, former stars and legends, each ' +
+      'with a race ability: a burst of speed, a moonshot jump, a thrown fastball, catcher’s ' +
+      'gear, a headfirst slide. Winning pays tokens, and tokens buy gear that adds to your ' +
+      'stats, card packs for a binder, and skins.',
+    ],
+    features: [
+      'Single player',
+      'Two players on one keyboard (derby)',
+      'Home Run Derby vs CPU, three levels',
+      'Three-round knockout tournament',
+      '25 obstacle courses',
+      '28 players, 5 abilities',
+      'Token shop: gear, packs, skins',
+      'Card binder',
+      'Touch controls',
+      'Save to your browser',
+    ],
+    controls: [
+      ['Mouse / arrows', 'Derby — aim the contact circle'],
+      ['Click / Space', 'Derby — swing'],
+      ['F (hold)', 'Derby — fast-forward the CPU'],
+      ['WASD / arrows', 'Race — run'],
+      ['Space', 'Race — jump'],
+      ['Shift / Q', 'Race — dive, under high bats and into other runners'],
+      ['E', 'Race — your ability'],
+      ['M', 'Mute'],
+      ['Esc', 'Pause'],
+    ],
+    stagesTitle: 'The tournament',
+    stages: [
+      ['1', 'The Race', 'Sixteen beans, one course. The first ten across the line go through'],
+      ['2', 'Batter Up Survival', 'Two giant bats sweep a floating diamond, faster and faster. Last five standing'],
+      ['F', 'The Final', 'A harder course, and the golden bat at the end of it. First hand on it wins'],
+    ],
+    notes: [
+      'Every player is invented. Real players’ names and likenesses are licensed, and this is a free game on a public site.',
+      'Tokens are only ever won in the game. Nothing in it costs real money.',
+      'Gear counts in races and against the CPU, never in the two-player derby.',
+      'Owning a player’s card makes them +1 in every stat when you play as them, +2 for a holo.',
+      'Saves live in your own browser, on your own device. Clearing browser data erases them.',
+      'It loads its 3D engine from the internet when it starts, so wifi that blocks CDNs will leave it blank.',
+    ],
+  },
+
+  {
+    id: '2b-or-not-2b',
+    rating: 'everyone',
+    title: '2B or Not 2B',
+    suffix: '',
+    tagline: 'The long way back to the desk',
+    url: './demos/2b-or-not-2b/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#f5c518',
+    accentDark: '#2a2103',
+    genres: ['3D platformer', 'Climbing', 'Collectathon'],
+    short:
+      'A pencil rolled off the desk. Ninety units of classroom stand between it and ' +
+      'the groove at the top.',
+    about: [
+      'A 3D platformer about a pencil that rolled off a school desk and has ninety units ' +
+      'of classroom to climb to get back into the groove at the top of it — up the ' +
+      'backpack, the chair, the backrest, under the desk and through the drawer.',
+      'A pencil has a sharp end, so it can stab into anything soft — cork, vinyl, chewing ' +
+      'gum, the back of a drawer — and kick off again. Every hold costs sharpness, at ' +
+      'zero nothing holds, and only a sharpener gives it back. Sharpeners are the ' +
+      'checkpoints, too.',
+      'Falling is not death; it just puts you on the lino again. Forty-four things to earn ' +
+      'a sticker for, and it brings its own 3D renderer, so there is no CDN and nothing to ' +
+      'fetch — it works on wifi that blocks everything else.',
+    ],
+    features: [
+      'Single player',
+      'Wall-stab and wall-kick climbing',
+      'Spin jump, dash and dive',
+      '44 stickers to earn',
+      'Sharpener checkpoints',
+      'Works with no internet',
+      'Touch controls',
+    ],
+    controls: [
+      ['W A S D', 'Run, in whatever direction the camera is facing'],
+      ['Mouse', 'Look. Click once to hold the camera'],
+      ['Space', 'Jump. Again in the air for a spin, once per flight'],
+      ['Space at a wall', 'Kick off it, if your tip is in it'],
+      ['Shift / E', 'Dash. One per flight, back when you land'],
+      ['Ctrl / Q / F', 'Dive tip-first'],
+      ['R', 'Back to the last sharpener'],
+      ['M', 'Mute'],
+      ['Esc', 'Pause'],
+    ],
+    stagesTitle: 'The climb',
+    stages: [
+      ['1', 'The Lino', 'Where you land, and where every fall puts you back'],
+      ['2', 'The Backpack', 'The first way up, 11 units off the floor'],
+      ['3', 'The Chair', 'Up to 31'],
+      ['4', 'The Backrest', 'Up to 52'],
+      ['5', 'Under the Desk', 'Up to 72'],
+      ['6', 'The Drawer', 'Up to 78'],
+      ['7', 'The Desktop', 'Ninety up, and the groove where a pencil belongs'],
+    ],
+    notes: [
+      'Hold toward a soft wall in mid-air and the pencil sticks into it. It slides, and it costs sharpness.',
+      'Stickers stay on the chart between goes.',
     ],
   },
 ];
