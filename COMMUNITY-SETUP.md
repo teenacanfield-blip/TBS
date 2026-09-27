@@ -12,11 +12,6 @@ When it is on:
 - Approved games show in the Community tab. The ones you mark **featured** are
   the ones good enough for the front page.
 
-> **An adult should do all of this.** It needs a Supabase account and a Google
-> Cloud account, and once it is on you are storing other people's email
-> addresses and publishing their links. There is a section at the bottom about
-> what that means.
-
 This guide assumes **REVIEWS-SETUP.md is already done** — same Supabase project,
 same `supabase-config.js`. If it is not, do that one first; steps 1–3 there make
 the accounts that this whole tab depends on.

@@ -8,10 +8,6 @@ The website itself cannot do this on its own. It is just files on GitHub Pages �
 there is no computer of yours running anywhere to remember things. Supabase is
 that missing piece: a free database with accounts built in.
 
-> **An adult should do steps 1–3.** Making the Supabase account needs an email
-> address, and once this is switched on you are storing other people's email
-> addresses. There is a short section at the bottom about what that means.
-
 Steps 1–4 happen once. After that it just works.
 
 ---
