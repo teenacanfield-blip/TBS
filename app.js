@@ -514,7 +514,7 @@ function comRow(g, moderating) {
 function viewCommunity(q) {
   const head = `
     <div class="sec-head" style="margin-bottom:6px">
-      <h2>${pixTitle('Community', 5)}</h2>
+      <h1>${pixTitle('Community', 5)}</h1>
       <span class="sub">games made by everyone else</span>
     </div>`;
 
@@ -710,7 +710,7 @@ function viewDemos(q) {
   return `
   <div class="wrap">
     <div class="sec-head" style="margin-bottom:6px">
-      <h2>${pixTitle('Demos', 5)}</h2>
+      <h1>${pixTitle('Demos', 5)}</h1>
       <span class="sub">${DEMOS.length} works in progress</span>
     </div>
     <p style="margin:0 0 22px;color:var(--text-dim);max-width:62ch">
@@ -810,7 +810,7 @@ function renderSidebar() {
     const st = stats(g.id);
     return `
     <button class="side-item ${here === g.id ? 'on' : ''} ${st.favorite ? 'fav' : ''}"
-            data-go="${g.id}" style="${accentVars(g)}">
+            data-go="${g.id}" style="${accentVars(g)}" title="${esc(g.title)}">
       ${Art.icon(g.id)}
       <span class="side-body">
         <span class="side-name">${esc(g.title)}</span>
@@ -823,7 +823,7 @@ function renderSidebar() {
   const hereDemo = location.hash.startsWith('#/demo/') ? location.hash.slice(7) : '';
   list.innerHTML += `<div class="side-group">Demos</div>` + DEMOS.map((d) => `
     <button class="side-item ${hereDemo === d.id ? 'on' : ''}" data-demo="${d.id}"
-            style="--accent:${d.accent}">
+            style="--accent:${d.accent}" title="${esc(d.title)}">
       ${Art.demoIcon(d)}
       <span class="side-body">
         <span class="side-name">${esc(d.title)}</span>
@@ -842,6 +842,9 @@ function renderSidebar() {
   const played = GAMES.filter((g) => stats(g.id).launches).length;
   document.getElementById('who-text').textContent =
     played ? `${played} of ${GAMES.length} played` : 'Player';
+
+  // The list just changed height, so the scroll fade needs re-deciding.
+  markSideScroll();
 }
 
 /* ----------------------------------------------------------- home view */
@@ -952,7 +955,7 @@ function viewLibrary(q) {
   return `
   <div class="wrap">
     <div class="sec-head" style="margin-bottom:20px">
-      <h2>${pixTitle('Library', 5)}</h2>
+      <h1>${pixTitle('Library', 5)}</h1>
       <span class="sub">${GAMES.length} games · ${playtime(total)} · ${launches} launch${launches === 1 ? '' : 'es'}</span>
       <span style="margin-left:auto"></span>
       <div class="row">
@@ -1112,7 +1115,7 @@ function viewRatings(q, which) {
   return `
   <div class="wrap">
     <div class="sec-head" style="margin-bottom:6px">
-      <h2>${pixTitle('Ratings', 5)}</h2>
+      <h1>${pixTitle('Ratings', 5)}</h1>
       <span class="sub">${everything().length} games and demos, labelled</span>
     </div>
     <p style="margin:0 0 20px;color:var(--text-dim);max-width:62ch">
@@ -1323,10 +1326,24 @@ function render() {
   document.querySelectorAll('.tabs a').forEach((a) =>
     a.classList.toggle('on', a.dataset.tab === TAB_FOR[r.name]));
 
+  /* On a phone the tab strip scrolls sideways, so the section you are on can
+   * be off the edge. Nudge it into view — but only along its own axis, or the
+   * whole page jumps to the top bar on every navigation. */
+  const onTab = document.querySelector('.tabs a.on');
+  if (onTab) onTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
   renderSidebar();
 
+  /* The tab title, which is also what a bookmark and a history entry get
+   * called. Every section used to be "Thirsty Bear Hub", so three bookmarks
+   * came out identical and the back button gave no clue where it was going. */
   const named = r.name === 'game' ? byId(r.id) : r.name === 'demo' ? byDemo(r.id) : null;
-  document.title = named ? `${named.title} · Thirsty Bear Hub` : 'Thirsty Bear Hub';
+  const SECTION = {
+    library: 'Library', demos: 'Demos', ratings: 'Ratings', community: 'Community',
+  };
+  const where = named ? named.title : SECTION[r.name];
+  document.title = where ? `${where} · Thirsty Bear Hub`
+                         : 'Thirsty Bear Hub — free browser games';
 }
 
 addEventListener('hashchange', () => { view.scrollTop = 0; render(); });
@@ -1639,6 +1656,32 @@ sideToggle.addEventListener('click', () => {
 });
 scrim.addEventListener('click', closeSide);
 document.getElementById('side-list').addEventListener('click', closeSide);
+
+
+/* The skip link moves focus without touching the hash. Letting it navigate to
+ * "#view" would hand the router a route it does not know and bounce the
+ * keyboard user to the home page — the opposite of skipping to the content
+ * they were already on. */
+
+/* Fade the bottom of the rail only while there is more below it, and take the
+ * fade off once you reach the end — a permanent fade would just look like the
+ * last game is greyed out. */
+function markSideScroll() {
+  const list = document.getElementById('side-list');
+  if (!list) return;
+  const more = list.scrollHeight - list.clientHeight;
+  list.classList.toggle('scrollable', more > 4);
+  list.classList.toggle('at-end', more <= 4 || list.scrollTop >= more - 4);
+}
+
+document.getElementById('side-list').addEventListener('scroll', markSideScroll, { passive: true });
+addEventListener('resize', markSideScroll);
+
+document.querySelector('.skip-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  view.focus();
+  view.scrollIntoView();
+});
 
 /* ------------------------------------------------------------------ go */
 
