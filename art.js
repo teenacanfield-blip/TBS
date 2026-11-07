@@ -788,6 +788,95 @@ const Art = (() => {
       </radialGradient>
     </defs>`;
 
+  /* ---- scene: Kaidō Festival ---------------------------------------- */
+  /* A coast road at dusk: a snow-capped peak, the sea catching the last of the
+     sun, and one car heading for the festival with its tail lights on. */
+
+  const kaidoScene = (w, h, focal, ns) => {
+    const rand = rng(8840);
+    const hz = h * 0.56;              // horizon
+    const cx = w * focal;             // the car sits on the focal line
+    let s = `<defs>
+      <linearGradient id="${ns}-kd-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#151436"/>
+        <stop offset="45%" stop-color="#5c2a66"/>
+        <stop offset="80%" stop-color="#f06463"/>
+        <stop offset="100%" stop-color="#ffb06a"/>
+      </linearGradient>
+      <linearGradient id="${ns}-kd-sea" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f08a6a"/>
+        <stop offset="30%" stop-color="#3b3d78"/>
+        <stop offset="100%" stop-color="#121733"/>
+      </linearGradient>
+      <radialGradient id="${ns}-kd-sun">
+        <stop offset="0%" stop-color="#fff1c4" stop-opacity="0.85"/>
+        <stop offset="100%" stop-color="#ff8a5c" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="${ns}-kd-tail">
+        <stop offset="0%" stop-color="#ff4d4d" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#ff4d4d" stop-opacity="0"/>
+      </radialGradient>
+    </defs>`;
+
+    s += R(0, 0, w, hz, `url(#${ns}-kd-sky)`);
+
+    // First stars, high up where the sky has already gone dark.
+    for (let i = 0; i < 26; i++) {
+      s += R(rand() * w, rand() * hz * 0.38, 2, 2, '#ffffff',
+        ` class="tw" style="animation-delay:${(rand() * 3.6).toFixed(1)}s" opacity="${(0.35 + rand() * 0.55).toFixed(2)}"`);
+    }
+
+    // The sun going down over the sea.
+    const sx = Math.min(w * 0.86, cx + w * 0.24), sy = hz - h * 0.045;
+    s += `<circle cx="${sx}" cy="${sy}" r="${h * 0.24}" fill="url(#${ns}-kd-sun)"/>`;
+    s += `<circle cx="${sx}" cy="${sy}" r="${h * 0.055}" fill="#ffe6a6"/>`;
+
+    // A big peak with snow on top, and lower hills either side.
+    const u = h * 0.024, px = w * 0.27;
+    s += triUp(px, hz + 2, 13, u, '#2b2552');
+    s += triUp(px, hz - 9 * u + 2, 4, u, '#e9e6f6');
+    for (let i = 0; i < 6; i++) {
+      s += triUp(rand() * w, hz + 2, 3 + Math.floor(rand() * 3), h * 0.02, '#211b42');
+    }
+
+    // Sea, with the sun laying a path of glitter across it.
+    s += R(0, hz, w, h - hz, `url(#${ns}-kd-sea)`);
+    for (let i = 0; i < 14; i++) {
+      const y = hz + 3 + i * (h - hz) * 0.05, ww = (6 + rand() * 16) * (1 + i * 0.12);
+      s += R(sx - ww / 2 + (rand() - 0.5) * 18, y, ww, 2, '#ffd59a', ` opacity="${(0.8 - i * 0.045).toFixed(2)}"`);
+    }
+
+    // The coast: dark land on the left, the road running out across it.
+    s += `<path d="M0 ${hz + h * 0.035} L${cx + w * 0.06} ${hz + h * 0.015} L${w * 0.8} ${h} L0 ${h} Z" fill="#14201f"/>`;
+    const top = hz + h * 0.02, roadAt = (t) => top + (h - top) * t * t;
+    s += `<path d="M${cx - w * 0.015} ${top} L${cx + w * 0.015} ${top} L${cx + w * 0.4} ${h} L${cx - w * 0.4} ${h} Z" fill="#262436"/>`;
+    s += `<path d="M${cx - w * 0.015} ${top} L${cx - w * 0.38} ${h} L${cx - w * 0.36} ${h} Z" fill="#e9e6f0" opacity="0.8"/>`;
+    s += `<path d="M${cx + w * 0.015} ${top} L${cx + w * 0.38} ${h} L${cx + w * 0.36} ${h} Z" fill="#e9e6f0" opacity="0.8"/>`;
+    for (let k = 0; k < 8; k++) {
+      const t0 = k / 8 + 0.02, t1 = t0 + 0.055, y0 = roadAt(t0), y1 = roadAt(t1), w0 = 1 + t0 * 7, w1 = 1 + t1 * 7;
+      s += `<path d="M${cx - w0} ${y0} L${cx + w0} ${y0} L${cx + w1} ${y1} L${cx - w1} ${y1} Z" fill="#f2efe6" opacity="0.85"/>`;
+    }
+
+    // The car, seen from behind: blocky body, glass, two glowing tail lights.
+    const cu = h * 0.02, cy = h * 0.78;
+    s += `<ellipse cx="${cx}" cy="${cy + cu * 4.6}" rx="${cu * 7.5}" ry="${cu * 1.1}" fill="#000" opacity="0.45"/>`;
+    s += R(cx - 6 * cu, cy + 3 * cu, 2.4 * cu, 1.6 * cu, '#0c0b16');
+    s += R(cx + 3.6 * cu, cy + 3 * cu, 2.4 * cu, 1.6 * cu, '#0c0b16');
+    s += R(cx - 6.3 * cu, cy, 12.6 * cu, 3.4 * cu, '#ff2e88');
+    s += R(cx - 4.4 * cu, cy - 2.4 * cu, 8.8 * cu, 2.6 * cu, '#c21e6c');
+    s += R(cx - 3.8 * cu, cy - 2 * cu, 7.6 * cu, 1.8 * cu, '#1b1731');
+    s += R(cx - 1 * cu, cy - 0.2 * cu, 2 * cu, 3.6 * cu, '#1b1731', ' opacity="0.55"');
+    s += R(cx - 6.3 * cu, cy + 2.4 * cu, 12.6 * cu, 0.7 * cu, '#3a0a24');
+    [-1, 1].forEach((side) => {
+      const lx = cx + side * 4.6 * cu;
+      s += `<circle cx="${lx}" cy="${cy + 0.9 * cu}" r="${cu * 3.2}" fill="url(#${ns}-kd-tail)" class="pulse-slow"/>`;
+      s += R(lx - 1.3 * cu, cy + 0.5 * cu, 2.6 * cu, 0.9 * cu, '#ff4545');
+    });
+
+    s += vignette(ns, w, h, 0.6);
+    return s;
+  };
+
   /* One scene per game, looked up by id. A game with no scene of its own would
      otherwise wear somebody else's — which is exactly what happened to
      Roaminals before it had this entry. Add a game here when you add it to
@@ -798,6 +887,7 @@ const Art = (() => {
     'roaminals': roaminalsScene,
     'big-swing-bonanza': bigSwingScene,
     '2b-or-not-2b': twoBScene,
+    'kaido-festival': kaidoScene,
     'floodlight': floodlightScene,
   };
 
@@ -1098,6 +1188,26 @@ const Art = (() => {
         <rect x="33" y="35" width="6" height="6" fill="#14122b"/>
         <rect x="27" y="31" width="4" height="4" fill="#14122b"/>
         <rect x="41" y="31" width="4" height="4" fill="#14122b"/>
+      </svg>`;
+    }
+    if (id === 'kaido-festival') {
+      /* The coast road at dusk, one car on it. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#3b1f55"/>
+        <rect x="6" y="22" width="52" height="12" fill="#e0606a"/>
+        <rect x="6" y="30" width="52" height="4" fill="#ffad6a"/>
+        <rect x="40" y="24" width="10" height="8" fill="#ffe6a6"/>
+        <rect x="6" y="34" width="52" height="24" fill="#18202a"/>
+        <path d="M30 34 L34 34 L52 58 L12 58 Z" fill="#2c2a40"/>
+        <path d="M30 34 L13 58 L15 58 Z" fill="#e9e6f0"/>
+        <path d="M34 34 L51 58 L49 58 Z" fill="#e9e6f0"/>
+        <rect x="18" y="43" width="28" height="9" fill="#ff2e88"/>
+        <rect x="22" y="37" width="20" height="7" fill="#c21e6c"/>
+        <rect x="24" y="39" width="16" height="4" fill="#1b1731"/>
+        <rect x="19" y="45" width="6" height="3" fill="#ff4545"/>
+        <rect x="39" y="45" width="6" height="3" fill="#ff4545"/>
+        <rect x="18" y="52" width="6" height="4" fill="#0c0b16"/>
+        <rect x="40" y="52" width="6" height="4" fill="#0c0b16"/>
       </svg>`;
     }
     if (id === 'the-13-dynasties') {

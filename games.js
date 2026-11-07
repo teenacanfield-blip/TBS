@@ -691,4 +691,74 @@ const GAMES = [
       'Basketball in town: walk into a ball to pick it up, hold E and let go while the ring is in the green.',
     ],
   },
+  {
+    id: 'kaido-festival',
+    rating: 'everyone',
+    ratingNotes: ['Car crashes and smash-ups, nobody gets hurt'],
+    title: 'Kaido Festival',
+    suffix: '',
+    tagline: 'Open roads across a festival Japan',
+    url: './kaido-festival/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#ff2e88',
+    accentDark: '#3a0a24',
+    genres: ['Racing', 'Open world', 'Driving'],
+    short:
+      'Drive a hand-built slice of Japan, from the coast highway to a neon city ' +
+      'and a mountain pass. Race the locals and smash everything in between.',
+    about: [
+      'An open-world driving festival. Free-roam the Shiokaze Coast, the rice ' +
+      'paddies of the Inaho Plains, the Momiji Hills, Kaidō City and the Oni Pass, ' +
+      'with weather that rolls in on its own and a day that turns into night.',
+      'Road races, off-road trails, drift zones, speed traps, danger-sign jumps and ' +
+      'XP boards to smash. Three drag strips — an eighth mile through a container ' +
+      'yard, the quarter mile at Inaho Dragway and a half mile down an airfield ' +
+      'runway — with 1v1s for credits or pink slips.',
+      'Twelve cars to earn or buy, from a kei van to a GT1 racer, each with ' +
+      'upgrades, paints and liveries. Hit things and they break: fences, crates, ' +
+      'signs, vending machines, and your own car until you repair it.',
+    ],
+    features: [
+      'Single player',
+      'Open world',
+      '12 cars with upgrades',
+      'Road, off-road and drag racing',
+      'Rival duels for pink slips',
+      'Five AI difficulty levels',
+      'Day, night and weather',
+      'Cockpit camera',
+      'Controllers and racing wheels',
+      'Autosave',
+    ],
+    controls: [
+      ['W / ↑', 'Throttle'],
+      ['S / ↓', 'Brake, then reverse'],
+      ['A D / ← →', 'Steer'],
+      ['Space', 'Handbrake'],
+      ['Hold R', 'Rewind'],
+      ['E / Enter', 'Start an event at a marker'],
+      ['C', 'Change camera, including the cockpit'],
+      ['M', 'Map and fast travel'],
+      ['G', 'Garage'],
+      ['Backspace', 'Back onto the road, and repair'],
+      ['X', 'Weather'],
+      ['V', 'Heavy effects on or off'],
+      ['Esc', 'Pause'],
+    ],
+    stagesTitle: 'The map',
+    stages: [
+      ['1', 'Shiokaze Coast', 'The coast highway and the festival site'],
+      ['2', 'Inaho Plains', 'Rice paddies, the Inaho Dragway and the Sora Airfield runway'],
+      ['3', 'Momiji Hills', 'Dirt trails and rally stages'],
+      ['4', 'Kaidō City', 'A neon city block and the Tetsu Yard just outside it'],
+      ['5', 'Oni Pass', 'The mountain road and its drift zones'],
+    ],
+    notes: [
+      'Saves live in your own browser, on your own device. Clearing browser data erases them.',
+      'Xbox, PlayStation and Nintendo controllers work, and so do Xbox and PlayStation racing wheels — without force feedback, which browsers cannot send.',
+      'Online convoys and the auction house only work in the Claude-hosted version, so here the game is single-player.',
+      'If it runs slowly, press V to switch off the heavier effects.',
+    ],
+  },
 ];
