@@ -617,4 +617,78 @@ const GAMES = [
       'Stickers stay on the chart between goes.',
     ],
   },
+
+  {
+    id: 'floodlight',
+    rating: 'e10',
+    ratingNotes: ['Cartoon paint blasting — players get soaked, not hurt', 'Online play with friends (no chat)'],
+    title: 'Floodlight',
+    suffix: '',
+    tagline: 'Kick the ball. Soak the other team.',
+    url: './floodlight/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#ff7a1a',
+    accentDark: '#2a1200',
+    genres: ['Sports', 'Shooter', '3D', 'Online'],
+    short:
+      'Four-a-side football with paint blasters: you shoot the other team and kick ' +
+      'the ball. Then a whole town to roam between matches.',
+    about: [
+      'A third-person team game. You carry a paint blaster and you play football, and ' +
+      'the one rule that holds it together is that paint never moves the ball — you ' +
+      'shoot opponents, you kick the ball. Get hit and paint splats across your screen ' +
+      'until you can hardly see; keep getting hit and you are soaked and respawn on ' +
+      'your side’s shielded balcony.',
+      'The goals are raised up on terraces at each end, so most goals are chips: aim ' +
+      'up to loft it, hold the kick to power it. Bots fill any empty places, from a ' +
+      '1 vs 1 up to 4 vs 4, in four grounds — Gloop Garden in the hills, Sunset Sands ' +
+      'by the sea, Snowpeak in the snow, and Harbour Lights after dark.',
+      'The Story is one summer in the town of Glowmere: Gloop Garden’s four floodlight ' +
+      'towers have gone dark, and every match you win relights one, up to a final ' +
+      'played at night under all four.',
+      'Then there is Glowmere itself, to roam at day, sunset or night: a square with a ' +
+      'clock tower, a park with a football cage and a pond, a basketball court, a train ' +
+      'running over the streets, and launch pads up onto the rooftops. The townsfolk ' +
+      'have jobs — deliver parcels, repaint faded murals with your blaster — and ' +
+      'challenges: a shootaround, a goal rush, and a race over the railway. Thirty ' +
+      'Sparks are hidden round town, and coins buy hats, blasters and kits.',
+    ],
+    features: [
+      'Single player with bots',
+      'Online with friends — share a room code',
+      'Story mode',
+      'Free roam town',
+      'Practice and target practice',
+      'Four grounds',
+      'Basketball, jobs, races',
+      'Character Locker',
+      'Xbox controller support',
+    ],
+    controls: [
+      ['W A S D', 'Move'],
+      ['Mouse', 'Aim. Click the game to capture the mouse'],
+      ['Left click', 'Shoot paint'],
+      ['E', 'Kick — hold to power up, aim up to chip. In town: talk, and throw a basketball'],
+      ['Space', 'Jump'],
+      ['Shift', 'Sprint'],
+      ['Tab', 'Scores'],
+      ['M', 'Mute'],
+      ['Esc', 'Pause'],
+    ],
+    stagesTitle: 'The Story',
+    stages: [
+      ['1', 'First Spark', '1 vs 1 against Rex'],
+      ['2', 'Two’s Company', '2 vs 2 with Pip'],
+      ['3', 'Long Range', '3 vs 3, and watch out for Mika'],
+      ['4', 'Holding the Line', '4 vs 4 with the full squad'],
+      ['5', 'Floodlight', 'The final, at night, under the lights'],
+    ],
+    notes: [
+      'This is a big 3D game: it wants a laptop or desktop with a decent graphics card, and the first load fetches about 19 MB.',
+      'Online play is peer-to-peer: the host makes a room, friends type its six-letter code. Some school and guest wifi blocks it.',
+      'Your character, coins and progress are saved in your own browser on this device.',
+      'Basketball in town: walk into a ball to pick it up, hold E and let go while the ring is in the green.',
+    ],
+  },
 ];

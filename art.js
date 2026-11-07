@@ -603,6 +603,82 @@ const Art = (() => {
     return s + '</g>';
   };
 
+  /* Floodlight: a night match under the towers. Two lattice floodlights pour
+     light onto the pitch, the stands are full of orange and blue, paint is
+     everywhere, and the ball is in the air. */
+  const floodlightScene = (w, h, focal, ns) => {
+    const rand = rng(1709);
+    const tall = h > w;
+    let s = `<defs>
+      <linearGradient id="${ns}-fl-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#04071a"/>
+        <stop offset="58%" stop-color="#101a3e"/>
+        <stop offset="100%" stop-color="#2a2f5c"/>
+      </linearGradient>
+      <linearGradient id="${ns}-fl-beam" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fff4cf" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#fff4cf" stop-opacity="0"/>
+      </linearGradient>
+      <radialGradient id="${ns}-fl-lamp">
+        <stop offset="0%" stop-color="#fffbe8" stop-opacity="0.95"/>
+        <stop offset="45%" stop-color="#ffe9a8" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#ffe9a8" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="${ns}-fl-pitch" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3a9c45"/>
+        <stop offset="100%" stop-color="#1b5426"/>
+      </linearGradient>
+    </defs>`;
+    s += R(0, 0, w, h, `url(#${ns}-fl-sky)`);
+    for (let i = 0; i < 70; i++) s += R(rand() * w, rand() * h * 0.42, 2, 2, '#ffffff', ` opacity="${(0.25 + rand() * 0.6).toFixed(2)}"`);
+    // The stands, packed with both sides' colours.
+    const sy = h * (tall ? 0.46 : 0.44), sh = h * 0.15;
+    s += R(0, sy - 10, w, 10, '#2b3150');
+    s += R(0, sy, w, sh, '#161b33');
+    const fans = ['#ff7a1a', '#3d63ff', '#ffb26e', '#93a8ff', '#e9ecf6'];
+    const dot = Math.max(3, Math.round(w / 160));
+    for (let row = 0; row < 4; row++) {
+      for (let x = (row % 2) * dot * 1.5; x < w; x += dot * 3) {
+        s += R(x, sy + 6 + row * dot * 2.6, dot, dot, fans[Math.floor(rand() * fans.length)], ` opacity="${(0.55 + rand() * 0.45).toFixed(2)}"`);
+      }
+    }
+    // The pitch: mown stripes, the halfway line, the centre circle.
+    const py = sy + sh;
+    s += R(0, py, w, h - py, `url(#${ns}-fl-pitch)`);
+    const band = Math.max(18, w / 12);
+    for (let x = 0; x < w; x += band * 2) s += R(x, py, band, h - py, '#000', ' opacity="0.08"');
+    s += R(w * 0.5 - 2, py, 4, h - py, '#f2f2ea', ' opacity="0.85"');
+    s += `<ellipse cx="${w * 0.5}" cy="${py + (h - py) * 0.55}" rx="${w * 0.14}" ry="${(h - py) * 0.22}" fill="none" stroke="#f2f2ea" stroke-width="4" opacity="0.85"/>`;
+    // Two floodlight towers, each with its beam and a glowing bank of lamps.
+    for (const tx of [w * 0.1, w * 0.9]) {
+      const top = h * 0.1, mw = Math.max(10, w / 70);
+      s += `<polygon points="${tx},${top + 10} ${tx - w * 0.04},${py + (h - py) * 0.9} ${w * 0.5 + (tx - w * 0.5) * 0.15},${py + (h - py) * 0.9}" fill="url(#${ns}-fl-beam)"/>`;
+      s += R(tx - mw / 2, top, 3, sy - top, '#8c94ad');
+      s += R(tx + mw / 2 - 3, top, 3, sy - top, '#8c94ad');
+      for (let y = top + 8; y < sy; y += mw * 1.6) s += R(tx - mw / 2, y, mw, 2, '#6f7792');
+      s += R(tx - mw * 1.6, top - mw * 1.4, mw * 3.2, mw * 1.6, '#4a5068');
+      for (let k = 0; k < 3; k++) s += R(tx - mw * 1.4 + k * mw * 1.05, top - mw * 1.2, mw * 0.8, mw * 1.1, '#fffbe8');
+      s += `<ellipse cx="${tx}" cy="${top - mw * 0.6}" rx="${mw * 6}" ry="${mw * 4}" fill="url(#${ns}-fl-lamp)" class="pulse-slow"/>`;
+    }
+    // Paint everywhere: splats in both colours, a few with drips.
+    for (let i = 0; i < 26; i++) {
+      const c = i % 2 ? '#3d63ff' : '#ff7a1a';
+      const x = rand() * w, y = py + 8 + rand() * (h - py - 12), r = 4 + rand() * Math.max(8, w / 50);
+      s += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${r.toFixed(1)}" ry="${(r * 0.45).toFixed(1)}" fill="${c}" opacity="0.85"/>`;
+      if (rand() < 0.4) s += `<ellipse cx="${(x + r * 0.9).toFixed(1)}" cy="${(y - 2).toFixed(1)}" rx="${(r * 0.3).toFixed(1)}" ry="${(r * 0.18).toFixed(1)}" fill="${c}" opacity="0.85"/>`;
+    }
+    // The ball, mid-chip, with a trail.
+    const u = Math.max(5, Math.round((tall ? w : h) / 26));
+    const bx = w * focal, by = tall ? h * 0.62 : h * 0.64;
+    s += `<ellipse cx="${bx}" cy="${py + (h - py) * 0.78}" rx="${u * 2}" ry="${u * 0.5}" fill="#000" opacity="0.3"/>`;
+    s += `<g class="bob">`;
+    for (let k = 1; k <= 4; k++) s += `<circle cx="${bx - k * u * 1.5}" cy="${by + k * u * 0.7}" r="${u * (1.6 - k * 0.3)}" fill="#ffffff" opacity="${(0.22 - k * 0.04).toFixed(2)}"/>`;
+    s += `<circle cx="${bx}" cy="${by}" r="${u * 1.9}" fill="#f6f6f2" stroke="#14122b" stroke-width="${Math.max(2, u * 0.25)}"/>`;
+    for (const [dx, dy] of [[0, 0], [-0.95, -0.7], [0.95, -0.7], [-0.6, 1.0], [0.6, 1.0]]) s += R(bx + dx * u - u * 0.35, by + dy * u - u * 0.35, u * 0.7, u * 0.7, '#14122b');
+    s += `</g>`;
+    return s;
+  };
+
   const twoBScene = (w, h, focal, ns) => {
     const rand = rng(4242);
     const tall = h > w;
@@ -722,6 +798,7 @@ const Art = (() => {
     'roaminals': roaminalsScene,
     'big-swing-bonanza': bigSwingScene,
     '2b-or-not-2b': twoBScene,
+    'floodlight': floodlightScene,
   };
 
   const scene = (id, w, h, focal, ns) =>
@@ -1003,6 +1080,24 @@ const Art = (() => {
         <rect x="8" y="12" width="30" height="3" fill="#dfe8e0" opacity="0.5"/>
         <rect x="8" y="20" width="20" height="3" fill="#dfe8e0" opacity="0.5"/>
         ${bigPencil(32, 36, 2, -40)}
+      </svg>`;
+    }
+    if (id === 'floodlight') {
+      /* A floodlight's lamps, its beam, and the ball in the light. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#0d1430"/>
+        <polygon points="14,14 6,58 40,58" fill="#fff4cf" opacity="0.22"/>
+        <rect x="6" y="6" width="18" height="10" fill="#4a5068"/>
+        <rect x="8" y="8" width="4" height="6" fill="#fffbe8"/>
+        <rect x="13" y="8" width="4" height="6" fill="#fffbe8"/>
+        <rect x="18" y="8" width="4" height="6" fill="#fffbe8"/>
+        <rect y="50" width="${s}" height="14" fill="#2f8a3a"/>
+        <rect x="44" y="52" width="10" height="4" fill="#3d63ff" opacity="0.85"/>
+        <rect x="8" y="56" width="8" height="3" fill="#ff7a1a" opacity="0.85"/>
+        <circle cx="36" cy="38" r="11" fill="#f6f6f2" stroke="#14122b" stroke-width="3"/>
+        <rect x="33" y="35" width="6" height="6" fill="#14122b"/>
+        <rect x="27" y="31" width="4" height="4" fill="#14122b"/>
+        <rect x="41" y="31" width="4" height="4" fill="#14122b"/>
       </svg>`;
     }
     if (id === 'the-13-dynasties') {
