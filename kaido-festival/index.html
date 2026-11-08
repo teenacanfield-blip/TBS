@@ -1114,6 +1114,11 @@ const CARS=[
    prof:[['L',-2.19,.35,-2.21,.74,-2.16,.93,-1.65,.95,.95,.96,1.95,.9,2.19,.84,2.21,.52,2.16,.33]],
    cab:[['L',-1.62,.93,-1.22,1.32,.22,1.38,.88,.95]],
    hl:{t:'wide',x:.62,y:.7,w:.4,h:.12},tl:{t:'bar',x:.56,y:.82,w:.52,h:.1},grY:.5,wing:'gt',wingZ:-1.98,rim:'white',spokes:8,spokeW:.045,cal:'none',ex:[[.6,.38]],extras:['hoodvent','lightbar'],paint:'#f2f2f0',liv:2,flare:.08,hump:.04,grille:'slats',lhd:true},
+  {id:'inazuma',name:'Inazuma SV',cls:'S2',pi:960,c:'#2a6cff',tag:'V12 wedge supercar · AWD · nothing but edges',price:320000,top:95,accel:15.6,lat:18.5,grip:10.8,driftGrip:2.8,offroad:.42,offGrip:.68,
+   L:4.7,W:2.06,H:1.12,r:.36,tw:.31,axF:1.42,axR:-1.4,sill:.24,tT:.1,tE:.26,cabW:.72,cT:.34,sharp:true,
+   prof:[['L',-2.3,.3,-2.34,.62,-2.28,.86,-1.6,.95,-.9,.93,.9,.86,1.6,.68,2.32,.44,2.36,.31,2.3,.22]],
+   cab:[['L',-1.5,.93,-.95,1.08,-.35,1.12,.2,1.07,1.05,.84]],
+   hl:{t:'blade',x:.66,y:.56,w:.46,h:.05},tl:{t:'center',y:.82,w:.9,h:.045},grY:.3,splitter:true,diffuser:true,wing:'duck',wingZ:-2.15,rim:'gun',spokes:6,cal:'yellow',ex:[[.12,.42],[-.12,.42]],extras:['sidepods','louvers','intakes'],paint:'#ffb000',liv:0,flare:.07,hump:.03,grille:'hex',lhd:true},
 ];
 const carById=id=>CARS.find(c=>c.id===id)||CARS[0];
 const PAINTS=[['Festival White','#f2f2f0'],['Akai Red','#d8163c'],['Sakura Pink','#ff4f9c'],['Midnight Blue','#1f4fff'],['Kogane Gold','#ffb21a'],['Sumi Black','#141416'],['Matcha Green','#2fbf71'],['Fuji Violet','#7a5cff'],['Primer Grey','#7d8186']];
@@ -1214,7 +1219,7 @@ function ringOf(half){return half.concat(half.slice(1,-1).reverse().map(([x,y])=
 
 // body material groups: 0 right side, 1 top (hood, deck, nose and tail), 2 underside, 3 left side
 function bodyGeo(S,lod){
-  const spec=S.spec,{L,W,H}=spec,sub=lod?1:3,extra=[];
+  const spec=S.spec,{L,W,H}=spec,sub=lod||spec.sharp?1:3,extra=[];
   S.arches.forEach(([ax,ar])=>{const n=lod?4:10;for(let k=0;k<=n;k++)extra.push(ax+Math.cos(Math.PI*k/n)*ar);extra.push(ax-ar-.03,ax+ar+.03);});
   const zs=stationList(S.zMin,S.zMax,lod?16:40,extra),rings=zs.map(z=>ringOf(S.half(z,sub)||S.half(z+(z<S.zc?1e-4:-1e-4),sub))),M=rings[0].length;
   const G=GeoBuilder(4),cls=(nx,ny)=>{const l=Math.hypot(nx,ny)||1;return ny<-.6*l?2:nx>.55*l?0:nx<-.55*l?3:1;};
@@ -1227,7 +1232,7 @@ function bodyGeo(S,lod){
     for(let j=0;j<M;j++){const j2=(j+1)%M,a=[A[j][0],A[j][1],za],b=[A[j2][0],A[j2][1],za],c=[B[j2][0],B[j2][1],zb],d=[B[j][0],B[j][1],zb];if(!open(a,b,c))G.tri(nl,a,b,c,uv);if(!open(a,c,d))G.tri(nl,a,c,d,uv);}}
   [[0,-1],[zs.length-1,1]].forEach(([i,s])=>{const R=rings[i],z=zs[i];let cy=0;R.forEach(p=>cy+=p[1]);const c=[0,cy/R.length,z];
     for(let j=0;j<M;j++){const j2=(j+1)%M,a=[R[j][0],R[j][1],z],b=[R[j2][0],R[j2][1],z];if(s>0)G.tri(nl,c,a,b,uv);else G.tri(nl,c,b,a,uv);}});
-  const g=G.build();smoothNormals(g,40);return g;
+  const g=G.build();smoothNormals(g,spec.sharp?24:40);return g;
 }
 // greenhouse groups: 0 glass, 1 painted roof and pillars, 2 black trim (window seals, B-pillars)
 function cabGeo(S,lod){
@@ -1243,7 +1248,7 @@ function cabGeo(S,lod){
     for(let j=0;j<M;j++){const j2=(j+1)%M,g=mat(TT[j],zm),a=[A[j][0],A[j][1],za],b=[A[j2][0],A[j2][1],za],c=[B[j2][0],B[j2][1],zb],d=[B[j][0],B[j][1],zb];G.tri(g,a,b,c,uv);G.tri(g,a,c,d,uv);}}
   [[0,-1],[zs.length-1,1]].forEach(([i,s])=>{const R=rings[i],z=zs[i];let cy=0;R.forEach(p=>cy+=p[1]);const c=[0,cy/R.length,z];
     for(let j=0;j<M;j++){const j2=(j+1)%M,a=[R[j][0],R[j][1],z],b=[R[j2][0],R[j2][1],z];if(s>0)G.tri(3,c,a,b,uv);else G.tri(3,c,b,a,uv);}});
-  const g=G.build();smoothNormals(g,40);return g;
+  const g=G.build();smoothNormals(g,spec.sharp?24:40);return g;
 }
 
 // panel gaps: door shut lines, handles and a fuel flap on the sides; bonnet and boot lines on top
@@ -1382,6 +1387,9 @@ function buildCar(spec,color,opts){
         const F=onEnd(true,s*W*.36*tf(hl.y,L/2),hl.y,.1);F.put('trim',BOX(.24,.075,.06),0,0,-.02);F.put('amber',BOX(.09,.05,.02),s*.055,0,.012);F.put('head',BOX(.09,.05,.02),-s*.055,0,.012);});
       const F=onEnd(true,0,hl.y,.25);F.put('trim',BOX(W*.4,.06,.05),0,0,-.015);F.put('drl',BOX(W*.38,.012,.02),0,-.012,.012);}
     else if(hl.t==='round')[-1,1].forEach(s=>{const R=hl.h/2,F=onEnd(true,s*W/2*hl.x*tf(hl.y,L/2),hl.y,R);F.put('trim',CYL(R+.035,R+.035,.08,20),0,0,-.03,Math.PI/2);F.put('chrome',CYL(R+.022,R+.022,.03,20),0,0,.012,Math.PI/2);F.put('lampin',CYL(R,R,.02,20),0,0,.02,Math.PI/2);F.put('head',CYL(R*.55,R*.55,.02,16),0,0,.028,Math.PI/2);F.put('chrome',CYL(R*.18,R*.18,.02,10),0,0,.036,Math.PI/2);});
+    else if(hl.t==='blade')[-1,1].forEach(s=>{const w=hl.w,h=hl.h,F=onEnd(true,s*W/2*hl.x*tf(hl.y,L/2),hl.y,w/2);
+      F.put('trim',BOX(w+.05,h+.05,.1),0,0,-.05);F.put('lampin',BOX(w*.94,h*.9,.02),0,0,.008);F.put('drl',BOX(w*.9,Math.max(.01,h*.3),.02),0,h*.28,.018);
+      for(let k=0;k<3;k++)F.put('head',BOX(w*.12,h*.4,.02),s*(k*w*.15-w*.17),-h*.12,.016);});
     else [-1,1].forEach(s=>{const w=hl.w,h=hl.h,F=onEnd(true,s*W/2*hl.x*tf(hl.y,L/2),hl.y,w/2);
       F.put('trim',BOX(w+.045,h+.04,.12),0,0,-.055);F.put('lampin',BOX(w,h,.02),0,0,.012);
       const n=w>.38?2:1;for(let k=0;k<n;k++){const px=(k-(n-1)/2)*w*.34-s*w*.06,R=Math.min(h*.34,.045);F.put('chrome',CYL(R+.012,R+.012,.02,14),px,h*.06,.018,Math.PI/2);F.put('head',CYL(R,R,.02,14),px,h*.06,.026,Math.PI/2);}
@@ -1401,6 +1409,8 @@ function buildCar(spec,color,opts){
     if(ex.includes('bed')){const z=-1.58;add('trim',BOX(W*.8,.02,1.75),0,S.yTop(0,z)+.012,z);[-1,1].forEach(s=>{const x=s*W*.43;add('paint',BOX(.07,.1,1.8),x,S.yTop(x,z)+.05,z);});add('paint',BOX(W*.86,.1,.07),0,S.yTop(0,-2.45)+.05,-2.47);}
     if(ex.includes('lightbar')){const z=C.rz1-.15;add('trim',BOX(W*.66,.1,.12),0,C.cyMax+.1,z);add('lightbar',BOX(W*.62,.06,.04),0,C.cyMax+.1,z+.065);}
     if(ex.includes('rollbar')){[-1,1].forEach(s=>add('trim',BOX(.07,.42,.07),s*W*.38,1.3,-.78));add('trim',BOX(W*.8,.07,.07),0,1.5,-.78);}
+    if(ex.includes('sidepods'))[-1,1].forEach(s=>{const z=spec.axR+.78,y=spec.sill+.36,x=S.hw(y,z);add('trim',BOX(.1,.32,.85),s*(x-.03),y,z,0,s*.08,0);add('trim',BOX(.03,.26,.7),s*(x+.01),y+.02,z-.04);});
+    if(ex.includes('louvers'))for(let k=0;k<6;k++){const z=C.cz0-.12-k*.13,y=yT(z);if(y>.3)add('trim',BOX(W*.46,.022,.06),0,y+.005,z,-.25,0,0);}
     // wheel-well liners, so the arches don't show daylight through the car
     S.arches.forEach(([ax,ar])=>[-1,1].forEach(s=>{const c=new THREE.CircleGeometry(ar-.01,14,0,Math.PI);c.rotateY(Math.PI/2);add('well',c,s*(W/2-(spec.tw||.26)-.08),r-.02,ax);const t=new THREE.CylinderGeometry(ar-.02,ar-.02,(spec.tw||.26)+.1,14,1,true,0,Math.PI);t.rotateZ(Math.PI/2);add('well',t,s*(W/2-(spec.tw||.26)/2-.04),r-.02,ax);}));
   }else{
@@ -1992,7 +2002,7 @@ const ENGINES={
   kumo:{cyl:4,harm:[1,.6,.8,.4,.35,.2,.15],noise:.3,turbo:true,crackle:.7,drive:2.4,sub:.25},
   tora:{cyl:8,harm:[1,.9,.5,.45,.3,.2,.12],noise:.45,turbo:false,crackle:.5,drive:2.8,sub:.6},
   hikari:{cyl:6,harm:[.5,1,.5,.5,.3,.25,.12],noise:.2,turbo:false,crackle:.2,drive:1.6,sub:.15},
-  kitsune:{cyl:6,harm:[.6,1,.55,.45,.35,.2,.12],noise:.25,turbo:true,crackle:.35,drive:1.9,sub:.18},hibari:{cyl:4,harm:[.7,1,.4,.3,.2],noise:.35,turbo:true,crackle:.5,drive:2,sub:.12},arashi:{cyl:5,harm:[.8,1,.6,.4,.3,.2],noise:.3,turbo:true,crackle:.6,drive:2.3,sub:.2}};
+  kitsune:{cyl:6,harm:[.6,1,.55,.45,.35,.2,.12],noise:.25,turbo:true,crackle:.35,drive:1.9,sub:.18},hibari:{cyl:4,harm:[.7,1,.4,.3,.2],noise:.35,turbo:true,crackle:.5,drive:2,sub:.12},arashi:{cyl:5,harm:[.8,1,.6,.4,.3,.2],noise:.3,turbo:true,crackle:.6,drive:2.3,sub:.2},inazuma:{cyl:12,harm:[.5,1,.6,.5,.4,.3,.2],noise:.2,turbo:false,crackle:.5,drive:1.8,sub:.15}};
 // Each firing is a short damped pulse (a tone near the exhaust's thump plus a burst of combustion noise).
 // Per-cylinder strength and firing-interval patterns give each engine its idle lope and rasp.
 class EngineCore{
@@ -2021,7 +2031,8 @@ const SYN={
   hikari:{cyl:6,pat:[1,1,1,1,1,1],pf:135,tau:.006,noise:.3,rough:.15,comb:300,fb:.45,muf:1900,drive:1.6,vol:.9},
   kitsune:{cyl:6,pat:[1,1,1,1,1,1],pf:145,tau:.005,noise:.42,rough:.12,comb:350,fb:.5,muf:2500,drive:2.2,vol:1},
   hibari:{cyl:4,pat:[1,1,1,1],pf:160,tau:.004,noise:.5,rough:.15,comb:300,fb:.45,muf:2700,drive:2.2,vol:.95},
-  arashi:{cyl:5,pat:[1.05,.95,1.1,.92,.98],pf:120,tau:.006,noise:.45,rough:.2,comb:250,fb:.55,muf:1900,drive:2.6,vol:1.05}};
+  arashi:{cyl:5,pat:[1.05,.95,1.1,.92,.98],pf:120,tau:.006,noise:.45,rough:.2,comb:250,fb:.55,muf:1900,drive:2.6,vol:1.05},
+  inazuma:{cyl:12,pat:[1,1,1,1,1,1,1,1,1,1,1,1],pf:178,tau:.003,noise:.3,rough:.07,comb:420,fb:.52,muf:3600,drive:2,vol:1.05}};
 // runs in an audio worklet where the browser allows one, otherwise in a script processor
 async function startEngineSynth(dest){
   const E=AU.eng;let node=null;
@@ -2601,7 +2612,7 @@ function updateEvents(dt,speed,nrI,nrLat){
   nearEvent=null;
   if(!race.active&&!drag.active&&!trace.active){for(const ev of events){if(ev.passive)continue;if(Math.hypot(car.x-ev.mx,car.z-ev.mz)<11){nearEvent=ev;break;}}}
   const pr=$('#prompt');
-  if(nearEvent){pr.hidden=false;const best=save.best[nearEvent.id];pr.innerHTML='<h5></h5><p></p>';pr.firstChild.textContent=nearEvent.name;pr.lastChild.innerHTML='<kbd>E</kbd> '+(nearEvent.type==='garage'?'Open garage':nearEvent.type==='drag'||nearEvent.type==='duel'?'Choose an opponent · ':'Start race · '+nearEvent.sub+(best?' · best: P'+best:''));}
+  if(nearEvent){pr.hidden=false;const best=save.best[nearEvent.id];pr.innerHTML='<h5></h5><p></p>';pr.firstChild.textContent=nearEvent.name;pr.lastChild.innerHTML='<kbd>E</kbd> '+(nearEvent.type==='garage'?'Open garage':nearEvent.type==='drag'||nearEvent.type==='duel'?'Choose an opponent · ':'Full race or rival 1v1 · '+nearEvent.sub+(best?' · best: P'+best:''));}
   else if(!pr.dataset.sticky)pr.hidden=true;
   if(nrI<0){lastIdx=-1;return;}
   for(const ev of events){
@@ -2796,6 +2807,7 @@ function drawMini(){
   events.forEach(ev=>{let [x,y]=toM(ev.mx,ev.mz);const d=Math.hypot(x,y);if(d>rad-10){x*=(rad-10)/d;y*=(rad-10)/d;}mctx.save();mctx.translate(x,y);mctx.rotate(-(car.h+Math.PI)+Math.PI/4);mctx.fillStyle=ev.color;mctx.strokeStyle='#111';mctx.lineWidth=2;const q=W/40;mctx.fillRect(-q,-q,q*2,q*2);mctx.strokeRect(-q,-q,q*2,q*2);mctx.restore();});
   for(const rc of NET.cars.values()){const [x,y]=toM(rc.x,rc.z);mctx.fillStyle='#ffc53d';mctx.strokeStyle='#111';mctx.lineWidth=2;mctx.beginPath();mctx.arc(x,y,W/50,0,7);mctx.fill();mctx.stroke();}
   trace.ais.forEach(a=>{const [x,y]=toM(a.x,a.z);mctx.fillStyle='#35e0ff';mctx.beginPath();mctx.arc(x,y,W/60,0,7);mctx.fill();});
+  if(!race.active&&!trace.active&&!drag.active)street.cars.forEach(c=>{if(c.gone)return;const [x,y]=toM(c.x,c.z);mctx.fillStyle='#ff2e88';mctx.strokeStyle='#fff';mctx.lineWidth=W/200;mctx.beginPath();mctx.arc(x,y,W/48,0,7);mctx.fill();mctx.stroke();});
   if(race.active){race.ais.forEach(a=>{const [x,y]=toM(a.x,a.z);mctx.fillStyle='#35e0ff';mctx.beginPath();mctx.arc(x,y,W/60,0,7);mctx.fill();});const [x,y]=toM(gate.position.x,gate.position.z);mctx.strokeStyle='#ff2e88';mctx.lineWidth=W/70;mctx.beginPath();mctx.arc(x,y,W/32,0,7);mctx.stroke();}
   mctx.restore();
   mctx.fillStyle='#fff';mctx.strokeStyle='#ff2e88';mctx.lineWidth=W/100;mctx.beginPath();const a=W/26;mctx.moveTo(cx,cy-a);mctx.lineTo(cx+a*.7,cy+a*.8);mctx.lineTo(cx,cy+a*.35);mctx.lineTo(cx-a*.7,cy+a*.8);mctx.closePath();mctx.fill();mctx.stroke();
@@ -2900,7 +2912,8 @@ function onPress(code){
   if(code==='KeyG'&&!race.active){if(Math.hypot(car.vx,car.vz)<6)openScreen('garage');else toast('SLOW DOWN','Stop the car to open the garage','red');}
   if(code==='KeyN'){Music.on=!Music.on;if(AC)Music.next=AC.currentTime+.05;$('#radio').textContent=Music.on?'RADIO KAIDŌ 88.4 FM':'RADIO OFF';}
   if(code==='KeyF'){if(pendingSpins>0&&!race.active)doSpin();}
-  if((code==='KeyE'||code==='Enter')&&nearEvent){const t=nearEvent.type;if(t==='garage')openScreen('garage');else if(t==='drag')openDuel('drag',nearEvent);else if(t==='duel')openDuel('touge',nearEvent);else if(t==='trail')startTrail(nearEvent.trail);else startRace(nearEvent);}
+  if((code==='KeyE'||code==='Enter')&&nearEvent){const t=nearEvent.type;if(t==='garage')openScreen('garage');else if(t==='drag')openDuel('drag',nearEvent);else if(t==='duel')openDuel('touge',nearEvent);else if(t==='trail')openDuel('trail',nearEvent);else openDuel('race',nearEvent);}
+  else if((code==='KeyE'||code==='Enter')&&street.near&&!race.active&&!drag.active&&!trace.active)challengeStreet(street.near);
   if(code==='Backspace'){resetToRoad();}
 }
 function resetToRoad(){const i=nearestRoadIdxBrute(car.x,car.z);const fwd=Math.atan2(TX[i],TZ[i]);const rev=Math.abs(angDiff(car.h,fwd))>Math.PI/2;placeCarOnRoad(i*DS,rev?-3.2:3.2);if(rev)car.h+=Math.PI;cam.yaw=car.h;}
@@ -3023,23 +3036,24 @@ const RIVALS=[
   {n:'Grandpa Sora',car:'tanuki',paint:'#ffcf3d',liv:3,num:88,up:{engine:3,boost:3,weight:3,tires:3},skill:.9,rt:.35}];
 const rivalSpec=r=>tuned(carById(r.car),r.up);
 let duelKind='drag',duelSel=0,duelStake={k:'friendly'},duelEv=null;
-function openDuel(kind,ev){duelKind=kind;duelEv=ev;duelSel=kind==='drag'?-1:0;duelStake={k:'friendly'};openScreen('duel');renderDuel();}
+function openDuel(kind,ev,sel){duelKind=kind;duelEv=ev;duelSel=sel!=null&&sel>=0?sel:kind==='touge'?0:-1;duelStake={k:'friendly'};openScreen('duel');renderDuel();}
 function renderDuel(){
   const DSd=duelKind==='drag'?(duelEv&&duelEv.strip)||DRAGS[0]:null;
-  $('#duelTitle').textContent=DSd?DSd.name:'Rival Duels';
-  $('#duelSub').textContent=DSd?'A '+DSd.len+' m '+DSd.dist+' drag race. Hold the brake to stage, launch on green. Launch before the green and you red-light.':'A 1v1 race up Yamabiko Touge against a rival driver.';
+  const pick1=duelKind==='race'||duelKind==='trail';
+  $('#duelTitle').textContent=DSd?DSd.name:pick1?duelEv.name:duelKind==='street'?'Street 1v1':'Rival Duels';
+  $('#duelSub').textContent=pick1?(duelKind==='trail'?'Off-road all the way. ':'')+'Race the full field of five festival drivers, or pick one rival for a 1v1 with something on the line.':duelKind==='street'?(RIVALS[duelSel]?RIVALS[duelSel].n:'A rival')+' wants to race. First to the finish line, '+(duelEv.len/1000).toFixed(1)+' km down the road, wins.':DSd?'A '+DSd.len+' m '+DSd.dist+' drag race. Hold the brake to stage, launch on green. Launch before the green and you red-light.':'A 1v1 race up Yamabiko Touge against a rival driver.';
   renderDiff($('#duelDiff'),renderDuel);
   const L=$('#rivalList');L.innerHTML='';
-  const opts=(duelKind==='drag'?[{solo:true}]:[]).concat(RIVALS.map((r,i)=>({r,i})));
+  const opts=(duelKind==='drag'||pick1?[{solo:true}]:[]).concat(RIVALS.map((r,i)=>({r,i})));
   opts.forEach(o=>{const b=document.createElement('button');b.type='button';const idx=o.solo?-1:o.i;b.className='carcard'+(idx===duelSel?' sel':'');
-    if(o.solo){b.innerHTML='<div class="cls"><b>—</b><span>Solo</span></div><h3>Time run</h3><div class="tag">Just you and the clock. Your best ET is saved.</div>';b.style.setProperty('--c','#888');}
+    if(o.solo){b.innerHTML=pick1?'<div class="cls"><b>6</b><span>Drivers</span></div><h3>Full field</h3><div class="tag">Race all five festival drivers for prize money and XP.</div>':'<div class="cls"><b>—</b><span>Solo</span></div><h3>Time run</h3><div class="tag">Just you and the clock. Your best ET is saved.</div>';b.style.setProperty('--c','#888');}
     else{const s=rivalSpec(o.r),pi=perfPI(carById(o.r.car),s);b.style.setProperty('--c',classColor(pi));b.innerHTML='<div class="cls"><b>'+classOf(pi)+'</b><span>'+pi+'</span></div><h3></h3><div class="tag"></div>';b.querySelector('h3').textContent=o.r.n;addThumb(b,o.r.car,o.r.paint,o.r.up,o.r.liv||2);b.querySelector('.tag').textContent=carById(o.r.car).name+(duelKind==='drag'?' · launch '+o.r.rt.toFixed(2)+' s':'');}
     b.onclick=()=>{duelSel=idx;if(idx<0)duelStake={k:'friendly'};renderDuel();};L.appendChild(b);});
   const S=$('#stakeList');S.innerHTML='';const solo=duelSel<0,canSlip=save.unlocked.length>1;
   [['friendly','Friendly'],['cr',10000],['cr',50000],['slip','Pink slip']].forEach(([k,v])=>{const b=document.createElement('button');b.type='button';const sel=duelStake.k===k&&(k!=='cr'||duelStake.v===v);b.className='lv'+(sel?' sel':'');
     b.textContent=k==='cr'?'CR '+fmt(v):v;const off=solo&&k!=='friendly'||k==='cr'&&!save.inf&&save.cr<v||k==='slip'&&!canSlip;b.disabled=off;
     b.onclick=()=>{duelStake=k==='cr'?{k,v}:{k};renderDuel();};S.appendChild(b);});
-  const r=RIVALS[duelSel];$('#duelNote').textContent=solo?'Best ET here: '+(save.best[DSd.et]?save.best[DSd.et].toFixed(3)+' s':'none yet'):
+  const r=RIVALS[duelSel];$('#duelNote').textContent=solo?(DSd?'Best ET here: '+(save.best[DSd.et]?save.best[DSd.et].toFixed(3)+' s':'none yet'):'Prize money for a podium. Pick a rival above for a 1v1 instead.'):
     duelStake.k==='slip'?'Win and '+r.n+' hands you their '+carById(r.car).name+'. Lose and they keep your '+car.spec.name+'.':duelStake.k==='cr'?'Winner takes CR '+fmt(duelStake.v)+'.':'No stake. Credits and XP for a win.';
 }
 function settleDuel(d,won,lines){
@@ -3108,15 +3122,18 @@ function tPoint(t,s,lat){const n=t.closed?t.N:t.N-1;let f=s/t.DS;if(t.closed)f=(
   const i=Math.floor(f),u=f-i,j=t.closed?(i+1)%t.N:Math.min(i+1,t.N-1),tx=lerp(t.TX[i],t.TX[j],u),tz=lerp(t.TZ[i],t.TZ[j],u),x=lerp(t.X[i],t.X[j],u)+tz*lat,z=lerp(t.Z[i],t.Z[j],u)-tx*lat;
   return {x,z,y:terrainH(x,z),h:Math.atan2(tx,tz),i};}
 function tNearest(t,x,z,hint){let best=hint,bd=1e18;for(let k=-60;k<=60;k++){let i=hint+k;if(t.closed)i=((i%t.N)+t.N)%t.N;else if(i<0||i>=t.N)continue;const d=(t.X[i]-x)**2+(t.Z[i]-z)**2;if(d<bd){bd=d;best=i;}}return best;}
-function startTrail(t,online){
+// a rival on the trail, in their own tuned car, set off beside you
+function trailDuelAI(duel,t){const r=duel.rival,s=rivalSpec(r),m=buildCar(s,r.paint,{livery:r.liv||2,num:r.num||9,layer:1});scene.add(m.group);
+  return {name:r.n,m,spec:s,s:10-(t.closed?12:0),lat:2.5,latT:2.5,v:0,skill:r.skill*diff().ai,finished:false,time:0,x:0,z:0,h:0,latTimer:R(2,5)};}
+function startTrail(t,online,duel){
   if(trace.active)endTrail(true);
-  Object.assign(trace,{active:true,t,phase:'count',cd:3.9,time:0,idx:0,prog:t.closed?-12:0,cp:0,cpN:Math.max(4,Math.round(t.len/300)),lastBeep:4,online:online||null});
+  Object.assign(trace,{active:true,t,phase:'count',cd:3.9,time:0,idx:0,prog:t.closed?-12:0,cp:0,cpN:Math.max(4,Math.round(t.len/300)),lastBeep:4,online:online||null,duel:duel||null});
   trafficGroup.visible=false;breakChainSilently();repairCar();
   const sp=tPoint(t,t.closed?-12:0,-2.5);car.x=sp.x;car.z=sp.z;car.y=sp.y;car.h=sp.h;car.vx=car.vz=car.vy=0;car.yawV=0;car.air=false;car.drifting=false;hist.length=0;cam.yaw=car.h;cam.pos.set(car.x-Math.sin(car.h)*8,car.y+3,car.z-Math.cos(car.h)*8);
   trace.idx=tNearest(t,car.x,car.z,t.closed?t.N-4:0);
-  trace.ais=online?[]:[[10,2.5],[10,-2.5],[22,2.5],[22,-2.5],[34,0]].map((sl,k)=>{const look=carById(pick(['yama','kumo','kumo','raijin','tanuki','yama'])),m=buildCar(look,pick(PAINTS)[1],{livery:2,num:[4,17,23,61,9][k],layer:1});scene.add(m.group);
+  trace.ais=online?[]:duel?[trailDuelAI(duel,t)]:[[10,2.5],[10,-2.5],[22,2.5],[22,-2.5],[34,0]].map((sl,k)=>{const look=carById(pick(['yama','kumo','kumo','raijin','tanuki','yama'])),m=buildCar(look,pick(PAINTS)[1],{livery:2,num:[4,17,23,61,9][k],layer:1});scene.add(m.group);
     return {name:AI_NAMES[k],m,spec:look,s:sl[0]-(t.closed?12:0),lat:sl[1],latT:sl[1],v:0,skill:(R(.86,.97)-k*.01)*diff().ai,finished:false,time:0,x:0,z:0,h:0,latTimer:R(2,5)};});
-  $('#raceHud').hidden=false;$('#rName').textContent=(online?'CONVOY · ':'')+t.name.toUpperCase();$('#rOf').textContent='/'+(online?online.n:trace.ais.length+1);$('#count').hidden=false;
+  $('#raceHud').hidden=false;$('#rName').textContent=duel?'1V1 · '+duel.rival.n.toUpperCase():(online?'CONVOY · ':'')+t.name.toUpperCase();$('#rOf').textContent='/'+(online?online.n:trace.ais.length+1);$('#count').hidden=false;
   gate.visible=true;trailGate();toast(t.name.toUpperCase(),t.sub+' · dirt all the way','');
 }
 const tcp=k=>trace.t.len*(k+1)/trace.cpN;
@@ -3147,12 +3164,43 @@ function updateTrail(dt){
 }
 function finishTrail(){
   if(trace.online){const o=trace.online,t=trace.time;endTrail(false);netFinished(o,t);return;}
+  if(trace.duel){const a=trace.ais[0],at=a&&a.finished?a.time:Infinity,d=trace.duel,t=trace.time,won=t<at;endTrail(false);settleDuel(d,won,[[won?'1':'2','You',fmtT(t),true],[won?'2':'1',d.rival.n,isFinite(at)?fmtT(at):'Still racing',false]].sort((x,y)=>x[0]-y[0]));return;}
   const rows=trace.ais.map(a=>({name:a.name,time:a.finished?a.time:trace.time+((trace.t.len-a.s)/Math.max(a.v,12)),me:false}));rows.push({name:'You',time:trace.time,me:true});rows.sort((a,b)=>a.time-b.time);
   const pos=rows.findIndex(r=>r.me)+1,cr=Math.round([22000,14000,9000,5000,3500,2500][pos-1]*diff().cr),xp=[2400,1700,1100,700,500,400][pos-1],id=trace.t.id;if(!save.best[id]||pos<save.best[id])save.best[id]=pos;
   addCR(cr);addXP(xp);$('#resTitle').textContent=(pos===1?'Victory · ':'P'+pos+' · ')+trace.t.name;
   const L=$('#resList');L.innerHTML='';rows.forEach((r,i)=>{const d=document.createElement('div');d.className='rrow'+(r.me?' me':'');d.innerHTML='<b></b><span></span><span></span>';d.children[0].textContent=i+1;d.children[1].textContent=r.name;d.children[2].textContent=fmtT(r.time);L.appendChild(d);});
   $('#resReward').innerHTML='<span>Credits <b>+'+fmt(cr)+'</b></span><span>XP <b>+'+fmt(xp)+'</b></span>';endTrail(false);openScreen('results');sfx(pos===1?880:520,.4,'square',.12);
 }
+
+/* ================= street rivals ================= */
+// Three rivals cruise the open road with the traffic, each under a pink marker. Pull up to one and press E (or the
+// event button) to race them 1v1 to a finish line down the road, for credits, a pink slip or just the win.
+const street={cars:[],near:null,nearD:0};
+const STREET_MARK_G=new THREE.ConeGeometry(.35,.7,4).rotateX(Math.PI),STREET_MARK_M=new THREE.MeshBasicMaterial({color:0xff2e88});
+function spawnStreetRival(){
+  const used=street.cars.map(c=>c.r),pool=RIVALS.filter(r=>!used.includes(r)),r=pool[Math.floor(Math.random()*pool.length)];if(!r)return false;
+  let i=0;for(let k=0;k<60;k++){i=Math.floor(Math.random()*NS);if(Math.hypot(RX[i]-car.x,RZ[i]-car.z)>320)break;}
+  const spec=rivalSpec(r),m=buildCar(spec,r.paint,{livery:r.liv||2,num:r.num||9,layer:1}),mk=new THREE.Mesh(STREET_MARK_G,STREET_MARK_M);mk.position.y=2.4;mk.layers.set(1);m.group.add(mk);scene.add(m.group);
+  const dir=Math.random()<.5?1:-1;street.cars.push({r,spec,m,mk,rs:i*DS,dir,lat:3.4*dir,latT:3.4*dir,v:16,x:RX[i],z:RZ[i],h:0,gone:false});return true;}
+function dropStreetRival(c){scene.remove(c.m.group);street.cars.splice(street.cars.indexOf(c),1);}
+function updateStreet(dt){
+  const evOn=race.active||drag.active||trace.active;street.near=null;
+  for(const c of street.cars.slice())if(c.gone&&!evOn)dropStreetRival(c);
+  for(let k=0;k<3&&street.cars.length<3;k++)if(!spawnStreetRival())break;
+  for(const c of street.cars){c.m.group.visible=!evOn&&!c.gone;if(evOn||c.gone)continue;
+    const i=Math.floor((((c.rs%ROAD_LEN)+ROAD_LEN)%ROAD_LEN)/DS)%NS,fx=Math.sin(c.h),fz=Math.cos(c.h),dx=car.x-c.x,dz=car.z-c.z,ahead=dx*fx+dz*fz,side=Math.abs(dx*fz-dz*fx);
+    let tgt=Math.min((c.dir>0?VCAP:VCAPR)[i]*.7,26);if(ahead>0&&ahead<16&&side<2.6)tgt=Math.min(tgt,Math.max(0,(ahead-6)*1.2));
+    c.v+=clamp(tgt-c.v,-12*dt,3*dt);c.rs+=c.v*dt*c.dir;c.latT+=(3.4*c.dir-c.latT)*Math.min(1,dt*.3);c.lat+=(c.latT-c.lat)*Math.min(1,dt);
+    const p=roadPoint(c.rs,c.lat),moved=Math.hypot(p.x-c.x,p.z-c.z);c.x=p.x;c.z=p.z;c.h=c.dir>0?p.h:p.h+Math.PI;poseCarMesh(c.m,p.x,p.y,p.z,c.h,p.pitch*c.dir,0,0,moved);
+    c.mk.position.y=2.3+Math.sin(performance.now()/300)*.15;c.mk.rotation.y+=dt*2;
+    if(state==='drive'&&Math.abs(car.y-p.y)<2.5)bumpRival(c,c.spec,4.6);
+    const d=Math.hypot(dx,dz);if(d>1400){c.gone=true;continue;}
+    if(d<18&&(!street.near||d<street.nearD)){street.near=c;street.nearD=d;}}
+  if(street.near&&!nearEvent&&!evOn&&state==='drive'){const c=street.near,pr=$('#prompt');pr.hidden=false;pr.innerHTML='<h5></h5><p></p>';pr.firstChild.textContent=c.r.n;pr.lastChild.innerHTML='<kbd>E</kbd> Challenge to a street 1v1 · ';pr.lastChild.append(carById(c.r.car).name);}
+}
+// line up beside them where they are and race to a finish 2.4 km down the road
+function challengeStreet(c){const i=(Math.round(c.rs/DS)%NS+NS)%NS,len=2400;c.gone=true;
+  openDuel('street',{id:'street',type:'race',name:'Street 1v1',sub:'First to the line · '+(len/1000).toFixed(1)+' km',idx:i,dir:c.dir,len},RIVALS.indexOf(c.r));}
 
 /* ================= autoshow and auction house ================= */
 let garTab='mine';
@@ -3319,7 +3367,11 @@ $('#bOnline').onclick=()=>{initAudio();openScreen('online');};
 $('#netBack').onclick=()=>{if(started)closeScreens();else openScreen('menu');};
 $('#netNickSave').onclick=()=>{const v=[...$('#netNick').value].filter(ch=>{const c=ch.codePointAt(0);return c>31&&!(c>=127&&c<=159)&&!(c>=0x200b&&c<=0x200f)&&!(c>=0x2028&&c<=0x202e)&&!(c>=0x2060&&c<=0x206f)&&c!==0xfeff;}).join('').trim().slice(0,24);if(v){save.nick=v;persist();toast('NAME SAVED',v,'');}renderOnline();};
 $('#duelBack').onclick=()=>{if(started)closeScreens();else openScreen('menu');};
-$('#duelGo').onclick=()=>{const r=duelSel>=0?RIVALS[duelSel]:null;closeScreens();if(duelKind==='drag')startDrag({rival:r,stake:r?duelStake:{k:'friendly'},S:duelEv&&duelEv.strip});else startRace(duelEv,{rival:r||RIVALS[0],stake:duelStake});};
+$('#duelGo').onclick=()=>{const r=duelSel>=0?RIVALS[duelSel]:null,st=r?duelStake:{k:'friendly'};closeScreens();
+  if(duelKind==='drag')startDrag({rival:r,stake:st,S:duelEv&&duelEv.strip});
+  else if(duelKind==='trail')startTrail(duelEv.trail,null,r?{rival:r,stake:st}:null);
+  else if(duelKind==='race'&&!r)startRace(duelEv);
+  else startRace(duelEv,{rival:r||RIVALS[0],stake:duelStake});};
 
 /* ================= HUD, map and menu refresh ================= */
 // GPS: a route along the road loop from the car to a picked event or waypoint, drawn on the minimap and the big map
@@ -3446,7 +3498,7 @@ function step(now){
     updateGearbox(dt,speed);
     const nr=nearestRoad(car.x,car.z);const nrI=nr.i,nrLat=nr.lat;
     trafficGroup.visible=!(race.active||drag.active||trace.active||NET.pending);updateTraffic(dt);updateRace(dt,nrI);updateDrag(dt);updateTrail(dt);
-    if(state==='drive'){if(!rewinding)updateSkills(dt,speed);updateEvents(dt,speed,nrI,nrLat);}
+    if(state==='drive'){if(!rewinding)updateSkills(dt,speed);updateEvents(dt,speed,nrI,nrLat);updateStreet(dt);}
     updateSmash(dt);updateDestruction(dt);
     updateCamera(dt,speed);
   }else{
