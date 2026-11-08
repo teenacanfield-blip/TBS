@@ -1593,5 +1593,8 @@ html,body{ width:100%; height:100%; background:#04080f; font-family:'Inter',sans
 
 })();
 </script>
+<!-- An Xbox pad drives the same keys as the keyboard. See gamepad.js. -->
+<script src="../../gamepad.js?v=1"></script>
+<script>window.Pad && Pad.start({ a:'Space', b:'Escape', start:'Enter' });</script>
 </body>
 </html>
