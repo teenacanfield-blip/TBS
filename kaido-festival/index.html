@@ -460,19 +460,31 @@ const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.3,7000);
 scene.fog=new THREE.Fog(0xbfd8ff,260,2700);
 // Aerial perspective. Haze is thickest near sea level and thins with height, so valleys fill with it while peaks
 // stand out; looking toward the sun the haze glows with the sun's colour. The linear fog still sets the far limit.
-const ATMO_U={atmoSunDir:{value:new THREE.Vector3(0,1,0)},atmoSunCol:{value:new THREE.Color(0,0,0)},atmoHF:{value:.011},atmoDens:{value:.0007},atmoTime:{value:0},atmoCloud:{value:0}};
+const ATMO_U={atmoSunDir:{value:new THREE.Vector3(0,1,0)},atmoSunCol:{value:new THREE.Color(0,0,0)},atmoHF:{value:.011},atmoDens:{value:.0007},atmoTime:{value:0},atmoCloud:{value:0},atmoCover:{value:.25}};
 const atmo=sh=>{for(const k in ATMO_U)sh.uniforms[k]=ATMO_U[k];};
-THREE.Material.prototype.onBeforeCompile=atmo;
+// Every lit material gets the shared sun, haze and cloud uniforms. Plain (Lambert) surfaces — buildings, houses,
+// poles, props — also weather: patchy colour and rain streaks down their walls, laid out in world space.
+const WEATHER_GLSL=['#ifdef USE_FOG',
+  '{vec3 wp=vAtmoW;float m1=aF(wp.xz*.045+wp.y*.03),s1=aN(vec2((wp.x+wp.z)*.9,wp.y*.06)),s2=aN(vec2((wp.x-wp.z)*2.3,wp.y*.11+3.));',
+  'diffuseColor.rgb*=(.88+.24*m1)*(1.-.22*(smoothstep(.55,.95,s1)*.6+smoothstep(.6,.95,s2)*.4))*mix(vec3(1.),vec3(1.03,1.,.95),aN(wp.xz*.012));}',
+  '#endif'].join('\n');
+THREE.Material.prototype.onBeforeCompile=function(sh){atmo(sh);if(this&&this.isMeshLambertMaterial)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n'+WEATHER_GLSL);};
 // the camera ray comes from the view matrix: cameraPosition is only uploaded for some material types
-THREE.ShaderChunk.fog_pars_vertex='#ifdef USE_FOG\nvarying float fogDepth;varying vec3 vFogD;varying float vFogCY;\n#endif';
-THREE.ShaderChunk.fog_vertex='#ifdef USE_FOG\nfogDepth=-mvPosition.z;{vec3 a=viewMatrix[0].xyz,b=viewMatrix[1].xyz,c=viewMatrix[2].xyz,t=viewMatrix[3].xyz;vFogD=vec3(dot(a,mvPosition.xyz),dot(b,mvPosition.xyz),dot(c,mvPosition.xyz));vFogCY=-dot(b,t);}\n#endif';
-THREE.ShaderChunk.fog_pars_fragment='#ifdef USE_FOG\nuniform vec3 fogColor;varying float fogDepth;varying vec3 vFogD;varying float vFogCY;uniform vec3 atmoSunDir;uniform vec3 atmoSunCol;uniform float atmoHF;uniform float atmoDens;\n#ifdef FOG_EXP2\nuniform float fogDensity;\n#else\nuniform float fogNear;uniform float fogFar;\n#endif\n#endif';
+THREE.ShaderChunk.fog_pars_vertex='#ifdef USE_FOG\nvarying float fogDepth;varying vec3 vFogD;varying float vFogCY;varying vec3 vAtmoW;\n#endif';
+THREE.ShaderChunk.fog_vertex='#ifdef USE_FOG\nfogDepth=-mvPosition.z;{vec3 a=viewMatrix[0].xyz,b=viewMatrix[1].xyz,c=viewMatrix[2].xyz,t=viewMatrix[3].xyz;vFogD=vec3(dot(a,mvPosition.xyz),dot(b,mvPosition.xyz),dot(c,mvPosition.xyz));vFogCY=-dot(b,t);vAtmoW=vFogD-vec3(dot(a,t),dot(b,t),dot(c,t));}\n#endif';
+THREE.ShaderChunk.fog_pars_fragment='#ifdef USE_FOG\nuniform vec3 fogColor;varying float fogDepth;varying vec3 vFogD;varying float vFogCY;uniform vec3 atmoSunDir;uniform vec3 atmoSunCol;uniform float atmoHF;uniform float atmoDens;varying vec3 vAtmoW;uniform float atmoTime;uniform float atmoCloud;uniform float atmoCover;\n'+
+  'float aH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n'+
+  'float aN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(aH(i),aH(i+vec2(1,0)),f.x),mix(aH(i+vec2(0,1)),aH(i+vec2(1,1)),f.x),f.y);}\n'+
+  'float aF(vec2 p){return aN(p)*.55+aN(p*2.07+3.1)*.3+aN(p*4.3+7.7)*.15;}\n'+
+  'float atmoShade(){float th=mix(.64,.45,atmoCover);return smoothstep(th,th+.08,aF(vAtmoW.xz*.0021+atmoTime*vec2(.0036,.0013)))*atmoCloud;}\n#ifdef FOG_EXP2\nuniform float fogDensity;\n#else\nuniform float fogNear;uniform float fogFar;\n#endif\n#endif';
 THREE.ShaderChunk.fog_fragment=['#ifdef USE_FOG',
   '{float fl=max(length(vFogD),1e-3);vec3 rd=vFogD/fl;',
   '#ifdef FOG_EXP2','float fogFactor=1.0-exp(-fogDensity*fogDensity*fogDepth*fogDepth);','#else','float fogFactor=smoothstep(fogNear,fogFar,fogDepth);','#endif',
   'float fk=rd.y*atmoHF,fex=abs(fk)<1e-5?fl:(1.-exp(-fl*fk))/fk;float hf=1.-exp(-atmoDens*exp(-max(vFogCY,0.)*atmoHF)*fex);',
   'fogFactor=clamp(max(fogFactor,hf),0.,1.);float fs=max(dot(rd,atmoSunDir),0.);',
   'gl_FragColor.rgb=mix(gl_FragColor.rgb,fogColor+atmoSunCol*(pow(fs,8.)*.16+pow(fs,90.)*.3),fogFactor);}','#endif'].join('\n');
+// drifting cloud shadows take sunlight away, but not sky light, so shaded ground keeps its colour
+THREE.ShaderChunk.aomap_fragment='#ifdef USE_FOG\n{float csh=atmoShade();reflectedLight.directDiffuse*=1.-csh*.55;reflectedLight.directSpecular*=1.-csh*.7;}\n#endif\n'+THREE.ShaderChunk.aomap_fragment;
 const MAXANI=renderer.capabilities.getMaxAnisotropy();
 function canvasTex(w,h,draw,repeat){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');draw(g,w,h);const t=new THREE.CanvasTexture(c);if(repeat)t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=MAXANI;return t;}
 
@@ -585,7 +597,7 @@ const groundTex=canvasTex(512,512,(g,w,h)=>{g.fillStyle='rgb(226,226,226)';g.fil
   for(let i=0;i<70;i++){const x=Math.random()*w,y=Math.random()*h,r=14+Math.random()*60,v=Math.random()<.5?196:252;for(const ox of [-w,0,w])for(const oy of [-h,0,h]){const gr=g.createRadialGradient(x+ox,y+oy,0,x+ox,y+oy,r);gr.addColorStop(0,'rgba('+v+','+v+','+v+',.45)');gr.addColorStop(1,'rgba('+v+','+v+','+v+',0)');g.fillStyle=gr;g.fillRect(x+ox-r,y+oy-r,r*2,r*2);}}
   g.lineCap='round';for(let i=0;i<16000;i++){const x=Math.random()*w,y=Math.random()*h,a=Math.random()*6.28,l=1.5+Math.random()*4,v=150+Math.random()*105|0;g.strokeStyle='rgba('+v+','+v+','+v+',.5)';g.lineWidth=.6+Math.random()*.9;g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}
   for(let i=0;i<5000;i++){const v=120+Math.random()*80|0;g.fillStyle='rgba('+v+','+v+','+v+',.5)';g.fillRect(Math.random()*w,Math.random()*h,1,1);}},true);
-const TER_GLSL=['varying vec3 vTW;varying vec3 vTN;uniform float atmoTime;uniform float atmoCloud;',
+const TER_GLSL=['varying vec3 vTW;varying vec3 vTN;',
   'float th2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
   'float tn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(th2(i),th2(i+vec2(1,0)),f.x),mix(th2(i+vec2(0,1)),th2(i+vec2(1,1)),f.x),f.y);}',
   'float tf(vec2 p){return tn(p)*.55+tn(p*2.07+3.1)*.3+tn(p*4.3+7.7)*.15;}',''].join('\n');
@@ -595,7 +607,6 @@ const TER_COLOR=['vec3 vc=vColor;float tn1=tf(vTW.xz*.0045),tn2=tf(vTW.xz*.023+5
   'vec3 col=mix(vc*(.74+.24*tn2),gc,green)*det;float sandM=clamp((vc.r-vc.b-.12)*6.,0.,1.)*(1.-green);col*=(1.-.24*sandM)*mix(1.,.72,(1.-smoothstep(.2,1.,vTW.y))*(1.-green));',
   'vec3 an=abs(normalize(vTN));float sl=1.-an.y;float rk=smoothstep(.2,.4,sl+(tn2-.5)*.14)*(1.-smoothstep(.8,.9,vc.b));',
   'vec2 ru=an.x>an.z?vTW.zy:vTW.xy;float rt=texture2D(map,ru*.09).r*.55+tn(ru*vec2(.25,1.3))*.55;vec3 rc=vec3(.42,.4,.37)*(.62+.6*rt)*(.88+.24*tn1);col=mix(col,rc,rk);',
-  'float cs=smoothstep(.5,.78,tf(vTW.xz*.0021+atmoTime*vec2(.0036,.0013)))*atmoCloud;col*=1.-cs*.42;',
   'diffuseColor.rgb*=col;'].join('\n');
 const terrainMat=new THREE.MeshStandardMaterial({vertexColors:true,map:groundTex,bumpMap:groundTex,bumpScale:.35,roughness:.93,metalness:0});terrainMat.color.setScalar(1.1);
 terrainMat.onBeforeCompile=sh=>{atmo(sh);
@@ -896,7 +907,9 @@ const grassTex=canvasTex(64,64,(g,w,h)=>{g.clearRect(0,0,w,h);g.lineCap='round';
 const grassGeo=(()=>{const P=[],U=[],Nn=[],I=[];[[1,0],[0,1]].forEach(([dx,dz],q)=>{const b=q*4;P.push(-.5*dx,0,-.5*dz,.5*dx,0,.5*dz,.5*dx,1,.5*dz,-.5*dx,1,-.5*dz);U.push(0,0,1,0,1,1,0,1);for(let k=0;k<4;k++)Nn.push(0,1,0);I.push(b,b+1,b+2,b,b+2,b+3);});
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));g.setIndex(I);return g;})();
 const grassMat=new THREE.MeshLambertMaterial({map:grassTex,alphaTest:.45,side:THREE.DoubleSide});
-grassMat.onBeforeCompile=sh=>{sh.uniforms.uTime=grassU;sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=sin(uTime*1.7+instanceMatrix[3][0]*.35+instanceMatrix[3][2]*.27)*.13*position.y;transformed.x+=sw;transformed.z+=sw*.6;');};
+grassMat.onBeforeCompile=sh=>{atmo(sh);const OUT=sh.fragmentShader.includes('#include <output_fragment>')?'#include <output_fragment>':'gl_FragColor = vec4( outgoingLight, diffuseColor.a );';
+  sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=.5+.5*vUv.y;').replace(OUT,'#ifdef USE_FOG\noutgoingLight+=diffuseColor.rgb*atmoSunCol*pow(max(dot(normalize(vFogD),atmoSunDir),0.),4.)*.6*vUv.y;\n#endif\n'+OUT);
+  sh.uniforms.uTime=grassU;sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nfloat sw=sin(uTime*1.7+instanceMatrix[3][0]*.35+instanceMatrix[3][2]*.27)*.13*position.y;transformed.x+=sw;transformed.z+=sw*.6;');};
 const grassMesh=new THREE.InstancedMesh(grassGeo,grassMat,GRASS_N);grassMesh.frustumCulled=false;grassMesh.receiveShadow=true;grassMesh.layers.set(1);scene.add(grassMesh);
 {const c=new THREE.Color(.4,.6,.25);for(let i=0;i<GRASS_N;i++)grassMesh.setColorAt(i,c);grassMesh.count=0;}
 function updateGrass(){
@@ -1318,6 +1331,7 @@ function buildCar(spec,color,opts){
   let sideR=paint,sideL=paint,topM=paint;
   if(!lod){const t=opts.livery?liveryTextures(spec,color,opts.livery,opts.num||7,S):seamTextures(S);
     [sideR,sideL,topM]=[t.r,t.l,t.top].map(map=>{const m=paint.clone();m.map=map;if(opts.livery)m.color.set(0xffffff);return m;});}
+  const dirtU={value:opts.dirt??(lod?Math.random()*.25:0)},pShade=paintShader(dirtU,spec.sill);for(const pm of new Set([paint,sideR,sideL,topM]))pm.onBeforeCompile=pShade;
   const gk=spec.id+(lod?'L':'H')+'|'+L+'|'+W+'|'+H,G=geoCache[gk]||(geoCache[gk]={body:bodyGeo(S,lod),cab:cabGeo(S,lod)});
   const bodyMesh=new THREE.Mesh(opts.dent?G.body.clone():G.body,[sideR,topM,CM.under,sideL]);bodyMesh.castShadow=true;body.add(bodyMesh);
   const cabMesh=new THREE.Mesh(opts.dent?G.cab.clone():G.cab,[CM.glass,topM,CM.trim,topM]);cabMesh.castShadow=true;body.add(cabMesh);
@@ -1393,7 +1407,7 @@ function buildCar(spec,color,opts){
   const ao=new THREE.Mesh(AO_GEO,AO_MAT);ao.position.y=.04;ao.scale.set(W*1.3,1,L*1.12);group.add(ao);
   if(opts.dent)dent.forEach(d=>{d.orig=d.mesh.geometry.attributes.position.array.slice();});
   if(opts.layer)group.traverse(o=>o.layers.set(opts.layer));
-  return {group,body,spins,pivots,paint,paints:[...new Set([paint,sideR,sideL,topM])],spec,cabMesh,dent:opts.dent?dent:null};
+  return {group,body,spins,pivots,paint,paints:[...new Set([paint,sideR,sideL,topM])],spec,cabMesh,dirtU,dent:opts.dent?dent:null};
 }
 
 /* in-car view: dashboard, live gauges, a turning wheel, seats and the cabin lining, built around the driver's eye */
@@ -1451,6 +1465,22 @@ const CK_Q=new THREE.Quaternion(),CK_Q2=new THREE.Quaternion(),CK_Y=new THREE.Ve
 function updateCockpit(dt,speed){const m=car.mesh;const k=m.cockpit||(m.cockpit=buildCockpit(m));k.g.visible=true;car.mesh.group.visible=true;
   k.spin.rotation.z=-car.steer*2.4;k.t+=dt;if(k.t>1/30){k.t=0;drawGauges(k.ctx,car.rpm||900,speed*3.6,car.vF<-.5?'R':speed<.5&&!(inp.throttle>.1)?'N':String(car.gear||1),7600,'#ff3b5c');k.gt.needsUpdate=true;k.nav.needsUpdate=true;}
   m.group.updateMatrixWorld(true);camera.position.copy(k.eye).applyMatrix4(m.body.matrixWorld);camera.quaternion.copy(m.group.quaternion).multiply(CK_Q.setFromAxisAngle(CK_Y,Math.PI+(cam.look||0))).multiply(CK_Q2.setFromAxisAngle(CK_X,-.06));}
+// Flakes are tiny cells of slightly different roughness, so highlights sparkle up close and settle with distance. Mud gathers low on the
+// body first, dulls the clear coat, and builds with carDirt (driving off-road); rain and repairs wash it off.
+function paintShader(dirtU,sill){return function(sh){atmo(sh);sh.uniforms.carDirt=dirtU;sh.uniforms.carSill={value:sill};
+  sh.vertexShader='varying vec3 vPaintP;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPaintP=position;');
+  sh.fragmentShader=['varying vec3 vPaintP;uniform float carDirt;uniform float carSill;',
+    'float pH3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}',
+    'float pN3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(pH3(i),pH3(i+vec3(1,0,0)),f.x),mix(pH3(i+vec3(0,1,0)),pH3(i+vec3(1,1,0)),f.x),f.y),mix(mix(pH3(i+vec3(0,0,1)),pH3(i+vec3(1,0,1)),f.x),mix(pH3(i+vec3(0,1,1)),pH3(i+vec3(1,1,1)),f.x),f.y),f.z);}',''].join('\n')
+    +sh.fragmentShader.replace('#include <color_fragment>',['#include <color_fragment>',
+      'float lowB=1.-smoothstep(carSill+.05,carSill+.42,vPaintP.y),mn=pN3(vPaintP*7.)*.6+pN3(vPaintP*19.)*.4;',
+      'float mud=clamp(lowB*(.08+carDirt*1.1)*smoothstep(.25,.65,mn+lowB*.3)+carDirt*.35*smoothstep(.55,.8,mn),0.,1.);',
+      'diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.23,.19,.14),mud*.9);'].join('\n'))
+    .replace('#include <roughnessmap_fragment>',['#include <roughnessmap_fragment>','roughnessFactor=mix(roughnessFactor,.95,mud);',
+      '{vec3 fc=floor(vPaintP*240.);float fr=fract(sin(dot(fc,vec3(12.9898,78.233,37.719)))*43758.5453);roughnessFactor=mix(roughnessFactor,roughnessFactor*(.5+fr),(1.-smoothstep(2.,10.,length(vViewPosition)))*(1.-mud));}'].join('\n'))
+    .replace('#include <lights_physical_fragment>','#include <lights_physical_fragment>\n#ifdef CLEARCOAT\nmaterial.clearcoat*=1.-mud;\n#endif');};}
+function updateDirt(dt,speed){const u=car.mesh&&car.mesh.dirtU;if(!u)return;
+  if(!car.onRoad&&!car.air&&speed>3)u.value=Math.min(1,u.value+dt*speed*.0009);else if(rainAmt()>.1)u.value=Math.max(0,u.value-dt*.01*rainAmt());}
 function poseCarMesh(m,x,y,z,h,pitch,roll,steer,dist){m.group.position.set(x,y,z);m.group.rotation.set(pitch,h,roll,'YXZ');const r=m.spec.r;for(const s of m.spins)s.rotation.x+=dist/r;for(const p of m.pivots)p.rotation.y=steer*.42;}
 // dents push the body in where it was hit; repairs restore the factory shape
 function dentCar(nx,nz,impact){
@@ -1464,7 +1494,7 @@ function dentCar(nx,nz,impact){
       a[i*3]=x;a[i*3+1]=y;a[i*3+2]=z;}
     p.needsUpdate=true;smoothNormals(d.mesh.geometry,40);d.dirty=true;}
 }
-function repairCar(){const m=car.mesh;if(m)undamage(m);if(!m||!m.dent)return;for(const d of m.dent){if(!d.dirty)continue;const p=d.mesh.geometry.attributes.position;p.array.set(d.orig);p.needsUpdate=true;smoothNormals(d.mesh.geometry,40);d.dirty=false;}}
+function repairCar(){const m=car.mesh;if(m)undamage(m);if(m&&m.dirtU)m.dirtU.value=0;if(!m||!m.dent)return;for(const d of m.dent){if(!d.dirty)continue;const p=d.mesh.geometry.attributes.position;p.array.set(d.orig);p.needsUpdate=true;smoothNormals(d.mesh.geometry,40);d.dirty=false;}}
 
 /* turntable display cars */
 {
@@ -2705,7 +2735,7 @@ function updateSky(){
   headSpot.intensity=Math.max(nightF,W.v*.7)*2.2*(car.mesh&&car.mesh.D?car.mesh.D.hlK:1);beamMat.opacity=Math.max(nightF,W.v*.6)*(.07+.08*rainAmt())*(cam.mode>=2?.4:1);CM.head.color.setRGB(1,.97,lerp(.8,.9,nightF));
   const hr=Math.floor(tod*24),mn=Math.floor((tod*24-hr)*60);$('#clock').textContent=(hr<10?'0':'')+hr+':'+(mn<10?'0':'')+mn;
   water.material.color.setRGB(lerp(.03,.11,day),lerp(.06,.4,day),lerp(.14,.53,day));
-  ATMO_U.atmoSunDir.value.copy(sunV);ATMO_U.atmoSunCol.value.copy(skyMat.uniforms.sunCol.value);ATMO_U.atmoDens.value=.0007*(1+1.8*W.v)*(1-.55*nightF);ATMO_U.atmoCloud.value=skyMat.uniforms.cover.value*sstep(0,.15,e)*(1-nightF);
+  ATMO_U.atmoSunDir.value.copy(sunV);ATMO_U.atmoSunCol.value.copy(skyMat.uniforms.sunCol.value);ATMO_U.atmoDens.value=.0007*(1+1.8*W.v)*(1-.55*nightF);ATMO_U.atmoCloud.value=sstep(0,.15,e)*(1-nightF);ATMO_U.atmoCover.value=skyMat.uniforms.cover.value;
 }
 
 /* ================= minimap ================= */
@@ -3428,7 +3458,7 @@ function step(now){
   sky.position.copy(cp);stars.position.copy(cp);
   water.position.x=Math.round(cp.x/100)*100;water.position.z=Math.round(cp.z/100)*100;
   updateSky();
-  Music.tick();updateAudio(speed,dt);updateRumble(dt,speed);netTick(dt);
+  Music.tick();updateAudio(speed,dt);updateRumble(dt,speed);updateDirt(dt,speed);netTick(dt);
   renderFrame(dt,speed);updateFlare();
   if(state==='drive'){drawSpeedo(speed);drawMini();updateLabels();}
 }
