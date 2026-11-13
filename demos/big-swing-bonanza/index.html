@@ -451,7 +451,9 @@
 <script src="shop.js?v=3"></script>
 <script src="game.js?v=2"></script>
 <!-- An Xbox pad drives the same keys as the keyboard. See gamepad.js. -->
-<script src="../../gamepad.js?v=1"></script>
-<script>window.Pad && Pad.start({ a:'Space', b:'KeyE', x:'KeyQ', y:'KeyF', rt:'ShiftLeft', start:'Escape', back:'KeyM' });</script>
+<script src="../../gamepad.js?v=2"></script>
+<script>window.Pad && Pad.start(
+  { a:'Space', b:'KeyE', x:'KeyQ', y:'KeyF', rt:'ShiftLeft', start:'Escape', back:'KeyM' },
+  { menu: '.btn' });</script>
 </body>
 </html>

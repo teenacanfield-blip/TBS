@@ -2266,7 +2266,9 @@ function render(){
 })();
 </script>
 <!-- An Xbox pad drives the same keys as the keyboard. See gamepad.js. -->
-<script src="../../gamepad.js?v=1"></script>
-<script>window.Pad && Pad.start({ a:'Space', b:'Escape', start:'Enter' });</script>
+<script src="../../gamepad.js?v=2"></script>
+<script>window.Pad && Pad.start(
+  { a:'Space', b:'Escape', start:'Enter' },
+  { menu: '.btn, .card' });</script>
 </body>
 </html>
