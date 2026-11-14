@@ -881,7 +881,26 @@ const Art = (() => {
      otherwise wear somebody else's — which is exactly what happened to
      Roaminals before it had this entry. Add a game here when you add it to
      games.js. */
+  /* Laser's Tag: a blacklit arena, neon-edged cover, two beams crossing. */
+  const laserTagScene = (w, h, focal, ns) => {
+    const rand = rng(3131);
+    const fy = h * 0.6;
+    let s = R(0, 0, w, h, '#070816') + R(0, fy, w, h - fy, '#0c0f25');
+    for (let i = 0; i < 40; i++) s += R(rand() * w, rand() * h * 0.4, 2, 2, '#dfe8ff', ` opacity="${(0.2 + rand() * 0.5).toFixed(2)}"`);
+    for (let i = 0; i <= 12; i++) s += R(0, fy + Math.pow(i / 12, 1.8) * (h - fy), w, 1, '#2a4bd8', ' opacity="0.35"');
+    for (let i = -10; i <= 10; i++) s += `<path d="M${w * 0.5 + i * w * 0.04} ${fy} L${w * 0.5 + i * w * 0.2} ${h}" stroke="#2a4bd8" stroke-width="1" opacity="0.3" fill="none"/>`;
+    for (const [x, bh, c] of [[0.06, 0.2, '#39d5ff'], [0.42, 0.28, '#c4a8ff'], [0.78, 0.2, '#ff3f8e']]) {
+      s += R(w * x, fy - h * bh, w * 0.16, h * bh, '#1d2147') + R(w * x, fy - h * bh, w * 0.16, 4, c) + R(w * x, fy - 6, w * 0.16, 3, c);
+    }
+    const tx = w * focal, ty = h * 0.46;
+    s += `<line x1="${w * 0.1}" y1="${h * 0.82}" x2="${tx}" y2="${ty}" stroke="#5cb6ff" stroke-width="5" class="pulse-slow"/>`;
+    s += `<line x1="${w * 0.94}" y1="${h * 0.8}" x2="${tx}" y2="${ty}" stroke="#ff6448" stroke-width="5" class="pulse-slow"/>`;
+    s += `<circle cx="${tx}" cy="${ty}" r="${h * 0.05}" fill="#ffffff" opacity="0.85" class="pulse-slow"/>`;
+    return s;
+  };
+
   const SCENES = {
+    'laser-tag': laserTagScene,
     'the-13-dynasties': dynastiesScene,
     'ugg-and-the-undersaucer': uggScene,
     'roaminals': roaminalsScene,
@@ -1208,6 +1227,15 @@ const Art = (() => {
         <rect x="39" y="45" width="6" height="3" fill="#ff4545"/>
         <rect x="18" y="52" width="6" height="4" fill="#0c0b16"/>
         <rect x="40" y="52" width="6" height="4" fill="#0c0b16"/>
+      </svg>`;
+    }
+    if (id === 'laser-tag') {
+      /* Two beams, blue and red, meeting in a flash. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#0b0d22"/>
+        <line x1="6" y1="54" x2="32" y2="28" stroke="#5cb6ff" stroke-width="4"/>
+        <line x1="58" y1="52" x2="32" y2="28" stroke="#ff6448" stroke-width="4"/>
+        <circle cx="32" cy="28" r="7" fill="#ffffff"/>
       </svg>`;
     }
     if (id === 'the-13-dynasties') {

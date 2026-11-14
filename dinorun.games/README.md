@@ -1,10 +1,13 @@
 # dinorun.games
 
-A folder to hold the dinorun.games titles. Two are planned and neither is here
-yet:
+A folder to hold the dinorun.games titles. Two are planned:
 
 - **The eyes game** — not started.
-- **Laser tag** — not started.
+- **Laser tag** — in `laser-tag/`, listed in `games.js` as Laser’s Tag. A 3D
+  three-a-side arena game using the Floodlight characters. It is one file: the
+  character models and animations are packed inside it as base64, and only
+  three.js comes from a CDN, so it also runs by double-clicking it offline of
+  the site.
 
 ## Adding one
 

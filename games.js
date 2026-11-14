@@ -761,4 +761,49 @@ const GAMES = [
       'If it runs slowly, press V to switch off the heavier effects.',
     ],
   },
+  {
+    id: 'laser-tag',
+    rating: 'e10',
+    ratingNotes: ['Laser tag — a tag puts a player out of the round, nobody gets hurt'],
+    title: 'Laser’s Tag',
+    suffix: '',
+    tagline: 'Three a side in a neon arena. One tag and you are out.',
+    url: './dinorun.games/laser-tag/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#4d9bff',
+    accentDark: '#0b1a33',
+    genres: ['Shooter', '3D', 'Arena'],
+    short:
+      'Three-a-side laser tag in a blacklit arena, played over the shoulder by the ' +
+      'Floodlight players in glowing team suits.',
+    about: [
+      'You and two teammates in blue against three in red, in an arena of neon-edged ' +
+      'walls to hide behind. A tag puts a player out of the round, and the last team ' +
+      'with anyone standing wins.',
+      'Your vest has three lights, so you can take two tags and stay in; everyone else ' +
+      'is out on the first. A tagged player beams out in a column of their team’s light.',
+      'The crosshair turns red when your shot will land, and a click while the blaster ' +
+      'recharges is kept and fired the moment it is ready, so every click counts.',
+    ],
+    features: [
+      'Single player with bots',
+      '3 vs 3',
+      'Play as a boy or a girl',
+      'Minimap',
+      'Xbox controller support',
+    ],
+    controls: [
+      ['W A S D', 'Move'],
+      ['Mouse', 'Aim. Click the game to capture the mouse'],
+      ['Left click / Space', 'Fire, or hold to keep firing'],
+      ['Shift', 'Sprint'],
+      ['← / →', 'Turn without the mouse'],
+      ['Esc', 'Pause'],
+    ],
+    notes: [
+      'It loads its 3D engine from the internet when it starts, so wifi that blocks CDNs will leave it blank.',
+      'It wants a laptop or desktop with a mouse; there are no touch controls yet.',
+    ],
+  },
 ];
