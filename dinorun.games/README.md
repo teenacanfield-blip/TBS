@@ -1,6 +1,6 @@
 # dinorun.games
 
-A folder to hold the dinorun.games titles. Two are planned:
+A folder to hold the dinorun.games titles. So far:
 
 - **The eyes game** — not started.
 - **Laser tag** — in `laser-tag/`, listed in `games.js` as Laser’s Tag. A 3D
@@ -8,6 +8,9 @@ A folder to hold the dinorun.games titles. Two are planned:
   character models and animations are packed inside it as base64, and only
   three.js comes from a CDN, so it also runs by double-clicking it offline of
   the site.
+- **Patrol Rush** — in `patrol-rush/`. Cops and robbers in a 3D city, with the
+  cars, paint and sky lifted from Kaido Festival. One file; only three.js and
+  its post-processing add-ons come from a CDN.
 
 ## Adding one
 

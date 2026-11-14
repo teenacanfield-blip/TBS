@@ -899,7 +899,34 @@ const Art = (() => {
     return s;
   };
 
+  /* Patrol Rush: a city street at night, lit windows, one cruiser with its lights going. */
+  const patrolScene = (w, h, focal, ns) => {
+    const rand = rng(4242);
+    const fy = h * 0.62;
+    let s = R(0, 0, w, h, '#0b1230') + R(0, h * 0.35, w, fy - h * 0.35, '#1b2350');
+    for (let x = 0; x < w; ) {
+      const bw = w * (0.06 + rand() * 0.07), bh = h * (0.22 + rand() * 0.34);
+      s += R(x, fy - bh, bw - 3, bh, rand() < 0.5 ? '#232a4a' : '#1c2240');
+      for (let wy = fy - bh + 8; wy < fy - 8; wy += 12)
+        for (let wx = x + 5; wx < x + bw - 10; wx += 10)
+          if (rand() < 0.45) s += R(wx, wy, 5, 6, rand() < 0.2 ? '#9fd8ff' : '#ffd98a', ` opacity="${(0.5 + rand() * 0.5).toFixed(2)}"`);
+      x += bw;
+    }
+    s += R(0, fy, w, h - fy, '#2b2f38');
+    s += `<path d="M${w * 0.47} ${fy} L${w * 0.53} ${fy} L${w * 0.62} ${h} L${w * 0.38} ${h} Z" fill="#33374a"/>`;
+    for (let i = 0; i < 6; i++) { const t = i / 6, y = fy + (h - fy) * t * t; s += R(w * 0.5 - 1 - t * 3, y, 2 + t * 6, 4 + t * 16, '#d9b92e'); }
+    const cx = w * focal, cy = h * 0.82, u = h * 0.022;
+    s += `<ellipse cx="${cx - u * 9}" cy="${cy - u * 7}" rx="${u * 18}" ry="${u * 7}" fill="#ff2a2a" opacity="0.28" class="pulse-slow"/>`;
+    s += `<ellipse cx="${cx + u * 9}" cy="${cy - u * 7}" rx="${u * 18}" ry="${u * 7}" fill="#2a6aff" opacity="0.32" class="pulse-slow"/>`;
+    s += R(cx - u * 9, cy - u * 3, u * 18, u * 5, '#111318') + R(cx - u * 6, cy - u * 6, u * 12, u * 3.4, '#f3f4f6') + R(cx - u * 4.6, cy - u * 5.4, u * 9.2, u * 2.2, '#1a2336');
+    s += R(cx - u * 4, cy - u * 7.4, u * 4, u * 1.4, '#ff3a3a') + R(cx, cy - u * 7.4, u * 4, u * 1.4, '#3a7aff');
+    s += R(cx - u * 8.4, cy - u * 1.6, u * 3, u * 1.4, '#ff4545') + R(cx + u * 5.4, cy - u * 1.6, u * 3, u * 1.4, '#ff4545');
+    s += R(cx - u * 8.6, cy + u * 2, u * 3.4, u * 2, '#08090c') + R(cx + u * 5.2, cy + u * 2, u * 3.4, u * 2, '#08090c');
+    return s;
+  };
+
   const SCENES = {
+    'patrol-rush': patrolScene,
     'laser-tag': laserTagScene,
     'the-13-dynasties': dynastiesScene,
     'ugg-and-the-undersaucer': uggScene,
@@ -1253,6 +1280,27 @@ const Art = (() => {
         <rect x="39" y="45" width="6" height="3" fill="#ff4545"/>
         <rect x="18" y="52" width="6" height="4" fill="#0c0b16"/>
         <rect x="40" y="52" width="6" height="4" fill="#0c0b16"/>
+      </svg>`;
+    }
+    if (id === 'patrol-rush') {
+      /* A cruiser from behind, one light bar red and one blue. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#0e1534"/>
+        <rect x="6" y="40" width="52" height="18" fill="#2b2f38"/>
+        <rect x="30" y="42" width="4" height="5" fill="#d9b92e"/>
+        <rect x="30" y="50" width="4" height="6" fill="#d9b92e"/>
+        <rect x="10" y="14" width="18" height="18" fill="#ff2a2a" opacity="0.25"/>
+        <rect x="36" y="14" width="18" height="18" fill="#2a6aff" opacity="0.3"/>
+        <rect x="23" y="22" width="9" height="4" fill="#ff3a3a"/>
+        <rect x="32" y="22" width="9" height="4" fill="#3a7aff"/>
+        <rect x="18" y="26" width="28" height="8" fill="#f3f4f6"/>
+        <rect x="21" y="28" width="22" height="5" fill="#1a2336"/>
+        <rect x="14" y="34" width="36" height="12" fill="#111318"/>
+        <rect x="16" y="37" width="7" height="3" fill="#ff4545"/>
+        <rect x="41" y="37" width="7" height="3" fill="#ff4545"/>
+        <rect x="27" y="40" width="10" height="4" fill="#e8e4d0"/>
+        <rect x="15" y="46" width="7" height="5" fill="#08090c"/>
+        <rect x="42" y="46" width="7" height="5" fill="#08090c"/>
       </svg>`;
     }
     if (id === 'laser-tag') {

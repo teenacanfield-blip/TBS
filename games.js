@@ -807,6 +807,59 @@ const GAMES = [
       'It wants a laptop or desktop with a mouse; there are no touch controls yet.',
     ],
   },
+  {
+    id: 'patrol-rush',
+    rating: 'e10',
+    ratingNotes: ['Cops and robbers with cars — robberies, rams and spin-outs, nobody gets hurt'],
+    title: 'Patrol Rush',
+    suffix: '',
+    tagline: 'Cops or robbers in a city that never sleeps.',
+    url: './dinorun.games/patrol-rush/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#3d8bff',
+    accentDark: '#0b1430',
+    genres: ['Driving', 'Chase', '3D'],
+    short:
+      'Pick a side in a city of 361 blocks. Chase speeders and spin out getaway cars ' +
+      'as a cop, or pull heists and shake the police as a robber, in the Kaido Festival cars.',
+    about: [
+      'As a cop you answer calls, run down speeders and ram getaway cars until they ' +
+      'spin out. As a robber you hit corner stores, banks and armored trucks, then lose ' +
+      'the police or reach the hideout before they box you in.',
+      'Fourteen cars from Kaido Festival, from a kei van to a GT1 racer, unlock as you ' +
+      'level up. Cops get a police paint job and a light bar; robbers pick the paint ' +
+      'and livery. Each side keeps its own level, up to 50.',
+      'Free mode drops the clock and opens every car. Press P whenever you want a pursuit ' +
+      'to start, and again to call it off. Dusk, night or day, with neon signs and ' +
+      'festival lanterns strung over the streets.',
+    ],
+    features: [
+      'Single player',
+      'Play as a cop or a robber',
+      'Free mode',
+      '14 cars to unlock',
+      'Wanted stars and police AI',
+      'Dusk, night and day',
+      'Cockpit camera',
+      'Minimap',
+      'Xbox controller support',
+      'Touch controls',
+    ],
+    controls: [
+      ['W A S D / arrows', 'Drive'],
+      ['V', 'Camera: chase, far, cockpit, hood'],
+      ['H', 'Horn'],
+      ['L', 'Siren and lights (cop)'],
+      ['P', 'Free mode: start or stop a pursuit'],
+      ['R', 'Back onto the road'],
+      ['Esc', 'Pause'],
+    ],
+    notes: [
+      'It loads its 3D engine from the internet when it starts, so wifi that blocks CDNs will leave it blank.',
+      'Your levels are saved in this browser, separately for the cop and the robber.',
+    ],
+  },
 ];
 
 /* -------------------------------------------------------------- dinorun */
