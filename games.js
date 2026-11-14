@@ -768,7 +768,7 @@ const GAMES = [
     ratingNotes: ['Laser tag — a tag puts a player out of the round, nobody gets hurt'],
     title: 'Laser’s Tag',
     suffix: '',
-    tagline: 'Three a side in a neon arena. One tag and you are out.',
+    tagline: 'One tag and you are out — 1 v 1 up to 5 v 5.',
     url: './dinorun.games/laser-tag/index.html',
     developer: 'Thirsty Bear Studios',
     released: '2026',
@@ -776,22 +776,29 @@ const GAMES = [
     accentDark: '#0b1a33',
     genres: ['Shooter', '3D', 'Arena'],
     short:
-      'Three-a-side laser tag in a blacklit arena, played over the shoulder by the ' +
-      'Floodlight players in glowing team suits.',
+      'Laser tag in a blacklit arena, from 1 v 1 up to 5 v 5, played over the shoulder ' +
+      'by the Floodlight players in glowing team suits.',
     about: [
-      'You and two teammates in blue against three in red, in an arena of neon-edged ' +
-      'walls to hide behind. A tag puts a player out of the round, and the last team ' +
-      'with anyone standing wins.',
-      'Your vest has three lights, so you can take two tags and stay in; everyone else ' +
-      'is out on the first. A tagged player beams out in a column of their team’s light.',
-      'The crosshair turns red when your shot will land, and a click while the blaster ' +
-      'recharges is kept and fired the moment it is ready, so every click counts.',
+      'Blue against red in an arena of neon-edged walls to hide behind, from 1 v 1 up to ' +
+      '5 v 5, with bots in every other place. A tag puts an opponent out of the round; ' +
+      'your vest takes five tags on Easy, three on Normal and two on Hard. Last team ' +
+      'standing wins.',
+      'Abilities mode adds powers. Spider climbs any wall in the arena, clings to it while ' +
+      'you shoot, or stands right on top. Gecko turns you invisible for ten seconds so ' +
+      'nobody can lock on to you — and some of the red team can do that too.',
+      'Wins pay coins, and the shop turns them into new blasters — the rapid Zapper, the ' +
+      'long-range Longshot, the three-beam Triple Shot and the Golden Blaster — and suit ' +
+      'patterns and vest lights. Practice is sixty seconds against targets that never ' +
+      'shoot back.',
     ],
     features: [
       'Single player with bots',
-      '3 vs 3',
+      '1 v 1 up to 5 v 5',
+      'Abilities: Spider and Gecko',
+      'Practice mode',
+      'Easy, Normal and Hard',
+      'Shop: blasters, suit patterns, vest lights',
       'Play as a boy or a girl',
-      'Minimap',
       'Xbox controller support',
     ],
     controls: [
@@ -799,12 +806,15 @@ const GAMES = [
       ['Mouse', 'Aim. Click the game to capture the mouse'],
       ['Left click / Space', 'Fire, or hold to keep firing'],
       ['Shift', 'Sprint'],
+      ['E', 'Gecko: turn invisible'],
+      ['W', 'Spider: walk into a wall to climb it, walk away to drop'],
       ['← / →', 'Turn without the mouse'],
       ['Esc', 'Pause'],
     ],
     notes: [
       'It loads its 3D engine from the internet when it starts, so wifi that blocks CDNs will leave it blank.',
       'It wants a laptop or desktop with a mouse; there are no touch controls yet.',
+      'Coins and everything you buy are saved in this browser, on this device.',
     ],
   },
   {

@@ -4,10 +4,11 @@ A folder to hold the dinorun.games titles. So far:
 
 - **The eyes game** — not started.
 - **Laser tag** — in `laser-tag/`, listed in `games.js` as Laser’s Tag. A 3D
-  three-a-side arena game using the Floodlight characters. It is one file: the
-  character models and animations are packed inside it as base64, and only
-  three.js comes from a CDN, so it also runs by double-clicking it offline of
-  the site.
+  arena game using the Floodlight characters: 1 v 1 up to 5 v 5, an Abilities
+  mode (Spider, Gecko), Practice, three difficulties, and a shop paid for with
+  coins from wins. Two files: `index.html` is the whole game, and `models.js`
+  holds the character models and animations as base64. Only three.js comes from
+  a CDN, so the folder also runs by double-clicking `index.html`.
 - **Patrol Rush** — in `patrol-rush/`. Cops and robbers in a 3D city, with the
   cars, paint and sky lifted from Kaido Festival. One file; only three.js and
   its post-processing add-ons come from a CDN.
