@@ -42,6 +42,15 @@ does:
   them so the d-pad can walk them: `Pad.start(keys, { menu: '.btn' })`. See
   `gamepad.js` for the full set of controls.
 
+## The Dinorun tab
+
+The hub has a **Dinorun** tab (`#/dinorun`) that shows these games together.
+A finished one is a normal `games.js` entry with `collection: 'dinorun'` added;
+it stays in the Library as well. The ones still being made — the eyes game and
+Police Chaser for now — are in `DINORUN_SOON` at the bottom of `games.js` and
+show as "Soon" cards that cannot be opened. When one is done, give its entry
+`collection: 'dinorun'` and delete it from `DINORUN_SOON`.
+
 > This folder is named for a domain, so it is worth saying plainly: nothing in
 > here is wired to one. It is served from the same site as everything else
 > unless that gets set up separately.

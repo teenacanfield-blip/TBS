@@ -763,6 +763,7 @@ const GAMES = [
   },
   {
     id: 'laser-tag',
+    collection: 'dinorun',
     rating: 'e10',
     ratingNotes: ['Laser tag — a tag puts a player out of the round, nobody gets hurt'],
     title: 'Laser’s Tag',
@@ -805,5 +806,36 @@ const GAMES = [
       'It loads its 3D engine from the internet when it starts, so wifi that blocks CDNs will leave it blank.',
       'It wants a laptop or desktop with a mouse; there are no touch controls yet.',
     ],
+  },
+];
+
+/* -------------------------------------------------------------- dinorun */
+/* The Dinorun tab shows the dinorun.games titles, which live in
+ * ./dinorun.games/.
+ *
+ * A finished one goes in GAMES above like any other game, with
+ * `collection: 'dinorun'` added, and the tab picks it up — it stays in the
+ * Library too. The ones still being made wait in this list as "Soon" cards.
+ * When one is done: add `collection: 'dinorun'` to its GAMES entry, then
+ * delete it from here.
+ *
+ * `motif` is the shape on the card, from the demo motifs in art.js.
+ */
+const DINORUN_SOON = [
+  {
+    id: 'eyes',
+    title: 'Eyes',
+    tagline: 'Coming soon.',
+    motif: 'eye',
+    accent: '#b48cff',
+    accentDark: '#1a0f33',
+  },
+  {
+    id: 'police-chaser',
+    title: 'Police Chaser',
+    tagline: 'Coming soon.',
+    motif: 'police',
+    accent: '#ff4d5e',
+    accentDark: '#2a0a10',
   },
 ];

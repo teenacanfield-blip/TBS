@@ -697,6 +697,51 @@ function demoCard(d) {
   </button>`;
 }
 
+/* ----------------------------------------------------------- dinorun tab */
+/* The dinorun.games titles: the finished ones are GAMES entries marked
+   `collection: 'dinorun'`, and the ones still being made are DINORUN_SOON
+   in games.js, drawn as cards that cannot be opened yet. */
+
+function soonCard(d) {
+  // Pixel titles stretch to the card's width, so a short name like "Eyes" would
+  // fill it and cover the picture. Size it by its longest line instead.
+  const longest = d.title.length <= 12 ? d.title.length
+    : Math.max(...d.title.split(' ').map((w) => w.length));
+  return `
+  <div class="card soon" style="--accent:${d.accent};--accent-ink:${d.accentDark}"
+       role="img" aria-label="${esc(d.title)}, coming soon">
+    <div class="card-art">${Art.demoCapsule(d)}</div>
+    <span class="card-badge">Soon</span>
+    <div class="card-body">
+      <div class="card-title" style="--soon-w:${Math.min(190, longest * 17)}px">${pixTitle(d.title, 3, 12)}</div>
+      <div class="card-tag">${esc(d.tagline)}</div>
+    </div>
+  </div>`;
+}
+
+function viewDinorun(q) {
+  const ready = GAMES.filter((g) => g.collection === 'dinorun');
+  const soon = typeof DINORUN_SOON === 'undefined' ? [] : DINORUN_SOON;
+  const hit = (s) => !q || s.toLowerCase().includes(q.toLowerCase());
+  const a = ready.filter((g) => hit(g.title + ' ' + g.tagline + ' ' + g.short));
+  const b = soon.filter((d) => hit(d.title + ' ' + d.tagline));
+
+  if (q && !a.length && !b.length) return empty(q);
+
+  return `
+  <div class="wrap">
+    <div class="sec-head" style="margin-bottom:6px">
+      <h1>${pixTitle('dinorun.games', 5)}</h1>
+      <span class="sub">${ready.length} ready · ${soon.length} coming soon</span>
+    </div>
+    <p style="margin:0 0 22px;color:var(--text-dim);max-width:62ch">
+      The dinorun.games titles. The ones marked Soon are still being made, and they
+      turn into games you can play here as soon as they are finished.
+    </p>
+    <div class="grid">${a.map(card).join('')}${b.map(soonCard).join('')}</div>
+  </div>`;
+}
+
 function viewDemos(q) {
   const list = q ? DEMOS.filter((d) =>
     (d.title + ' ' + d.tagline + ' ' + d.blurb).toLowerCase().includes(q.toLowerCase())) : DEMOS;
@@ -1300,6 +1345,7 @@ function route() {
   if (h.startsWith('demo/')) return { name: 'demo', id: h.slice(5) };
   if (h === 'library') return { name: 'library' };
   if (h === 'demos') return { name: 'demos' };
+  if (h === 'dinorun') return { name: 'dinorun' };
   if (h.startsWith('rated/')) return { name: 'ratings', id: h.slice(6) };
   if (h === 'rated' || h === 'ratings') return { name: 'ratings', id: 'all' };
   if (h === 'community') return { name: 'community' };
@@ -1308,7 +1354,7 @@ function route() {
 
 // Which top tab lights up for each view.
 const TAB_FOR = { game: 'library', library: 'library', demo: 'demos', demos: 'demos',
-                  community: 'community', ratings: 'ratings', home: 'home' };
+                  dinorun: 'dinorun', community: 'community', ratings: 'ratings', home: 'home' };
 
 function render() {
   const r = route();
@@ -1319,12 +1365,16 @@ function render() {
     r.name === 'demo' ? viewDemo(r.id) :
     r.name === 'library' ? viewLibrary(q) :
     r.name === 'demos' ? viewDemos(q) :
+    r.name === 'dinorun' ? viewDinorun(q) :
     r.name === 'community' ? viewCommunity(q) :
     r.name === 'ratings' ? viewRatings(q, r.id) :
     viewHome(q);
 
+  // A dinorun.games title's own page keeps the Dinorun tab lit.
+  const tab = r.name === 'game' && (byId(r.id) || {}).collection === 'dinorun'
+    ? 'dinorun' : TAB_FOR[r.name];
   document.querySelectorAll('.tabs a').forEach((a) =>
-    a.classList.toggle('on', a.dataset.tab === TAB_FOR[r.name]));
+    a.classList.toggle('on', a.dataset.tab === tab));
 
   /* On a phone the tab strip scrolls sideways, so the section you are on can
    * be off the edge. Nudge it into view — but only along its own axis, or the
@@ -1339,7 +1389,7 @@ function render() {
    * came out identical and the back button gave no clue where it was going. */
   const named = r.name === 'game' ? byId(r.id) : r.name === 'demo' ? byDemo(r.id) : null;
   const SECTION = {
-    library: 'Library', demos: 'Demos', ratings: 'Ratings', community: 'Community',
+    library: 'Library', demos: 'Demos', dinorun: 'Dinorun', ratings: 'Ratings', community: 'Community',
   };
   const where = named ? named.title : SECTION[r.name];
   document.title = where ? `${where} · Thirsty Bear Hub`

@@ -1049,6 +1049,32 @@ const Art = (() => {
       R(cx + u * 14.6, cy - u * 4.4, u * 3, u * 9, '#ffe9a8') +
       `</g>`,
 
+    // Eyes: one big pixel eye, looking straight back at you.
+    eye: (cx, cy, u, c) =>
+      R(cx - u * 3, cy - u * 3, u * 6, u * 6, '#f2f4f8') +
+      R(cx - u * 5, cy - u * 2, u * 10, u * 4, '#f2f4f8') +
+      R(cx - u * 6.5, cy - u * 1, u * 13, u * 2, '#f2f4f8') +
+      R(cx - u * 2.2, cy - u * 2.2, u * 4.4, u * 4.4, c) +
+      R(cx - u * 1.1, cy - u * 1.1, u * 2.2, u * 2.2, '#0b0e14') +
+      R(cx - u * 1.8, cy - u * 1.9, u * 0.9, u * 0.9, '#ffffff') +
+      R(cx - u * 3, cy - u * 4.4, u * 6, u * 0.9, c) +
+      R(cx - u * 5.5, cy - u * 3.4, u * 2, u * 0.9, c) +
+      R(cx + u * 3.5, cy - u * 3.4, u * 2, u * 0.9, c),
+
+    // Police Chaser: a squad car with its light bar going.
+    police: (cx, cy, u, c) =>
+      R(cx - u * 6.5, cy - u * 1.5, u * 13, u * 3, '#f2f4f8') +
+      R(cx - u * 3.5, cy - u * 4, u * 7, u * 2.5, '#f2f4f8') +
+      R(cx - u * 2.7, cy - u * 3.4, u * 5.4, u * 1.6, '#0b0e14') +
+      R(cx - u * 6.5, cy - u * 0.4, u * 13, u * 1, '#1d2a4d') +
+      `<g class="flick">` +
+      R(cx - u * 2.2, cy - u * 5.3, u * 2.2, u * 1.3, '#ff3b3b') +
+      R(cx, cy - u * 5.3, u * 2.2, u * 1.3, '#3b7bff') +
+      `</g>` +
+      R(cx + u * 5.6, cy - u * 1.2, u * 0.9, u * 0.9, '#ffe9a8') +
+      R(cx - u * 5, cy + u * 1.5, u * 2.6, u * 2.6, '#0b0e14') +
+      R(cx + u * 2.4, cy + u * 1.5, u * 2.6, u * 2.6, '#0b0e14'),
+
     // Woo: a masquerade mask, one plume catching the light.
     mask: (cx, cy, u, c) =>
       R(cx - u * 7, cy - u * 5, u * 14, u * 10, c) +

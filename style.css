@@ -720,6 +720,13 @@ button { font: inherit; color: inherit; }
   padding: 0 5px;
 }
 
+/* A "Soon" card on the Dinorun tab: a game still being made. It is a picture,
+   not a button, so it does not light up or press in. */
+.card.soon { cursor: default; }
+.card.soon:hover { --card-bg: var(--line); }
+.card.soon:active { transform: none; }
+.card.soon .card-title .pixtext { width: min(100%, var(--soon-w, 190px)); }
+
 /* -------------------------------------------------------- continue rail */
 
 .rail { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
