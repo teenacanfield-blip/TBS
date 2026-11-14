@@ -1168,6 +1168,23 @@ table.keys td:last-child { color: var(--text-dim); }
   .hero-inner { max-width: none; padding: 30px 22px; }
 }
 
+/* Six sections, the search and the player chip only just fit a full-width
+   laptop bar. Below that the search box gives way first, and the tab strip
+   scrolls sideways the way it does on a phone, so nothing is pushed past the
+   right edge. The phone rules further down still win on small screens. */
+@media (max-width: 1300px) {
+  .tabs {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { flex: 0 0 auto; white-space: nowrap; }
+  .search { width: auto; flex: 1 1 140px; min-width: 120px; max-width: 300px; }
+}
+
 @media (max-width: 860px) {
   .icon-btn { display: block; }
   .sidebar {

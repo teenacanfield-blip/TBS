@@ -46,9 +46,11 @@ does:
   them so the d-pad can walk them: `Pad.start(keys, { menu: '.btn' })`. See
   `gamepad.js` for the full set of controls.
 
-## The Dinorun tab
+## The dinorungames.co tab
 
-The hub has a **Dinorun** tab (`#/dinorun`) that shows these games together.
+The hub has a tab named **dinorungames.co** (`#/dinorun`) that shows these
+games together. Only its label is that name; the folder stays `dinorun.games`
+so the games' addresses do not change.
 A finished one is a normal `games.js` entry with `collection: 'dinorun'` added;
 it stays in the Library as well. Laser’s Tag and Patrol Rush (the police chaser)
 are in it. The ones still being made — the eyes game for now — are in

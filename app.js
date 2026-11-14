@@ -731,11 +731,11 @@ function viewDinorun(q) {
   return `
   <div class="wrap">
     <div class="sec-head" style="margin-bottom:6px">
-      <h1>${pixTitle('dinorun.games', 5)}</h1>
+      <h1>${pixTitle('dinorungames.co', 5)}</h1>
       <span class="sub">${ready.length} ready · ${soon.length} coming soon</span>
     </div>
     <p style="margin:0 0 22px;color:var(--text-dim);max-width:62ch">
-      The dinorun.games titles. The ones marked Soon are still being made, and they
+      The dinorungames.co games. The ones marked Soon are still being made, and they
       turn into games you can play here as soon as they are finished.
     </p>
     <div class="grid">${a.map(card).join('')}${b.map(soonCard).join('')}</div>
@@ -1389,7 +1389,7 @@ function render() {
    * came out identical and the back button gave no clue where it was going. */
   const named = r.name === 'game' ? byId(r.id) : r.name === 'demo' ? byDemo(r.id) : null;
   const SECTION = {
-    library: 'Library', demos: 'Demos', dinorun: 'Dinorun', ratings: 'Ratings', community: 'Community',
+    library: 'Library', demos: 'Demos', dinorun: 'dinorungames.co', ratings: 'Ratings', community: 'Community',
   };
   const where = named ? named.title : SECTION[r.name];
   document.title = where ? `${where} · Thirsty Bear Hub`
