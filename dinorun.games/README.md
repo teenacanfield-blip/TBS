@@ -49,8 +49,9 @@ does:
 
 The hub has a **Dinorun** tab (`#/dinorun`) that shows these games together.
 A finished one is a normal `games.js` entry with `collection: 'dinorun'` added;
-it stays in the Library as well. The ones still being made — the eyes game and
-Police Chaser for now — are in `DINORUN_SOON` at the bottom of `games.js` and
+it stays in the Library as well. Laser’s Tag and Patrol Rush (the police chaser)
+are in it. The ones still being made — the eyes game for now — are in
+`DINORUN_SOON` at the bottom of `games.js` and
 show as "Soon" cards that cannot be opened. When one is done, give its entry
 `collection: 'dinorun'` and delete it from `DINORUN_SOON`.
 

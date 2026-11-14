@@ -809,6 +809,7 @@ const GAMES = [
   },
   {
     id: 'patrol-rush',
+    collection: 'dinorun',
     rating: 'e10',
     ratingNotes: ['Cops and robbers with cars — robberies, rams and spin-outs, nobody gets hurt'],
     title: 'Patrol Rush',
@@ -882,13 +883,5 @@ const DINORUN_SOON = [
     motif: 'eye',
     accent: '#b48cff',
     accentDark: '#1a0f33',
-  },
-  {
-    id: 'police-chaser',
-    title: 'Police Chaser',
-    tagline: 'Coming soon.',
-    motif: 'police',
-    accent: '#ff4d5e',
-    accentDark: '#2a0a10',
   },
 ];
