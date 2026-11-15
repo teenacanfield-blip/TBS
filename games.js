@@ -871,6 +871,54 @@ const GAMES = [
       'Your levels are saved in this browser, separately for the cop and the robber.',
     ],
   },
+  {
+    id: 'eyes',
+    collection: 'dinorun',
+    rating: 'everyone',
+    ratingNotes: ['Cartoon jewel thief', 'Mildly spooky eyes — getting spotted just ends the round'],
+    title: 'Eyes',
+    suffix: '',
+    tagline: 'Sneak past the eyes, steal the necklace, get back out.',
+    url: './dinorun.games/eyes/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#b48cff',
+    accentDark: '#1a0f33',
+    genres: ['Stealth', 'Pixel art', 'Arcade'],
+    short:
+      'A burglar who loves shiny things slips into a house full of watching eyes. Stay ' +
+      'out of their gaze, take the necklace from its glass case and get back out the window.',
+    about: [
+      'Seven eyes keep watch over the house. Each one sweeps the room and blinks shut for ' +
+      'a moment, and a beam of light shows exactly where it can see. Stand in a beam too ' +
+      'long and the red meter fills: spotted, and no necklace tonight.',
+      'The eyes are dozing when you climb in through the window, so you get a moment to ' +
+      'find your feet before they wake. An eye squints gold just before it shuts, and ' +
+      'eight gems lie along the way for anyone greedy enough to go after them.',
+      'Pixel art and chiptune sound: snoring while the eyes sleep, alarm beeps that speed ' +
+      'up as you are seen, a blink you can hear when an eye opens nearby, and a fanfare ' +
+      'when you get away. It goes full screen when you start.',
+    ],
+    features: [
+      'Single player',
+      'Pixel art',
+      'Chiptune sound effects',
+      'Full screen',
+      'Touch controls',
+      'Xbox controller support',
+    ],
+    controls: [
+      ['Arrow keys / W A S D', 'Sneak'],
+      ['Drag a finger', 'Sneak on a phone or tablet'],
+      ['F', 'Full screen on or off'],
+      ['M', 'Sound on or off'],
+      ['Enter', 'Start from the menu'],
+    ],
+    notes: [
+      'Everything is drawn and played by the page itself, so it loads instantly and needs nothing from the internet.',
+      'Sound on or off is remembered in this browser.',
+    ],
+  },
 ];
 
 /* -------------------------------------------------------------- dinorun */
@@ -885,13 +933,4 @@ const GAMES = [
  *
  * `motif` is the shape on the card, from the demo motifs in art.js.
  */
-const DINORUN_SOON = [
-  {
-    id: 'eyes',
-    title: 'Eyes',
-    tagline: 'Coming soon.',
-    motif: 'eye',
-    accent: '#b48cff',
-    accentDark: '#1a0f33',
-  },
-];
+const DINORUN_SOON = [];

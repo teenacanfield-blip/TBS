@@ -2,7 +2,12 @@
 
 A folder to hold the dinorun.games titles. So far:
 
-- **The eyes game** — not started.
+- **Eyes** — in `eyes/`. A pixel-art stealth game from the USB stick: sneak
+  past seven watching eyes, take the necklace from its glass case and get back
+  out the window. The eyes doze for 2.5 seconds at the start of a run, it goes
+  full screen when you start (F toggles), and its chiptune sound effects are
+  made live with Web Audio (M mutes). One file with nothing loaded from the
+  internet, so it also runs by double-clicking `index.html`.
 - **Laser tag** — in `laser-tag/`, listed in `games.js` as Laser’s Tag. A 3D
   arena game using the Floodlight characters: 1 v 1 up to 5 v 5, an Abilities
   mode (Spider, Gecko), Practice, three difficulties, and a shop paid for with
@@ -52,11 +57,11 @@ The hub has a tab named **dinorungames.co** (`#/dinorun`) that shows these
 games together. Only its label is that name; the folder stays `dinorun.games`
 so the games' addresses do not change.
 A finished one is a normal `games.js` entry with `collection: 'dinorun'` added;
-it stays in the Library as well. Laser’s Tag and Patrol Rush (the police chaser)
-are in it. The ones still being made — the eyes game for now — are in
-`DINORUN_SOON` at the bottom of `games.js` and
-show as "Soon" cards that cannot be opened. When one is done, give its entry
-`collection: 'dinorun'` and delete it from `DINORUN_SOON`.
+it stays in the Library as well. Laser’s Tag, Patrol Rush (the police chaser)
+and Eyes are in it. A game still being made goes in `DINORUN_SOON` at the
+bottom of `games.js` (empty right now) and shows as a "Soon" card that cannot
+be opened. When one is done, give its entry `collection: 'dinorun'` and delete
+it from `DINORUN_SOON`.
 
 > This folder is named for a domain, so it is worth saying plainly: nothing in
 > here is wired to one. It is served from the same site as everything else

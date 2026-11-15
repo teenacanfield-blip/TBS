@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eyes</title>
+<meta name="description" content="A pixel-art stealth game: sneak past the watching eyes, grab the necklace and get back out.">
+<style>
+:root{--bg:#0b0e1a;--ink:#f4f0e6;--gold:#ffd56a;--px:3px;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink)}
+body{display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;image-rendering:pixelated}
+#wrap{position:relative;flex:none;width:480px;height:720px;max-width:100%;max-height:100%;box-shadow:0 0 0 var(--px) #2c3a66,0 0 0 calc(var(--px)*2) #05060d}
+canvas{display:block;image-rendering:crisp-edges;image-rendering:pixelated}
+#c{width:100%;height:100%;background:var(--bg)}
+#ui{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(8,10,22,.84);padding:calc(var(--px)*8)}
+#ui.hide{display:none}
+#ui h1,#ui p{margin:0;line-height:0}
+#ui #t{margin-bottom:calc(var(--px)*10)}
+#ui #m{margin-bottom:calc(var(--px)*7)}
+#b{margin-top:calc(var(--px)*12);padding:calc(var(--px)*3) calc(var(--px)*6) calc(var(--px)*4);line-height:0;background:var(--gold);border:var(--px) solid #1a1530;border-radius:0;box-shadow:0 calc(var(--px)*2) 0 #1a1530,inset 0 calc(var(--px)*-2) 0 #d9932e,inset 0 var(--px) 0 #fff1b8;cursor:pointer}
+#b:hover{background:#ffe08a}
+#b:active{transform:translateY(var(--px));box-shadow:0 var(--px) 0 #1a1530,inset 0 calc(var(--px)*-2) 0 #d9932e}
+#b:focus-visible,.opt:focus-visible{outline:var(--px) solid var(--ink);outline-offset:calc(var(--px)*2)}
+#opts{display:flex;gap:calc(var(--px)*4);margin-top:calc(var(--px)*8)}
+.opt{padding:calc(var(--px)*2) calc(var(--px)*4);line-height:0;background:transparent;border:var(--px) solid #3a4a80;border-radius:0;cursor:pointer}
+.opt:hover{background:#1d2347}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+</style></head><body>
+<div id="wrap"><canvas id="c" width="160" height="240"></canvas>
+<div id="ui"><h1 id="t"></h1><p id="m"></p><p id="h"></p><button id="b" type="button"></button><div id="opts"><button id="fs" class="opt" type="button"></button><button id="snd" class="opt" type="button"></button></div></div></div>
+<script>
+const cv=document.getElementById('c'),g=cv.getContext('2d'),ui=document.getElementById('ui'),wrap=document.getElementById('wrap');
+const tEl=document.getElementById('t'),mEl=document.getElementById('m'),hEl=document.getElementById('h'),bEl=document.getElementById('b');
+const W=480,H=720,R=11;
+const GRACE=2.5; // seconds the eyes stay asleep at the start of each run
+const PS=3,PW=W/PS,PH=H/PS; // pixel art: each screen pixel covers 3x3 world units, so the canvas is 160x240
+const eyes=[[40,590,0,.5,.9,0],[440,500,Math.PI,.5,1.1,1.5],[40,380,0,.45,1,3],[440,270,Math.PI,.5,1.3,.5],[60,150,0,.6,.8,2],[420,120,Math.PI,.6,1.2,4],[240,230,Math.PI/2,.7,.7,1]];
+const gemsInit=[[120,640],[360,600],[240,520],[110,440],[380,390],[240,330],[120,230],[370,200]];
+let S,keys={},tgt=null,last=0,running=false,clock=0;
+function reset(){S={x:W/2,y:690,gems:gemsInit.map(p=>({x:p[0],y:p[1],got:false})),score:0,neck:false,seen:0,t:0,walk:0,watched:false,beep:0,eyeOpen:eyes.map(()=>false)}}
+function eyeState(e,t){if(t<0)return{ang:e[2],open:false,warn:false,asleep:true};const ang=e[2]+e[3]*Math.sin(t*e[4]+e[5]);const open=Math.sin(t*.8+e[5]*2)>-.4;return{ang,open,warn:!open?false:Math.sin(t*.8+e[5]*2)<-.2}}
+function end(win){running=false;ui.classList.remove('hide');SFX[win?'win':'spotted']();
+setText(tEl,win?'Gotcha, shiny':'Spotted',TITLE);
+setText(mEl,win?`You escaped with the necklace and ${S.score} gem${S.score==1?'':'s'}. It glitters in your hands.`:'The eyes saw you. No necklace tonight.',BODY);
+setText(bEl,win?'Steal it again':'Try again',BTN)}
+function update(dt){const pt=S.t;S.t+=dt;let dx=0,dy=0;
+// sounds for the start-of-run nap: two snores, an "uh-oh", then the eyes snap open
+if(pt<.3&&S.t>=.3||pt<1.4&&S.t>=1.4)SFX.snore();
+if(pt<GRACE-.8&&S.t>=GRACE-.8)SFX.warn();
+if(pt<GRACE&&S.t>=GRACE)SFX.wake();
+if(keys.ArrowLeft||keys.a)dx--;if(keys.ArrowRight||keys.d)dx++;if(keys.ArrowUp||keys.w)dy--;if(keys.ArrowDown||keys.s)dy++;
+if(tgt){const vx=tgt.x-S.x,vy=tgt.y-S.y,d=Math.hypot(vx,vy);if(d>6){dx=vx/d;dy=vy/d}}
+const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}
+const ox=S.x,oy=S.y;
+S.x=Math.max(R,Math.min(W-R,S.x+dx*150*dt));S.y=Math.max(R,Math.min(H-R,S.y+dy*150*dt));
+const step=Math.floor(S.walk/36);S.walk+=Math.hypot(S.x-ox,S.y-oy);if(Math.floor(S.walk/36)!=step)SFX.step();
+S.gems.forEach(q=>{if(!q.got&&Math.hypot(q.x-S.x,q.y-S.y)<20){q.got=true;S.score++;SFX.gem()}});
+if(!S.neck&&Math.hypot(240-S.x,50-S.y)<26){S.neck=true;SFX.necklace()}
+if(S.neck&&S.y>H-30)return end(true);
+let watched=false;
+eyes.forEach((e,i)=>{const s=eyeState(e,S.t-GRACE);
+// a soft blink sound when a nearby eye opens (louder the closer it is)
+if(s.open&&!S.eyeOpen[i]&&pt>=GRACE){const d=Math.hypot(S.x-e[0],S.y-e[1]);if(d<400)SFX.blink(1-d/400)}
+S.eyeOpen[i]=s.open;if(!s.open)return;
+const a=Math.atan2(S.y-e[1],S.x-e[0]),d=Math.hypot(S.x-e[0],S.y-e[1]);
+let diff=Math.abs(((a-s.ang+Math.PI*3)%(Math.PI*2))-Math.PI);if(d<230&&diff<.42)watched=true});
+S.watched=watched;
+// alarm beeps while an eye is on you: faster and higher as the meter fills
+if(watched){S.beep-=dt;if(S.beep<=0){SFX.watch(S.seen);S.beep=.25-.15*S.seen}}else S.beep=0;
+S.seen=Math.max(0,Math.min(1,S.seen+(watched?dt/.7:-dt/1.2)));
+if(S.seen>=1)end(false)}
+
+/* ---------- pixel font (5 px tall) ---------- */
+const F={A:['.#.','#.#','###','#.#','#.#'],B:['##.','#.#','##.','#.#','##.'],C:['.##','#..','#..','#..','.##'],D:['##.','#.#','#.#','#.#','##.'],
+E:['###','#..','##.','#..','###'],F:['###','#..','##.','#..','#..'],G:['.##','#..','#.#','#.#','.##'],H:['#.#','#.#','###','#.#','#.#'],
+I:['###','.#.','.#.','.#.','###'],J:['..#','..#','..#','#.#','.#.'],K:['#.#','##.','#..','##.','#.#'],L:['#..','#..','#..','#..','###'],
+M:['#...#','##.##','#.#.#','#...#','#...#'],N:['#..#','##.#','#.##','#..#','#..#'],O:['.#.','#.#','#.#','#.#','.#.'],P:['##.','#.#','##.','#..','#..'],
+Q:['.#.','#.#','#.#','##.','.##'],R:['##.','#.#','##.','#.#','#.#'],S:['.##','#..','.#.','..#','##.'],T:['###','.#.','.#.','.#.','.#.'],
+U:['#.#','#.#','#.#','#.#','###'],V:['#.#','#.#','#.#','#.#','.#.'],W:['#...#','#...#','#.#.#','##.##','#...#'],X:['#.#','#.#','.#.','#.#','#.#'],
+Y:['#.#','#.#','.#.','.#.','.#.'],Z:['###','..#','.#.','#..','###'],
+'0':['###','#.#','#.#','#.#','###'],'1':['.#.','##.','.#.','.#.','###'],'2':['##.','..#','.#.','#..','###'],'3':['##.','..#','.#.','..#','##.'],
+'4':['#.#','#.#','###','..#','..#'],'5':['###','#..','##.','..#','##.'],'6':['.##','#..','###','#.#','###'],'7':['###','..#','.#.','.#.','.#.'],
+'8':['###','#.#','###','#.#','###'],'9':['###','#.#','###','..#','##.'],
+'.':['.','.','.','.','#'],',':['..','..','..','.#','#.'],'!':['#','#','#','.','#'],'?':['##.','..#','.#.','...','.#.'],':':['.','#','.','#','.'],
+"'":['#','#','.','.','.'],'-':['...','...','###','...','...'],'/':['..#','..#','.#.','#..','#..'],'(':['.#','#.','#.','#.','.#'],')':['#.','.#','.#','.#','#.']};
+const norm=s=>s.toUpperCase().replace(/…/g,'...').replace(/[’‘]/g,"'").replace(/[–—]/g,'-');
+function textW(s){let w=0;for(const ch of norm(s))w+=ch==' '?3:(F[ch]||F['?'])[0].length+1;return Math.max(0,w-1)}
+function drawText(ctx,s,x,y,col,sc=1,col2){for(const ch of norm(s)){if(ch==' '){x+=3*sc;continue}const gl=F[ch]||F['?'];
+for(let r=0;r<5;r++){ctx.fillStyle=col2&&r>=3?col2:col;const row=gl[r];for(let c=0;c<row.length;c++)if(row[c]=='#')ctx.fillRect(x+c*sc,y+r*sc,sc,sc)}
+x+=(gl[0].length+1)*sc}}
+function wrapText(s,maxW){const lines=[];let cur='';for(const w of norm(s).split(' ')){const t=cur?cur+' '+w:w;if(cur&&textW(t)>maxW){lines.push(cur);cur=w}else cur=t}if(cur)lines.push(cur);return lines}
+// Renders text as a pixel canvas inside a menu element (sized in game pixels via --px), with a hidden copy for screen readers
+const TITLE={title:true,color:'#ffd56a',color2:'#f0a33a',shadow:'#4a2410'},BODY={color:'#f4f0e6'},HINT={color:'#a9a3c4'},BTN={scale:2,color:'#1a1530'};
+function setText(el,str,o){const sc=o.title?Math.max(1,Math.min(4,Math.floor(140/textW(str)))):(o.scale||1),sh=o.shadow?(o.title?2:1):0,LH=7;
+const lines=wrapText(str,Math.floor(132/sc)),w=Math.max(...lines.map(textW))*sc+sh,h=((lines.length-1)*LH+5)*sc+sh;
+const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+lines.forEach((ln,i)=>{const lx=((w-sh)-textW(ln)*sc)>>1,ly=i*LH*sc;if(sh)drawText(x,ln,lx+sh,ly+sh,o.shadow,sc);drawText(x,ln,lx,ly,o.color,sc,o.color2)});
+c.style.width=`calc(var(--px) * ${w})`;c.style.height=`calc(var(--px) * ${h})`;c.setAttribute('aria-hidden','true');
+const sr=document.createElement('span');sr.className='sr';sr.textContent=str;el.replaceChildren(c,sr)}
+
+/* ---------- palette helpers ---------- */
+const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const pack=c=>(255<<24|c[2]<<16|c[1]<<8|c[0])>>>0;
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+function hash(a,b){let h=Math.imul(a,374761393)+Math.imul(b,668265263)|0;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+function rect(x,y,w,h,c){g.fillStyle=c;g.fillRect(x,y,w,h)}
+function px(x,y,c){g.fillStyle=c;g.fillRect(x,y,1,1)}
+function sprite(rows,pal){const c=document.createElement('canvas');c.width=rows[0].length;c.height=rows.length;const x=c.getContext('2d');
+rows.forEach((r,j)=>{for(let i=0;i<r.length;i++)if(r[i]!='.'){x.fillStyle=pal[r[i]];x.fillRect(i,j,1,1)}});return c}
+
+/* ---------- floor: wooden planks, rug, dithered vignette (pre-rendered, plus lit copies for the vision cones) ---------- */
+const N=PW*PH,img=g.createImageData(PW,PH),buf=new Uint32Array(img.data.buffer);
+const floor=new Uint32Array(N),tintA=new Uint32Array(N),litA=new Uint32Array(N),tintW=new Uint32Array(N),litW=new Uint32Array(N),lvl=new Uint8Array(N),wf=new Uint8Array(N);
+const LIGHT=hex('#fff0c8'),WARN=hex('#ffd56a');
+function rugAt(x,y){const x0=50,x1=109,y0=4,y1=37;
+if((y==y0-1||y==y1+1)&&x>x0&&x<x1)return x%2?null:'#b8a27a';
+if(x<x0||x>x1||y<y0||y>y1)return null;
+const d=Math.min(x-x0,x1-x,y-y0,y1-y);
+if(d==0||d==2)return'#3b1430';if(d==1)return'#8c3358';if(d==3)return(x+y)%2?'#5a2046':'#3b1430';
+return((x+y)%6==0||(x-y+600)%6==0)?'#6e2a52':'#4a1a3a'}
+function buildFloor(){const seam=hex('#0e1229'),tones=[hex('#161b38'),hex('#181e3e'),hex('#151a35')],hi=hex('#1d2348'),grain=hex('#12162f'),nail=hex('#2b3465'),dark=hex('#07090f');
+for(let y=0;y<PH;y++){const row=(y/6)|0,ry=y%6,off=(hash(row,3)*40)|0;
+for(let x=0;x<PW;x++){const xx=x+off,seg=(xx/40)|0,sx=xx%40,rc=rugAt(x,y);let c;
+if(rc)c=hex(rc);else if(ry==5||sx==0)c=seam;else if((sx==2||sx==38)&&ry==2)c=nail;else if(ry==0)c=hi;
+else{c=tones[(hash(row,seg)*3)|0];if(hash((x/5)|0,y*7+seg)<.07)c=grain}
+const ed=Math.min(x,y,PW-1-x,PH-1-y);if(ed<12&&(BAYER[(y&3)*4+(x&3)]+.5)/16>ed/12)c=mix(c,dark,.5);
+const i=y*PW+x;floor[i]=pack(c);tintA[i]=pack(mix(c,LIGHT,.09));litA[i]=pack(mix(c,LIGHT,.24));tintW[i]=pack(mix(c,WARN,.11));litW[i]=pack(mix(c,WARN,.3))}}}
+// Marks the pixels inside an eye's gaze (same 230 range / 0.42 rad half-angle the game uses), dithered brighter near the eye
+const COSA=Math.cos(.42),RW=230;
+function paintCone(e,s){const ca=Math.cos(s.ang),sa=Math.sin(s.ang);let x0=e[0],x1=e[0],y0=e[1],y1=e[1];
+for(let k=0;k<=8;k++){const a=s.ang-.42+.105*k,X=e[0]+Math.cos(a)*RW,Y=e[1]+Math.sin(a)*RW;x0=Math.min(x0,X);x1=Math.max(x1,X);y0=Math.min(y0,Y);y1=Math.max(y1,Y)}
+const px0=Math.max(0,Math.floor(x0/PS)),px1=Math.min(PW-1,Math.ceil(x1/PS)),py0=Math.max(0,Math.floor(y0/PS)),py1=Math.min(PH-1,Math.ceil(y1/PS));
+for(let y=py0;y<=py1;y++){const dy=(y+.5)*PS-e[1];for(let x=px0;x<=px1;x++){const dx=(x+.5)*PS-e[0],d=Math.hypot(dx,dy);
+if(d>=RW||d<.001||dx*ca+dy*sa<COSA*d)continue;
+const i=y*PW+x,l=(BAYER[(y&3)*4+(x&3)]+.5)/16<(1-d/RW)*.9?2:1;if(l>lvl[i])lvl[i]=l;if(s.warn)wf[i]=1}}}
+
+/* ---------- sprites ---------- */
+const PL_PAL={k:'#05060d',h:'#2e3768',w:'#f4f0e6'};
+const PL_TOP=['....h....','..hhkkk..','.hkkkkkk.','kwwwwwwwk','kwkwwwkwk','kkkkkkkkk','.kkkkkkk.','..kkkkk..'];
+const PLAYER=[sprite([...PL_TOP,'..k...k..'],PL_PAL),sprite([...PL_TOP,'...k.k...'],PL_PAL)];
+const GEM=['.LLLLL.','LLHLLLL','DDDDDDD','.DDDDD.','..DDD..','...D...'];
+const GEMS=[['#9ff3f8','#2a9fc0'],['#ffb8de','#c94a8a'],['#b0f7bd','#38a865'],['#ffe7a0','#cf952a']].map(([l,d])=>sprite(GEM,{L:l,D:d,H:'#ffffff'}));
+const TW_S=sprite(['.s.','sWs','.s.'],{s:'#ffd56a',W:'#ffffff'}),TW_B=sprite(['..s..','..s..','ssWss','..s..','..s..'],{s:'#ffd56a',W:'#ffffff'});
+const PENDANT=sprite(['.g.','rRr','.r.'],{g:'#ffd56a',r:'#c2364d',R:'#ff8a8f'});
+const NECK=sprite(['g...g','.g.g.','..r..'],{g:'#ffd56a',r:'#e5484d'});
+const ARROW=sprite(['.###.','.###.','#####','.###.','..#..'],{'#':'#ffd56a'});
+const ZZ=sprite(['####','..#.','.#..','####'],{'#':'#b9b3cf'});
+const EYE_OPEN=['...lllllll...','.llgggggggll.','lpwwwwwwwwwpl','lwwwwwwwwwwwl','lpwwwwwwwwwpl','.llwwwwwwwll.','...lllllll...'];
+const EYE_SQ=['.lllllllllll.','lpwwwwwwwwwpl','.llwwwwwwwll.','...lllllll...'];
+const EYE_SHUT=['ll.........ll','..lll...lll..','..n..lll..n..','......n......'];
+const EP={l:'#9c7fb0',g:'#cfc6da',w:'#f4f0e6',p:'#e8a3ac',i:'#c2364d',k:'#05060d',n:'#6d6188'},EP_W={...EP,l:'#ffd56a',i:'#e0a93a'},EP_Z={...EP,l:'#cfc6dd'};
+function drawRows(rows,pal,x,y){rows.forEach((r,j)=>{for(let i=0;i<r.length;i++)if(r[i]!='.')px(x+i,y+j,pal[r[i]])})}
+function drawEye(e,s,i){const cx=Math.round(e[0]/PS),cy=Math.round(e[1]/PS);
+if(!s.open){drawRows(EYE_SHUT,EP_Z,cx-6,cy-1);
+if(s.asleep){const k=(clock*.6+i*.37)%1;if(k<.8)g.drawImage(ZZ,cx+5+Math.round(k*4),cy-6-Math.round(k*9))}return}
+const rows=s.warn?EYE_SQ:EYE_OPEN,ry=s.warn?1:3,pal=s.warn?EP_W:EP;
+const ix=6+Math.round(Math.cos(s.ang)*3),iy=ry+(s.warn?0:Math.max(-1,Math.min(1,Math.round(Math.sin(s.ang)*1.5))));
+for(let r=0;r<rows.length;r++)for(let c=0;c<13;c++){let ch=rows[r][c];if(ch=='.')continue;
+if('wgp'.includes(ch)&&Math.abs(c-ix)<2&&Math.abs(r-iy)<2)ch=(c==ix&&r==iy)?'k':'i';
+px(cx-6+c,cy-ry+r,pal[ch])}}
+function drawCase(){const x=66,y=6,w=28;
+rect(x-1,y+21,w+2,1,'#0b0e1a');
+rect(x,y,w,17,'#8fb3ff');rect(x+1,y+1,w-2,15,'#1f2a55');rect(x+1,y+1,w-2,1,'#2e3f7a');
+for(let i=0;i<6;i++)px(x+3+i,y+13-i,'#33478a');for(let i=0;i<3;i++)px(x+5+i,y+13-i,'#33478a');
+rect(x+9,y+13,10,3,'#7a2c4c');rect(x+9,y+13,10,1,'#a8456a');
+if(!S.neck){let k=0;for(let a=.25;a<=Math.PI-.25+1e-6;a+=.18,k++)px(Math.round(80+Math.cos(a)*6),Math.round(10+Math.sin(a)*6),k%2?'#c98f2e':'#ffd56a');
+g.drawImage(PENDANT,79,16);if((clock*1.2)%1<.18)g.drawImage(TW_B,82,9)}
+rect(x-1,y+17,w+2,4,'#3a4a80');rect(x-1,y+17,w+2,1,'#6f8ad0');rect(x-1,y+20,w+2,1,'#26325c')}
+function drawWindow(){const x=68,y=236,w=24,blink=Math.floor(clock*4)%2;
+rect(x,y,w,4,'#3a4a80');const pane=S.neck?(blink?'#ffd56a':'#e8a83a'):'#0d1532';
+rect(x+1,y+1,10,3,pane);rect(x+13,y+1,10,3,pane);
+if(!S.neck){px(x+3,y+2,'#3b4f8f');px(x+4,y+1,'#3b4f8f');px(x+16,y+2,'#3b4f8f');px(x+17,y+1,'#3b4f8f')}
+rect(x,y,w,1,'#6f8ad0');if(S.neck&&blink)g.drawImage(ARROW,78,229)}
+function hud(s,x,y,c){drawText(g,s,x+1,y+1,'#05060d');drawText(g,s,x,y,c)}
+function box(x,y,w,h,fill,edge){rect(x+1,y,w-2,1,edge);rect(x+1,y+h-1,w-2,1,edge);rect(x,y+1,1,h-2,edge);rect(x+w-1,y+1,1,h-2,edge);rect(x+1,y+1,w-2,h-2,fill)}
+
+/* ---------- draw ---------- */
+function draw(){const st=eyes.map(e=>eyeState(e,S.t-GRACE));
+lvl.fill(0);wf.fill(0);eyes.forEach((e,i)=>{if(st[i].open)paintCone(e,st[i])});
+for(let i=0;i<N;i++){const l=lvl[i];buf[i]=!l?floor[i]:wf[i]?(l>1?litW[i]:tintW[i]):(l>1?litA[i]:tintA[i])}
+g.putImageData(img,0,0);
+drawWindow();drawCase();
+// gems
+S.gems.forEach((q,i)=>{if(q.got)return;const x=Math.round(q.x/PS),y=Math.round(q.y/PS)+(Math.sin(clock*3+i)>0?0:1);
+g.drawImage(GEMS[i%4],x-3,y-3);const ph=(clock*.9+i*.37)%1;
+if(ph<.08||(ph>=.16&&ph<.24))g.drawImage(TW_S,x+2,y-4);else if(ph<.16)g.drawImage(TW_B,x+1,y-5)});
+// eyes
+eyes.forEach((e,i)=>drawEye(e,st[i],i));
+// player
+const cx=Math.round(S.x/PS),cy=Math.round(S.y/PS);
+rect(cx-3,cy+5,7,1,'#090b18');g.drawImage(PLAYER[Math.floor(S.walk/18)%2],cx-4,cy-4);
+if(S.neck){g.drawImage(NECK,cx+4,cy+1);if((clock*2)%1<.3)g.drawImage(TW_S,cx+6,cy-2)}
+if(running&&S.watched&&Math.floor(clock*8)%2==0)hud('!',cx,cy-12,'#e5484d');
+// HUD
+hud('shinies: '+S.score,3,231,'#f4f0e6');
+const goal=S.neck?'now get out!':'find the necklace';hud(goal,PW-3-textW(goal),231,S.neck?'#ffd56a':'#f4f0e6');
+// spotted meter
+rect(0,0,PW,3,'#1d2347');const fw=Math.round(PW*S.seen);if(fw){rect(0,0,fw,3,'#e5484d');rect(0,0,fw,1,'#ff8a8f')}
+for(let x=7;x<PW;x+=8)rect(x,0,1,3,'#0b0e1a');
+// start-of-run grace message
+if(running&&S.t<GRACE){const waking=GRACE-S.t<.8,msg=waking?'they’re waking up!':'shh… the eyes are dozing',bw=textW(msg)+10,bx=(PW-bw)>>1;
+box(bx,114,bw,13,'#0b0e1a',waking?'#ffd56a':'#3a4a80');drawText(g,msg,bx+5,118,waking?'#ffd56a':'#f4f0e6')}}
+
+/* ---------- layout: make the game as big as the screen allows (snapping to whole device pixels only when that costs under 5%) ---------- */
+function fit(){const r=document.body.getBoundingClientRect(),d=devicePixelRatio||1,fill=Math.min(r.width/PW,r.height/PH)*d,snap=Math.floor(fill);
+const s=(snap>=2&&snap/fill>=.95?snap:fill)/d,w=PW*s,h=PH*s;
+wrap.style.width=w+'px';wrap.style.height=h+'px';wrap.style.setProperty('--px',s+'px');
+document.body.style.backgroundSize=`${16*s}px ${8*s}px`;document.body.style.backgroundPosition=`${(r.width-w)/2}px ${(r.height-h)/2}px`}
+// dark brick wall that fills the screen around the game
+function wallTile(){const c=document.createElement('canvas');c.width=16;c.height=8;const x=c.getContext('2d');
+x.fillStyle='#06070d';x.fillRect(0,0,16,8);
+const brick=(bx,by,col)=>{x.fillStyle=col;x.fillRect(bx,by,7,3);x.fillStyle='#121631';x.fillRect(bx,by,7,1)};
+brick(0,0,'#0d1022');brick(8,0,'#0e1226');brick(-4,4,'#0e1226');brick(4,4,'#0c0f20');brick(12,4,'#0d1022');
+return c.toDataURL()}
+
+/* ---------- full screen: entered when a run starts (until the player leaves it), F key or the menu button toggles it ---------- */
+const fsEl=document.getElementById('fs'),root=document.documentElement;
+const fsOK=!!(root.requestFullscreen||root.webkitRequestFullscreen),FSB={color:'#f4f0e6'};
+const isFS=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+let autoFS=true;
+function callFS(fn,target){try{const p=fn&&fn.call(target);if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+function enterFS(){callFS(root.requestFullscreen||root.webkitRequestFullscreen,root)}
+function toggleFS(){if(!fsOK)return;if(isFS()){autoFS=false;callFS(document.exitFullscreen||document.webkitExitFullscreen,document)}else{autoFS=true;enterFS()}}
+function fsLabel(){setText(fsEl,isFS()?'Exit full screen':'Full screen',FSB)}
+['fullscreenchange','webkitfullscreenchange'].forEach(n=>document.addEventListener(n,()=>{if(!isFS())autoFS=false;fsLabel();fit()}));
+
+/* ---------- sound effects: chiptune-style, made live with Web Audio (no sound files) ---------- */
+const sndEl=document.getElementById('snd');
+let ac=null,master=null,noiseBuf=null,muted=false;
+try{muted=localStorage.getItem('eyes-muted')=='1'}catch(e){}
+function audio(){if(!ac){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;ac=new AC();master=ac.createGain();master.gain.value=.5;master.connect(ac.destination)}
+if(ac.state=='suspended')ac.resume();return ac}
+function tone(f,dur,{type='square',vol=.1,at=0,slide=0,attack=.005}={}){if(muted)return;const a=audio();if(!a)return;
+const t=a.currentTime+at,o=a.createOscillator(),gn=a.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
+if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f+slide),t+dur);
+gn.gain.setValueAtTime(0,t);gn.gain.linearRampToValueAtTime(vol,t+attack);gn.gain.exponentialRampToValueAtTime(.0001,t+dur);
+o.connect(gn);gn.connect(master);o.start(t);o.stop(t+dur+.05)}
+function noise(dur,{vol=.08,at=0,freq=1000,q=1,type='bandpass',attack=.003}={}){if(muted)return;const a=audio();if(!a)return;
+if(!noiseBuf){noiseBuf=a.createBuffer(1,a.sampleRate,a.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+const t=a.currentTime+at,s=a.createBufferSource(),f=a.createBiquadFilter(),gn=a.createGain();s.buffer=noiseBuf;f.type=type;f.frequency.value=freq;f.Q.value=q;
+gn.gain.setValueAtTime(0,t);gn.gain.linearRampToValueAtTime(vol,t+attack);gn.gain.exponentialRampToValueAtTime(.0001,t+dur);
+s.connect(f);f.connect(gn);gn.connect(master);s.start(t,Math.random()*.5);s.stop(t+dur+.05)}
+const SFX={
+start(){tone(170,.3,{type:'sawtooth',vol:.05,slide:-60});noise(.2,{vol:.07,freq:1500,q:.7,at:.05});noise(.08,{vol:.1,freq:200,type:'lowpass',at:.28})}, // window creaks, you drop in
+snore(){noise(.8,{vol:.07,freq:280,type:'lowpass',attack:.35});tone(85,.8,{type:'sine',vol:.05,attack:.35,slide:-15})},
+warn(){tone(196,.22,{type:'triangle',vol:.2});tone(147,.4,{type:'triangle',vol:.2,at:.2})}, // uh-oh
+wake(){tone(300,.15,{vol:.06,slide:700});tone(98,.9,{type:'sawtooth',vol:.05,attack:.02});noise(.3,{vol:.05,freq:3000,q:.5})},
+blink(near){tone(1100,.07,{type:'sine',vol:.06*near,slide:500})},
+watch(level){tone(520+level*700,.06,{vol:.07})},
+step(){noise(.05,{vol:.04,freq:350+Math.random()*150,q:2})},
+gem(){tone(988,.07,{vol:.08});tone(1319,.25,{vol:.08,at:.06})},
+necklace(){[523,659,784,1047,1319].forEach((f,i)=>tone(f,.16,{vol:.08,at:i*.07}));tone(1568,.6,{type:'triangle',vol:.14,at:.35});tone(2093,.4,{type:'sine',vol:.05,at:.42})},
+spotted(){tone(880,.13,{vol:.09});tone(660,.13,{vol:.09,at:.14});tone(880,.13,{vol:.09,at:.28});tone(660,.13,{vol:.09,at:.42});tone(220,.7,{type:'sawtooth',vol:.08,at:.56,slide:-120})},
+win(){[392,523,659,784].forEach((f,i)=>tone(f,.13,{vol:.08,at:i*.1}));tone(1047,.7,{type:'triangle',vol:.16,at:.42});tone(659,.7,{type:'triangle',vol:.08,at:.42});tone(784,.7,{type:'triangle',vol:.08,at:.42})},
+click(){tone(660,.05,{vol:.06})}};
+function sndLabel(){setText(sndEl,muted?'Sound: off':'Sound: on',FSB)}
+function setMuted(v){muted=v;try{localStorage.setItem('eyes-muted',v?'1':'0')}catch(e){}sndLabel();if(!v)SFX.click()}
+
+function loop(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;clock=ts/1000;if(running)update(dt);draw();requestAnimationFrame(loop)}
+function pos(ev){const r=cv.getBoundingClientRect();return{x:(ev.clientX-r.left)*W/r.width,y:(ev.clientY-r.top)*H/r.height}}
+cv.addEventListener('pointerdown',e=>{tgt=pos(e)});cv.addEventListener('pointermove',e=>{if(tgt)tgt=pos(e)});
+['pointerup','pointercancel','pointerleave'].forEach(n=>cv.addEventListener(n,()=>tgt=null));
+addEventListener('keydown',e=>{keys[e.key.length>1?e.key:e.key.toLowerCase()]=true;if(e.key.startsWith('Arrow'))e.preventDefault();if((e.key=='f'||e.key=='F')&&!e.repeat)toggleFS();if((e.key=='m'||e.key=='M')&&!e.repeat)setMuted(!muted);
+// Enter (or Start on a pad) starts from the menu, unless a menu button has focus and is about to take the press itself
+if(e.key=='Enter'&&!e.repeat&&!running&&!ui.classList.contains('hide')&&!(e.target&&e.target.tagName=='BUTTON'))bEl.click()});
+addEventListener('keyup',e=>{keys[e.key.length>1?e.key:e.key.toLowerCase()]=false});
+addEventListener('resize',fit);if(window.ResizeObserver)new ResizeObserver(fit).observe(document.body);
+bEl.onclick=()=>{if(fsOK&&autoFS&&!isFS())enterFS();reset();ui.classList.add('hide');running=true;SFX.start()};
+fsEl.onclick=toggleFS;fsEl.hidden=!fsOK;sndEl.onclick=()=>setMuted(!muted);
+g.imageSmoothingEnabled=false;buildFloor();document.body.style.backgroundImage=`url(${wallTile()})`;fit();fsLabel();sndLabel();
+setText(tEl,'Eyes',TITLE);
+setText(mEl,'You are a burglar and you love shiny things. The necklace in the glass case at the top of the house is the shiniest of all.',BODY);
+setText(hEl,'Move with arrow keys / WASD, or drag a finger. Stay out of the eyes’ gaze when they’re open. Slip in through the window, grab the necklace, and get back out.'+(fsOK?' Press F for full screen, M to mute.':' Press M to mute.'),HINT);
+setText(bEl,'Sneak in',BTN);
+reset();requestAnimationFrame(loop);
+</script>
+<!-- An Xbox pad drives the same keys as the keyboard: stick/d-pad moves, A clicks the menu buttons, Start starts, X mutes. See gamepad.js. -->
+<script src="../../gamepad.js?v=2"></script>
+<script>window.Pad && Pad.start({ a: 'Space', b: 'Escape', start: 'Enter', x: 'KeyM' }, { menu: '#ui button' });</script>
+</body></html>

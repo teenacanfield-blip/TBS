@@ -925,7 +925,87 @@ const Art = (() => {
     return s;
   };
 
+  /* Eyes: the house at night from above, drawn with the game's own sprites. One
+     eye's dithered beam sweeps the floorboards, the necklace waits in its glass
+     case, and the burglar keeps just out of the light. */
+  const pix = (rows, pal, x, y, p) => {
+    let s = '';
+    rows.forEach((r, j) => {
+      for (let i = 0; i < r.length; i++) if (r[i] !== '.') s += R(x + i * p, y + j * p, p, p, pal[r[i]]);
+    });
+    return s;
+  };
+  const EYE_ROWS = ['...lllllll...', '.llgggggggll.', 'lpwwwwwiiiwpl', 'lwwwwwwikiwwl', 'lpwwwwwiiiwpl', '.llwwwwwwwll.', '...lllllll...'];
+  const EYE_PAL = { l: '#9c7fb0', g: '#cfc6da', w: '#f4f0e6', p: '#e8a3ac', i: '#c2364d', k: '#05060d' };
+  const GEM_ROWS = ['.LLLLL.', 'LLHLLLL', 'DDDDDDD', '.DDDDD.', '..DDD..', '...D...'];
+  const GEM_PALS = [['#9ff3f8', '#2a9fc0'], ['#ffb8de', '#c94a8a'], ['#b0f7bd', '#38a865'], ['#ffe7a0', '#cf952a']];
+  const eyesScene = (w, h, focal, ns) => {
+    const rand = rng(5151), u = Math.max(4, Math.round(h * 0.018)), t = Math.max(2, Math.round(u / 4));
+    let s = '';
+
+    // Floorboards: alternating planks, dark seams, staggered joints and a nail by each one.
+    for (let y = 0, row = 0; y < h; y += u * 4, row++) {
+      s += R(0, y, w, u * 4, row % 2 ? '#161b38' : '#181e3e') + R(0, y, w, t, '#1d2348') + R(0, y + u * 4 - t, w, t, '#0e1229');
+      for (let x = Math.round(rand() * u * 16); x < w; x += u * 16) s += R(x, y, t, u * 4, '#0e1229') + R(x + t * 2, y + u * 2, t, t, '#2b3465');
+    }
+
+    /* Where things go. A tall card stacks them. A wide banner is cropped at the
+       sides on narrow screens (it keeps about 0.18–0.82 of its width) and a
+       short title like "Eyes" is drawn huge across the left of it, so there the
+       case, eye and burglar sit between 0.64 and 0.8, and the eye looks back
+       left so its beam runs underneath the text. */
+    const wide = w > h * 1.4;
+    const cx = Math.round(wide ? w * 0.72 : w * focal), top = Math.round(h * 0.08);
+    const lay = wide
+      ? { ex: Math.round(w * 0.76), ey: Math.round(h * 0.62), a0: Math.PI - 0.25, L: 55 * u, bx: Math.round(w * 0.67), byUp: 8,
+          gems: [[w * 0.6, h * 0.86], [w * 0.8, h * 0.86], [w * 0.66, h * 0.72], [w * 0.88, h * 0.3]] }
+      : { ex: Math.max(cx - 18 * u, Math.round(7.5 * u)), ey: Math.round(h * 0.4), a0: 0.32, L: 34 * u, bx: cx + 13 * u, byUp: 7,
+          gems: [[cx - 17 * u, h * 0.2], [cx + w * 0.2, h * 0.66], [cx - w * 0.08, h * 0.74], [cx - 24 * u, h * 0.58]] };
+
+    // The rug, the glass case and the necklace on its cushion.
+    s += R(cx - 13 * u, top - u, 26 * u, 15 * u, '#3b1430') + R(cx - 12 * u, top, 24 * u, 13 * u, '#8c3358') + R(cx - 11 * u, top + u, 22 * u, 11 * u, '#4a1a3a');
+    s += R(cx - 7 * u, top + u, 14 * u, 8 * u, '#8fb3ff') + R(cx - 6 * u, top + 2 * u, 12 * u, 6 * u, '#1f2a55') + R(cx - 6 * u, top + 2 * u, 12 * u, t, '#2e3f7a');
+    s += R(cx - 3 * u, top + 6 * u, 6 * u, 2 * u, '#7a2c4c') + R(cx - 3 * u, top + 6 * u, 6 * u, t, '#a8456a');
+    s += pix(['g.......g', '.g.....g.', '..ggggg..'], { g: '#ffd56a' }, cx - 4.5 * u, top + 2 * u, u);
+    s += pix(['.g.', 'rRr', '.r.'], { g: '#ffd56a', r: '#c2364d', R: '#ff8a8f' }, cx - 1.5 * u, top + 4 * u, u);
+    s += R(cx - 8 * u, top + 9 * u, 16 * u, 2 * u, '#3a4a80') + R(cx - 8 * u, top + 9 * u, 16 * u, t, '#6f8ad0');
+    const sp = Math.max(2, Math.round(u / 2));
+    s += `<g class="pulse-slow">${pix(['..w..', '..w..', 'wwWww', '..w..', '..w..'], { w: '#ffd56a', W: '#ffffff' }, cx + 2 * u, top + 2 * u, sp)}</g>`;
+
+    // Gems scattered across the floor.
+    lay.gems.forEach(([gx, gy], i) => {
+      const [L, D] = GEM_PALS[i % 4], p = Math.max(2, Math.round(u * 0.7));
+      s += pix(GEM_ROWS, { L, D, H: '#ffffff' }, Math.round(gx - 3.5 * p), Math.round(gy - 3 * p), p);
+    });
+
+    // The eye and its beam: a faint wedge of light, dithered brighter near the eye.
+    const { ex, ey, a0, L } = lay, half = 0.42, c = Math.max(2, Math.round(u / 3));
+    const wedge = (len) => {
+      const pts = [[ex, ey]];
+      for (let k = 0; k <= 10; k++) { const a = a0 - half + (2 * half * k) / 10; pts.push([ex + Math.cos(a) * len, ey + Math.sin(a) * len]); }
+      return pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ');
+    };
+    s += `<defs>
+      <pattern id="${ns}-ey-d2" width="${2 * c}" height="${2 * c}" patternUnits="userSpaceOnUse"><rect width="${c}" height="${c}" fill="#fff0c8"/><rect x="${c}" y="${c}" width="${c}" height="${c}" fill="#fff0c8"/></pattern>
+      <pattern id="${ns}-ey-d4" width="${2 * c}" height="${2 * c}" patternUnits="userSpaceOnUse"><rect width="${c}" height="${c}" fill="#fff0c8"/></pattern>
+    </defs>`;
+    s += `<polygon points="${wedge(L)}" fill="#fff0c8" opacity="0.08"/>`;
+    s += `<polygon points="${wedge(L * 0.8)}" fill="url(#${ns}-ey-d4)" opacity="0.28"/>`;
+    s += `<polygon points="${wedge(L * 0.45)}" fill="url(#${ns}-ey-d2)" opacity="0.3"/>`;
+    s += `<ellipse cx="${ex}" cy="${ey}" rx="${u * 9}" ry="${u * 6}" fill="#b48cff" opacity="0.14" class="pulse-slow"/>`;
+    const lookLeft = Math.cos(a0) < 0;
+    s += pix(lookLeft ? EYE_ROWS.map((r) => [...r].reverse().join('')) : EYE_ROWS, EYE_PAL, ex - 6.5 * u, ey - 3.5 * u, u);
+
+    // The burglar, just above the edge of the light.
+    const bx = lay.bx, by = ey - lay.byUp * u;
+    s += R(bx - 3 * u, by + 5 * u, 7 * u, u, '#090b18');
+    s += pix(['....h....', '..hhkkk..', '.hkkkkkk.', 'kwwwwwwwk', 'kwkwwwkwk', 'kkkkkkkkk', '.kkkkkkk.', '..kkkkk..', '..k...k..'],
+      { k: '#05060d', h: '#2e3768', w: '#f4f0e6' }, bx - 4.5 * u, by - 4.5 * u, u);
+    return s;
+  };
+
   const SCENES = {
+    'eyes': eyesScene,
     'patrol-rush': patrolScene,
     'laser-tag': laserTagScene,
     'the-13-dynasties': dynastiesScene,
@@ -1301,6 +1381,17 @@ const Art = (() => {
         <rect x="27" y="40" width="10" height="4" fill="#e8e4d0"/>
         <rect x="15" y="46" width="7" height="5" fill="#08090c"/>
         <rect x="42" y="46" width="7" height="5" fill="#08090c"/>
+      </svg>`;
+    }
+    if (id === 'eyes') {
+      /* The game's own eye, its beam spilling down and to the right. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#141833"/>
+        <rect y="40" width="${s}" height="2" fill="#0e1229"/>
+        <rect y="52" width="${s}" height="2" fill="#0e1229"/>
+        <polygon points="26,28 64,30 64,64 46,64" fill="#fff0c8" opacity="0.16"/>
+        ${pix(EYE_ROWS, EYE_PAL, 6, 17, 3)}
+        ${pix(GEM_ROWS, { L: '#9ff3f8', D: '#2a9fc0', H: '#ffffff' }, 45, 46, 2)}
       </svg>`;
     }
     if (id === 'laser-tag') {

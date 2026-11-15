@@ -732,11 +732,11 @@ function viewDinorun(q) {
   <div class="wrap">
     <div class="sec-head" style="margin-bottom:6px">
       <h1>${pixTitle('dinorungames.co', 5)}</h1>
-      <span class="sub">${ready.length} ready · ${soon.length} coming soon</span>
+      <span class="sub">${ready.length} ready${soon.length ? ` · ${soon.length} coming soon` : ''}</span>
     </div>
     <p style="margin:0 0 22px;color:var(--text-dim);max-width:62ch">
-      The dinorungames.co games. The ones marked Soon are still being made, and they
-      turn into games you can play here as soon as they are finished.
+      The dinorungames.co games.${soon.length ? ` The ones marked Soon are still being made, and they
+      turn into games you can play here as soon as they are finished.` : ''}
     </p>
     <div class="grid">${a.map(card).join('')}${b.map(soonCard).join('')}</div>
   </div>`;
