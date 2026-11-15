@@ -925,6 +925,48 @@ const Art = (() => {
     return s;
   };
 
+  /* Flight Deck: a mown grass airfield, the runway running off to the mountains,
+     tall grass up front, and a high-wing plane climbing out into the sun. */
+  const flightDeckScene = (w, h, focal, ns) => {
+    const rand = rng(5151);
+    const hy = h * 0.6;
+    let s = '';
+    const sky = ['#2c5fa3', '#3769ad', '#4374b6', '#5182bf', '#6492c8', '#7aa3d1', '#93b6da', '#b2cbe3'];
+    sky.forEach((c, i) => { s += R(0, hy * i / sky.length, w, hy / sky.length + 1, c); });
+    const sx = w * 0.16, sy = h * 0.2;
+    s += `<circle cx="${sx}" cy="${sy}" r="${h * 0.12}" fill="#fff3d6" opacity="0.22"/><circle cx="${sx}" cy="${sy}" r="${h * 0.045}" fill="#fff8e6"/>`;
+    for (let i = 0; i < 6; i++) {
+      const cx = rand() * w, cy = h * (0.1 + rand() * 0.28), cw = w * (0.07 + rand() * 0.09);
+      s += R(cx, cy, cw, h * 0.028, '#ffffff', ' opacity="0.85"') + R(cx + cw * 0.18, cy - h * 0.022, cw * 0.55, h * 0.026, '#ffffff', ' opacity="0.85"');
+    }
+    for (const [x, mw, mh, c] of [[0.04, 0.3, 0.17, '#73808c'], [0.3, 0.38, 0.27, '#606c79'], [0.6, 0.3, 0.19, '#73808c'], [0.86, 0.34, 0.24, '#606c79']]) {
+      const px = w * x, ph = h * mh;
+      s += `<path d="M${px - w * mw / 2} ${hy} L${px} ${hy - ph} L${px + w * mw / 2} ${hy} Z" fill="${c}"/>`;
+      s += `<path d="M${px} ${hy - ph} L${px + w * mw / 2} ${hy} L${px} ${hy} Z" fill="#000000" opacity="0.14"/>`;
+      s += `<path d="M${px - w * mw * 0.1} ${hy - ph * 0.78} L${px} ${hy - ph} L${px + w * mw * 0.1} ${hy - ph * 0.78} Z" fill="#eef3f8"/>`;
+    }
+    for (let i = 0; i < 16; i++) {
+      const y0 = hy + (h - hy) * (i / 16) ** 2, y1 = hy + (h - hy) * ((i + 1) / 16) ** 2;
+      s += R(0, y0, w, y1 - y0 + 1, i % 2 ? '#4a7833' : '#588a3c');
+    }
+    const rx = w * 0.5;
+    s += `<path d="M${rx - w * 0.01} ${hy} L${rx + w * 0.01} ${hy} L${rx + w * 0.19} ${h} L${rx - w * 0.19} ${h} Z" fill="#3b3e44"/>`;
+    for (let i = 0; i < 7; i++) { const t = i / 7, y = hy + (h - hy) * t * t; s += R(rx - 1 - t * 3, y, 2 + t * 6, 3 + t * 14, '#e9e9e2'); }
+    for (let i = 0; i < 260; i++) {
+      const y = h * 0.74 + rand() * h * 0.26, x = rand() * w, k = (y - h * 0.74) / (h * 0.26);
+      if (Math.abs(x - rx) < w * 0.19 * ((y - hy) / (h - hy)) + 6) continue;
+      const bh = 6 + k * 26 * (0.6 + rand() * 0.6);
+      s += R(x, y - bh, 2 + k * 2, bh, rand() < 0.5 ? '#6fa548' : '#3f6a2b') + R(x, y - bh, 2 + k * 2, 3, '#a9d27a', ' opacity="0.7"');
+    }
+    const px = w * focal, py = h * 0.32, u = h * 0.013;
+    s += `<g transform="rotate(-12 ${px} ${py})">` +
+      R(px - u * 9, py - u * 1.2, u * 18, u * 2.6, '#f3f4f6') + R(px - u * 9, py + u * 0.2, u * 18, u * 0.7, '#c0262d') +
+      R(px - u * 4, py - u * 2.2, u * 8, u * 1, '#dfe3e8') + R(px + u * 2.6, py - u * 1, u * 3, u * 1.1, '#1a2336') +
+      `<path d="M${px - u * 9} ${py - u * 1.2} L${px - u * 11} ${py - u * 5} L${px - u * 8} ${py - u * 5} L${px - u * 5} ${py - u * 1.2} Z" fill="#f3f4f6"/>` +
+      R(px + u * 9, py - u * 2.4, u * 0.6, u * 5.2, '#22252b', ' opacity="0.7"') + '</g>';
+    return s;
+  };
+
   /* Eyes: the house at night from above, drawn with the game's own sprites. One
      eye's dithered beam sweeps the floorboards, the necklace waits in its glass
      case, and the burglar keeps just out of the light. */
@@ -1008,6 +1050,7 @@ const Art = (() => {
     'eyes': eyesScene,
     'patrol-rush': patrolScene,
     'laser-tag': laserTagScene,
+    'flight-deck': flightDeckScene,
     'the-13-dynasties': dynastiesScene,
     'ugg-and-the-undersaucer': uggScene,
     'roaminals': roaminalsScene,
@@ -1401,6 +1444,24 @@ const Art = (() => {
         <line x1="6" y1="54" x2="32" y2="28" stroke="#5cb6ff" stroke-width="4"/>
         <line x1="58" y1="52" x2="32" y2="28" stroke="#ff6448" stroke-width="4"/>
         <circle cx="32" cy="28" r="7" fill="#ffffff"/>
+      </svg>`;
+    }
+    if (id === 'flight-deck') {
+      /* A high-wing plane climbing over a mown field, the sun behind it. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#3769ad"/>
+        <circle cx="50" cy="13" r="5" fill="#fff8e6"/>
+        <rect y="44" width="${s}" height="20" fill="#588a3c"/>
+        <rect y="48" width="${s}" height="4" fill="#4a7833"/>
+        <rect y="56" width="${s}" height="4" fill="#4a7833"/>
+        <g transform="rotate(-10 30 29)">
+          <rect x="12" y="26" width="34" height="7" fill="#f3f4f6"/>
+          <rect x="12" y="30" width="34" height="2" fill="#c0262d"/>
+          <rect x="20" y="22" width="20" height="3" fill="#dfe3e8"/>
+          <rect x="10" y="18" width="5" height="9" fill="#f3f4f6"/>
+          <rect x="37" y="27" width="5" height="3" fill="#1a2336"/>
+          <rect x="46" y="23" width="2" height="13" fill="#22252b"/>
+        </g>
       </svg>`;
     }
     if (id === 'the-13-dynasties') {
