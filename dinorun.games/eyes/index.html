@@ -225,8 +225,9 @@ function fsLabel(){setText(fsEl,isFS()?'Exit full screen':'Full screen',FSB)}
 
 /* ---------- sound effects: chiptune-style, made live with Web Audio (no sound files) ---------- */
 const sndEl=document.getElementById('snd');
-let ac=null,master=null,noiseBuf=null,muted=false;
-try{muted=localStorage.getItem('eyes-muted')=='1'}catch(e){}
+// Sound starts off; M or the Sound button turns it on, and that choice is remembered in this browser
+let ac=null,master=null,noiseBuf=null,muted=true;
+try{muted=localStorage.getItem('eyes-sound')!=='on'}catch(e){}
 function audio(){if(!ac){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;ac=new AC();master=ac.createGain();master.gain.value=.5;master.connect(ac.destination)}
 if(ac.state=='suspended')ac.resume();return ac}
 function tone(f,dur,{type='square',vol=.1,at=0,slide=0,attack=.005}={}){if(muted)return;const a=audio();if(!a)return;
@@ -253,7 +254,7 @@ spotted(){tone(880,.13,{vol:.09});tone(660,.13,{vol:.09,at:.14});tone(880,.13,{v
 win(){[392,523,659,784].forEach((f,i)=>tone(f,.13,{vol:.08,at:i*.1}));tone(1047,.7,{type:'triangle',vol:.16,at:.42});tone(659,.7,{type:'triangle',vol:.08,at:.42});tone(784,.7,{type:'triangle',vol:.08,at:.42})},
 click(){tone(660,.05,{vol:.06})}};
 function sndLabel(){setText(sndEl,muted?'Sound: off':'Sound: on',FSB)}
-function setMuted(v){muted=v;try{localStorage.setItem('eyes-muted',v?'1':'0')}catch(e){}sndLabel();if(!v)SFX.click()}
+function setMuted(v){muted=v;try{localStorage.setItem('eyes-sound',v?'off':'on')}catch(e){}sndLabel();if(!v)SFX.click()}
 
 function loop(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;clock=ts/1000;if(running)update(dt);draw();requestAnimationFrame(loop)}
 function pos(ev){const r=cv.getBoundingClientRect();return{x:(ev.clientX-r.left)*W/r.width,y:(ev.clientY-r.top)*H/r.height}}
@@ -269,7 +270,7 @@ fsEl.onclick=toggleFS;fsEl.hidden=!fsOK;sndEl.onclick=()=>setMuted(!muted);
 g.imageSmoothingEnabled=false;buildFloor();document.body.style.backgroundImage=`url(${wallTile()})`;fit();fsLabel();sndLabel();
 setText(tEl,'Eyes',TITLE);
 setText(mEl,'You are a burglar and you love shiny things. The necklace in the glass case at the top of the house is the shiniest of all.',BODY);
-setText(hEl,'Move with arrow keys / WASD, or drag a finger. Stay out of the eyes’ gaze when they’re open. Slip in through the window, grab the necklace, and get back out.'+(fsOK?' Press F for full screen, M to mute.':' Press M to mute.'),HINT);
+setText(hEl,'Move with arrow keys / WASD, or drag a finger. Stay out of the eyes’ gaze when they’re open. Slip in through the window, grab the necklace, and get back out.'+(fsOK?' Press F for full screen, M for sound.':' Press M for sound.'),HINT);
 setText(bEl,'Sneak in',BTN);
 reset();requestAnimationFrame(loop);
 </script>

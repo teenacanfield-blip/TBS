@@ -897,7 +897,8 @@ const GAMES = [
       'eight gems lie along the way for anyone greedy enough to go after them.',
       'Pixel art and chiptune sound: snoring while the eyes sleep, alarm beeps that speed ' +
       'up as you are seen, a blink you can hear when an eye opens nearby, and a fanfare ' +
-      'when you get away. It goes full screen when you start.',
+      'when you get away. Sound starts off, so press M or the Sound button to hear it. ' +
+      'It goes full screen when you start.',
     ],
     features: [
       'Single player',
@@ -916,7 +917,7 @@ const GAMES = [
     ],
     notes: [
       'Everything is drawn and played by the page itself, so it loads instantly and needs nothing from the internet.',
-      'Sound on or off is remembered in this browser.',
+      'Sound starts off. Press M or the Sound button to turn it on; the choice is remembered in this browser.',
     ],
   },
 ];

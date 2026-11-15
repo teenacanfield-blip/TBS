@@ -6,7 +6,8 @@ A folder to hold the dinorun.games titles. So far:
   past seven watching eyes, take the necklace from its glass case and get back
   out the window. The eyes doze for 2.5 seconds at the start of a run, it goes
   full screen when you start (F toggles), and its chiptune sound effects are
-  made live with Web Audio (M mutes). One file with nothing loaded from the
+  made live with Web Audio. Sound starts off; M or the Sound button turns it on,
+  and the choice is remembered. One file with nothing loaded from the
   internet, so it also runs by double-clicking `index.html`.
 - **Laser tag** — in `laser-tag/`, listed in `games.js` as Laser’s Tag. A 3D
   arena game using the Floodlight characters: 1 v 1 up to 5 v 5, an Abilities
