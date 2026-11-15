@@ -18,6 +18,12 @@ A folder to hold the dinorun.games titles. So far:
 - **Patrol Rush** — in `patrol-rush/`. Cops and robbers in a 3D city, with the
   cars, paint and sky lifted from Kaido Festival. One file; only three.js and
   its post-processing add-ons come from a CDN.
+- **Flight Deck** — in `flight-deck/`, in the dinorungames.co tab. The flight sim
+  from the USB stick: six aircraft, ten airfields, autoland, stalls and G-force.
+  One file with no libraries. The sky, ground and 3D grass are drawn with WebGL 2
+  on a canvas under the 2D one; without WebGL 2 it falls back to flat ground. The
+  same file runs on its own (`flight-sim.html` on the stick), minus the gamepad
+  line at the bottom.
 
 ## Adding one
 
@@ -58,8 +64,8 @@ The hub has a tab named **dinorungames.co** (`#/dinorun`) that shows these
 games together. Only its label is that name; the folder stays `dinorun.games`
 so the games' addresses do not change.
 A finished one is a normal `games.js` entry with `collection: 'dinorun'` added;
-it stays in the Library as well. Laser’s Tag, Patrol Rush (the police chaser)
-and Eyes are in it. A game still being made goes in `DINORUN_SOON` at the
+it stays in the Library as well. Laser’s Tag, Patrol Rush (the police chaser),
+Eyes and Flight Deck are in it. A game still being made goes in `DINORUN_SOON` at the
 bottom of `games.js` (empty right now) and shows as a "Soon" card that cannot
 be opened. When one is done, give its entry `collection: 'dinorun'` and delete
 it from `DINORUN_SOON`.

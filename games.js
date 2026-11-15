@@ -818,6 +818,60 @@ const GAMES = [
     ],
   },
   {
+    id: 'flight-deck',
+    collection: 'dinorun',
+    rating: 'e10',
+    ratingNotes: ['The fighter fires missiles at empty ground targets', 'A crash ends in a fireball; nobody is ever shown'],
+    title: 'Flight Deck',
+    suffix: '',
+    tagline: 'Six aircraft, ten airfields, and gravity that never lets go.',
+    url: './dinorun.games/flight-deck/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#ffbf47',
+    accentDark: '#2a1c05',
+    genres: ['Flight', 'Simulation', '3D'],
+    short:
+      'Start cold and dark on a grass airfield and fly a Cessna, a Piper Cub, an electric ' +
+      'ALIA, a business jet, a 737 or a fighter over farmland, lakes and snowy mountains.',
+    about: [
+      'Start the engine, push the throttle up and rotate. Ten airfields are spread across ' +
+      'a valley of farm fields, forests and lakes ringed by mountains, with fuel at some and ' +
+      'chargers for the electric plane at others.',
+      'Gravity does not let go. Cut the power and the plane glides down; pull too hard and it ' +
+      'stalls, drops a wing and falls until it picks up speed; land too firmly and it bounces. ' +
+      'The fighter can pull 9 G, and hold it too long and the screen greys out.',
+      'Auto-takeoff and autoland fly the hard parts for you, crosswind and all. The fighter ' +
+      'carries six missiles and five ground targets to find. Fly low and the grass sways ' +
+      'under you and flattens in the prop wash.',
+    ],
+    features: [
+      'Single player',
+      '6 aircraft, from a Piper Cub to a 737',
+      '10 airfields',
+      'Auto-takeoff and autoland',
+      'Cockpit and chase cameras',
+      'G-force and stalls',
+      'Xbox controller support',
+    ],
+    controls: [
+      ['E', 'Engine start / stop'],
+      ['[ / ]', 'Throttle up / down'],
+      ['W / S', 'Pitch down / up'],
+      ['A / D', 'Roll, or steer on the ground'],
+      ['T', 'Auto-takeoff'],
+      ['↑ / ↓', 'Autoland on / off'],
+      ['0 · F · B', 'Gear · flaps · brakes'],
+      ['C', 'Camera'],
+      ['M', 'Missile (fighter)'],
+      ['R', 'Choose an aircraft'],
+    ],
+    notes: [
+      'The grass and ground are drawn with WebGL 2; a computer without it gets plain green ground instead.',
+      'It wants a keyboard or an Xbox controller; there are no touch controls.',
+    ],
+  },
+  {
     id: 'patrol-rush',
     collection: 'dinorun',
     rating: 'e10',
