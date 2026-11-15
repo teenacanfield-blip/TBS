@@ -129,7 +129,8 @@ function upd(dt){
  if(au&&au.o){const t=s.thr,ty=s.p.ty;au.o.frequency.value=ty=='elec'?180+t*500:ty=='jet'?60+t*140:38+t*55;au.f.frequency.value=ty=='jet'?500+t*2500:ty=='elec'?2000:700+t*600;au.g.gain.value=snd&&s.eng==2&&!s.crash?.02+.035*t:snd&&s.eng==1?.012:0}}
 let cam=0,cTh=0,cPh=0,cX=0,cY=0,cZ=0,cPs=0;const CY=[0,0,-Math.PI/2,Math.PI/2,Math.PI];
 function pj(x,y,z){const dx=x-cX,dz=z-cZ,dy=y-cY,c=Math.cos(cPs),sn=Math.sin(cPs),zc=dx*sn+dz*c,ct=Math.cos(cTh),st=Math.sin(cTh);return[dx*c-dz*sn,dy*ct-zc*st,dy*st+zc*ct]}
-function poly(a,col){const q=a.map(v=>pj(...v)),o=[];for(let i=0;i<q.length;i++){const A=q[i],B=q[(i+1)%q.length];if(A[2]>1)o.push(A);if((A[2]>1)!=(B[2]>1)){const t=(1-A[2])/(B[2]-A[2]);o.push([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,1])}}if(o.length<3)return;X.fillStyle=col;X.beginPath();o.forEach((v,i)=>{const x=W/2+F*v[0]/v[2],y=H/2-F*v[1]/v[2];i?X.lineTo(x,y):X.moveTo(x,y)});X.fill()}
+// st: also stroke the edge in the same colour, which closes the hairline gaps antialiasing leaves between panels
+function poly(a,col,st){const q=a.map(v=>pj(...v)),o=[];for(let i=0;i<q.length;i++){const A=q[i],B=q[(i+1)%q.length];if(A[2]>1)o.push(A);if((A[2]>1)!=(B[2]>1)){const t=(1-A[2])/(B[2]-A[2]);o.push([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,1])}}if(o.length<3)return;X.fillStyle=col;X.beginPath();o.forEach((v,i)=>{const x=W/2+F*v[0]/v[2],y=H/2-F*v[1]/v[2];i?X.lineTo(x,y):X.moveTo(x,y)});X.closePath();X.fill();if(st){X.strokeStyle=col;X.lineWidth=.9;X.lineJoin='round';X.stroke()}}
 function line3(a,b,col){let A=pj(...a),B=pj(...b);if(A[2]<1&&B[2]<1)return;if(A[2]<1){const t=(1-A[2])/(B[2]-A[2]);A=[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,1]}else if(B[2]<1){const t=(1-B[2])/(A[2]-B[2]);B=[B[0]+(A[0]-B[0])*t,B[1]+(A[1]-B[1])*t,1]}X.strokeStyle=col;X.beginPath();X.moveTo(W/2+F*A[0]/A[2],H/2-F*A[1]/A[2]);X.lineTo(W/2+F*B[0]/B[2],H/2-F*B[1]/B[2]);X.stroke()}
 function bb(x,y,z,w,h,col){const c=pj(x,y,z);if(c[2]<5)return null;const k=F/c[2],sx=W/2+k*c[0],sy=H/2-k*c[1];X.fillStyle=col;X.fillRect(sx-w*k/2,sy-h*k,w*k,h*k);return[sx,sy,k]}
 const HC='#8dffd0',WC='#ffbf47',RC='#ff5d5d';
@@ -225,9 +226,11 @@ function draw(){
 const WH=[240,243,247],NV=[28,62,108],GY=[132,140,150],DG=[88,95,105],DK=[30,34,42],GL=[30,48,66];
 const bx=(cx,cy,cz,hx,hy,hz,c,g)=>{const p=(a,b,d)=>[cx+a*hx,cy+b*hy,cz+d*hz];return[[p(-1,-1,-1),p(1,-1,-1),p(1,-1,1),p(-1,-1,1)],[p(-1,1,-1),p(1,1,-1),p(1,1,1),p(-1,1,1)],[p(-1,-1,-1),p(-1,1,-1),p(-1,1,1),p(-1,-1,1)],[p(1,-1,-1),p(1,1,-1),p(1,1,1),p(1,-1,1)],[p(-1,-1,1),p(1,-1,1),p(1,1,1),p(-1,1,1)],[p(-1,-1,-1),p(1,-1,-1),p(1,1,-1),p(-1,1,-1)]].map(v=>({v,c,g}))};
 const loft=(S,c0,c1)=>{const R=S.map(([y,w,h,z])=>{const r=[];for(let i=0;i<8;i++){const a=i*.7854;r.push([w*Math.cos(a),y,z+h*Math.sin(a)])}return r}),f=[];for(let k=0;k<R.length-1;k++)for(let i=0;i<8;i++){const j=(i+1)%8;f.push({v:[R[k][i],R[k][j],R[k+1][j],R[k+1][i]],c:i<4?c0:c1})}return f};
-const wing=(pts,c,t)=>{const f=[];for(const m of[1,-1])f.push({v:pts.map(([x,y,z])=>[x*m,y,z+t]),c},{v:pts.map(([x,y,z])=>[x*m,y,z]),c:c.map(q=>q*.78)});return f};
+// A wing (or tailplane): a solid slab, top, bottom and the edges between them, mirrored to both sides.
+const wing=(pts,c,t)=>{const f=[],ed=c.map(q=>q*.92);for(const m of[1,-1]){const T=pts.map(([x,y,z])=>[x*m,y,z+t]),B=pts.map(([x,y,z])=>[x*m,y,z]);f.push({v:T,c},{v:B,c});
+ for(let i=0;i<T.length;i++){const j=(i+1)%T.length;f.push({v:[T[i],T[j],B[j],B[i]],c:ed})}}return f};
 const mir=(pts,c)=>[1,-1].map(m=>({v:pts.map(([x,y,z])=>[x*m,y,z]),c}));
-const gearA=(ny,my,mx,nz)=>[...bx(0,ny,.7,.05,.05,.4,GY,1),...bx(0,ny,.3,.07,.28,.28,DK,1),...[1,-1].flatMap(m=>[...bx(m*mx,my,.7,.05,.05,.4,GY,1),...bx(m*mx,my,.32,.09,.32,.3,DK,1)])];
+const gearA=(ny,my,mx,nz)=>[...bx(0,ny,.7,.05,.05,.4,GY,1),...wheel(0,ny,.3,.28,.07,DK),...[1,-1].flatMap(m=>[...bx(m*mx,my,.7,.05,.05,.4,GY,1),...wheel(m*mx,my,.32,.3,.09,DK)])];
 const MESH={
 c:()=>[...loft([[3.05,.1,.1,1.1],[2.8,.5,.48,1.1],[1.5,.62,.6,1.45],[-.8,.58,.6,1.55],[-3,.28,.3,1.7],[-4.7,.06,.14,1.85]],WH,NV),
 ...wing([[.5,.9,2.3],[.5,-.6,2.3],[5.5,-.45,2.3],[5.5,.55,2.3]],WH,.1),...wing([[.3,-3.8,1.8],[.3,-4.9,1.8],[1.9,-4.8,1.8],[1.9,-4.2,1.8]],WH,.06),
@@ -242,12 +245,38 @@ a:()=>[...loft([[5,.05,.05,1.85],[4.1,.5,.5,1.8],[1.5,.76,.82,1.85],[-2.2,.66,.7
 ...[1,-1].flatMap(m=>[...bx(m*3.4,0,2.5,.16,3.4,.12,GY),...bx(m*3.4,0,2.65,.05,.5,.15,GY)]),
 {v:[[0,-4.2,2],[0,-6.2,2],[0,-6.1,4.6],[0,-5,4.6]],c:NV},...wing([[.1,-5,4.55],[.1,-6.1,4.55],[1.9,-6,4.55],[1.9,-5.4,4.55]],WH,.05),
 ...mir([[.7,2.2,2.1],[.72,.4,2.2],[.7,.4,2.6],[.66,2.2,2.55]],GL),{v:[[-.5,3.5,2.05],[.5,3.5,2.05],[.45,2.5,2.5],[-.45,2.5,2.5]],c:GL},...gearA(3.4,.3,1.3)]};
-const ACC=[64,150,210],GL2=[30,52,74],loft2=(S,ci,n)=>{const R=S.map(([y,w,h,z])=>{const r=[];for(let i=0;i<n;i++){const a=i*6.2832/n;r.push([w*Math.cos(a),y,z+h*Math.sin(a)])}return r}),f=[];for(let k=0;k<R.length-1;k++)for(let i=0;i<n;i++){const j=(i+1)%n;f.push({v:[R[k][i],R[k][j],R[k+1][j],R[k+1][i]],c:ci(i)})}return f};
+const ACC=[64,150,210],GL2=[30,52,74];
+// Smooth bodies. A fuselage is a list of cross-sections [y, half-width, half-height, centre height].
+// Between sections the shape follows a monotone cubic (it curves, but never bulges past a section),
+// every ring has twice the sides, and each panel remembers which way is outward, for lighting and
+// so the far side of the body can be skipped.
+const pchip=(xs,ys)=>{const n=xs.length,d=[],m=[];for(let i=0;i<n-1;i++)d.push((ys[i+1]-ys[i])/(xs[i+1]-xs[i]));m[0]=d[0];m[n-1]=d[n-2];
+ for(let i=1;i<n-1;i++){if(d[i-1]*d[i]<=0){m[i]=0;continue}const h0=xs[i]-xs[i-1],h1=xs[i+1]-xs[i],w1=2*h1+h0,w2=h1+2*h0;m[i]=(w1+w2)/(w1/d[i-1]+w2/d[i])}
+ const up=xs[n-1]>xs[0];return x=>{let i=0;while(i<n-2&&(up?x>xs[i+1]:x<xs[i+1]))i++;const h=xs[i+1]-xs[i],t=(x-xs[i])/h,t2=t*t,t3=t2*t;return(2*t3-3*t2+1)*ys[i]+(t3-2*t2+t)*h*m[i]+(-2*t3+3*t2)*ys[i+1]+(t3-t2)*h*m[i+1]}};
+const secFn=S=>{const ys=S.map(q=>q[0]),g=[1,2,3].map(j=>pchip(ys,S.map(q=>q[j]))),lo=Math.min(ys[0],ys[ys.length-1]),hi=Math.max(ys[0],ys[ys.length-1]);return y=>y<lo-1e-6||y>hi+1e-6?[.1,.1,2]:g.map(f=>f(y))};
+const SMY=3,SMR=2;
+// top: only the upper half and no end caps, for a canopy that sits on a fuselage.
+const loft2=(S,ci,n,top)=>{const N=n*SMR,sf=S.length>2?secFn(S):null,rows=[];
+ for(let k=0;k<S.length-1;k++){const sub=sf?SMY:1;for(let j=0;j<sub;j++){const y=S[k][0]+(S[k+1][0]-S[k][0])*j/sub;rows.push(j?[y,...sf(y)]:S[k])}}rows.push(S[S.length-1]);
+ const R=rows.map(([y,w,h,z])=>{const r=[];for(let i=0;i<N;i++){const a=i*6.2832/N;r.push([w*Math.cos(a),y,z+h*Math.sin(a)])}return r}),f=[];
+ for(let k=0;k<R.length-1;k++){const ay=(rows[k][0]+rows[k+1][0])/2,az=(rows[k][3]+rows[k+1][3])/2;for(let i=0;i<N;i++){if(top&&Math.sin((i+.5)*6.2832/N)<0)continue;const j=(i+1)%N,v=[R[k][i],R[k][j],R[k+1][j],R[k+1][i]];
+  const p=[v[2][0]-v[0][0],v[2][1]-v[0][1],v[2][2]-v[0][2]],q=[v[3][0]-v[1][0],v[3][1]-v[1][1],v[3][2]-v[1][2]];let nn=[p[1]*q[2]-p[2]*q[1],p[2]*q[0]-p[0]*q[2],p[0]*q[1]-p[1]*q[0]];
+  const mx=(v[0][0]+v[1][0]+v[2][0]+v[3][0])/4,mz=(v[0][2]+v[1][2]+v[2][2]+v[3][2])/4,l=Math.hypot(...nn)||1;if(nn[0]*mx+nn[2]*(mz-az)<0)nn=nn.map(x=>-x);
+  f.push({v,c:ci(Math.floor(i/SMR)),n:nn.map(x=>x/l)})}}
+ // Close both ends (an intake, an exhaust, a tail tip), darker, so the far side never shows through an open tube.
+ const L0=R.length-1,c0=ci(0),cap=c0.map(x=>x*.55);
+ if(top)return f;
+ if(rows[0][1]>.03)f.push({v:R[0].slice().reverse(),c:cap,n:[0,Math.sign(rows[0][0]-rows[1][0]),0]});
+ if(rows[L0][1]>.03)f.push({v:R[L0].slice(),c:cap,n:[0,Math.sign(rows[L0][0]-rows[L0-1][0]),0]});
+ return f};
+// A wheel: a short cylinder across the aircraft, with a lighter hub on each side.
+const wheel=(cx,cy,cz,r,hw,c)=>{const f=[],N=14,P=(sd,a)=>[cx+sd*hw,cy+r*Math.cos(a),cz+r*Math.sin(a)];for(let i=0;i<N;i++){const a=i*6.2832/N,b=(i+1)*6.2832/N;f.push({v:[P(-1,a),P(-1,b),P(1,b),P(1,a)],c,g:1})}
+ for(const sd of[-1,1]){const cap=[];for(let i=0;i<N;i++)cap.push(P(sd,i*6.2832/N));f.push({v:cap,c:c.map(q=>q*1.5+24),g:1})}return f};
 const ext=(P2,c,t)=>{const f=[{v:P2.map(([y,z])=>[t,y,z]),c},{v:P2.map(([y,z])=>[-t,y,z]),c}];for(let i=0;i<P2.length;i++){const a=P2[i],b=P2[(i+1)%P2.length];f.push({v:[[t,a[0],a[1]],[t,b[0],b[1]],[-t,b[0],b[1]],[-t,a[0],a[1]]],c:c.map(q=>q*.85)})}return f};
 const shf=(fs,dx)=>fs.map(f=>({...f,v:f.v.map(([x,y,z])=>[x+dx,y,z])})),mrb=(pts,c,b,g)=>[1,-1].map(m=>({v:pts.map(([x,y,z])=>[x*m,y,z]),c,b,g}));
 MESH.e=()=>{
  const FS=[[6.1,.04,.04,1.75],[5.9,.22,.2,1.75],[5.4,.45,.42,1.78],[4.5,.64,.64,1.85],[3,.78,.82,1.9],[1,.82,.88,1.92],[-1.5,.8,.86,1.92],[-3.5,.66,.72,1.95],[-5,.44,.5,2],[-6.2,.24,.28,2.05],[-6.6,.1,.12,2.05]];
- const pf=y=>{for(let i=0;i<FS.length-1;i++){const a=FS[i],b=FS[i+1];if(y<=a[0]&&y>=b[0]){const t=(a[0]-y)/(a[0]-b[0]);return[a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,a[3]+(b[3]-a[3])*t]}}return[.1,.1,2]};
+ const pf=secFn(FS);
  const sx=(y,z)=>{const[w,h,zc]=pf(y);return w*Math.sqrt(Math.max(0,1-((z-zc)/h)**2))+.015},sw=(y0,y1,z0,z1)=>[[sx(y0,z1),y0,z1],[sx(y1,z1),y1,z1],[sx(y1,z0),y1,z0],[sx(y0,z0),y0,z0]];
  const fus=loft2(FS,i=>i==0||i==5?ACC:i>5?NV:WH,12),boom=loft2([[4.1,.04,.04,2.55],[3.9,.14,.13,2.55],[3.3,.2,.19,2.6],[-3,.2,.19,2.6],[-3.8,.14,.13,2.58],[-4.1,.04,.04,2.58]],i=>i<5?WH:[150,158,168],8);
  const win=[...mrb(sw(4.35,3.4,2,2.45),GL2,2),...mrb([[0,5.4,2.21],[.37,5.4,2.03],[.52,4.5,2.23],[0,4.5,2.5]],GL2,3)];
@@ -258,8 +287,8 @@ MESH.e=()=>{
  ...shf(ext([[0,2.95],[-.7,2.95],[-.78,3.75],[-.4,3.8]],WH,.04),7.4),...shf(ext([[0,2.95],[-.7,2.95],[-.78,3.75],[-.4,3.8]],WH,.04),-7.4),
  ...ext([[-4,2.4],[-5.25,4.7],[-6.25,4.7],[-6.4,2.15]],WH,.05),...mrb([[.056,-5.75,4.62],[.056,-6.22,4.68],[.056,-6.37,2.3],[.056,-5.95,2.45]],NV,3),
  ...wing([[.12,-5.3,4.62],[.12,-6.35,4.62],[2,-6.2,4.62],[2,-5.55,4.62]],WH,.06),
- ...bx(0,4.2,.76,.04,.04,.43,GY,1),...bx(0,4.2,.3,.07,.28,.28,DK,1)];
- for(const m of[1,-1]){o.push(...shf(boom,m*3.2),...bx(m*3.2,-.2,2.8,.06,.5,.1,WH));for(const y of[3.6,-3.6])o.push(...bx(m*3.2,y,2.82,.07,.07,.1,DK));o.push(...bx(m*1.3,-.2,.34,.1,.34,.33,DK,1))}
+ ...bx(0,4.2,.76,.04,.04,.43,GY,1),...wheel(0,4.2,.3,.28,.07,DK)];
+ for(const m of[1,-1]){o.push(...shf(boom,m*3.2),...bx(m*3.2,-.2,2.8,.06,.5,.1,WH));for(const y of[3.6,-3.6])o.push(...bx(m*3.2,y,2.82,.07,.07,.1,DK));o.push(...wheel(m*1.3,-.2,.34,.33,.1,DK))}
  o.push(...mrb([[.7,-.2,1.1],[.8,-.2,1.1],[1.36,-.2,.4],[1.26,-.2,.4]],GY,0,1));return o};
 function propn(cx,cy,cz,R,ax,nb,o){const run=s.eng==2,ph=run?performance.now()/1000*(ax=='y'?70:55):.4,pt=(r,a)=>ax=='y'?[cx+r*Math.cos(a),cy,cz+r*Math.sin(a)]:[cx+r*Math.cos(a),cy+r*Math.sin(a),cz];
  if(run){const ring=[];for(let i=0;i<20;i++)ring.push(pt(R,i*.31416));o.push({v:ring,c:'rgba(35,35,40,.2)'})}
@@ -275,21 +304,51 @@ function drawPlane(){const p=s.p,base=p.mesh||(p.mesh=MESH[p.mk]());
  if(p.ty=='elec'){propn(0,-6.85,2.05,1.15,'y',4,dyn);for(const x of[3.2,-3.2])for(const y of[3.6,-3.6])propn(x,y,2.95,1.2,'z',3,dyn);fa=fa.concat(bx(-7.4,-.2,3,.08,.1,.05,[255,50,50]),bx(7.4,-.2,3,.08,.1,.05,[60,255,90]));if(Math.floor(performance.now()/450)%2)fa=fa.concat(bx(0,-6.5,4.8,.08,.1,.08,[255,255,255]))}
  if(p.ty=='jet'){if(p.mil&&s.ammo>0)fa=fa.concat(bx(2.4,-2.6,1.25,.07,1.3,.07,WH),bx(-2.4,-2.6,1.25,.07,1.3,.07,WH));
   if(p.mil&&s.eng==2&&s.thr>.1){const ab=s.thr>.9,l=(ab?6:1.2+s.thr*3)*(1+.12*Math.random()),c=ab?'rgba(255,150,50,.85)':'rgba(140,180,255,.6)';for(let k=0;k<4;k++){const a=k*1.5708,b=a+1.5708;dyn.push({v:[[.45*Math.cos(a),-7.6,1.58+.45*Math.sin(a)],[.45*Math.cos(b),-7.6,1.58+.45*Math.sin(b)],[0,-7.6-l,1.58]],c})}}}
- const L=SUNV,all=fa.concat(dyn).map(q=>{const w=q.v.map(v=>tw(v[0],v[1],v[2],q.g));let cx=0,cy=0,cz=0;w.forEach(v=>{cx+=v[0];cy+=v[1];cz+=v[2]});const n=w.length;return{w,c:q.c,d:pj(cx/n,cy/n,cz/n)[2]-(q.b||0)}}).sort((a,b)=>b.d-a.d);
- // sun shadow in the aircraft's real shape: every face projected along the sun ray onto the ground, filled as one shape
- if(s.alt<600){X.beginPath();for(const q of all){if(typeof q.c=='string')continue;const pts=[];let ok=1;for(const v of q.w){const k=v[1]/SUNV[1],c=pj(v[0]-SUNV[0]*k,0,v[2]-SUNV[2]*k);if(c[2]<1){ok=0;break}pts.push([W/2+F*c[0]/c[2],H/2-F*c[1]/c[2]])}if(!ok)continue;let ar=0;for(let i=0;i<pts.length;i++){const A=pts[i],B=pts[(i+1)%pts.length];ar+=A[0]*B[1]-B[0]*A[1]}if(ar<0)pts.reverse();pts.forEach((P,i)=>i?X.lineTo(P[0],P[1]):X.moveTo(P[0],P[1]));X.closePath()}X.fillStyle=`rgba(8,18,8,${.45*(1-s.alt/600)})`;X.fill()}
- for(const q of all){let col=q.c;if(typeof col!='string'){const a=q.w[0],b=q.w[1],c=q.w[2],u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]],n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],l=Math.hypot(...n)||1,br=cl(.5+.55*Math.abs((n[0]*L[0]+n[1]*L[1]+n[2]*L[2])/l),.45,1.05);col=`rgb(${col[0]*br|0},${col[1]*br|0},${col[2]*br|0})`}poly(q.w,col)}}
-const FH=FS=>{const pf=y=>{for(let i=0;i<FS.length-1;i++){const a=FS[i],b=FS[i+1];if(y<=a[0]&&y>=b[0]){const t=(a[0]-y)/(a[0]-b[0]);return[a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,a[3]+(b[3]-a[3])*t]}}return[.1,.1,2]},sx=(y,z)=>{const[w,h,zc]=pf(y);return w*Math.sqrt(Math.max(0,1-((z-zc)/h)**2))+.015};return(y0,y1,z0,z1)=>[[sx(y0,z1),y0,z1],[sx(y1,z1),y1,z1],[sx(y1,z0),y1,z0],[sx(y0,z0),y0,z0]]};
+ // Corners are shared by up to four panels, so the mesh keeps a table of them and each corner is turned,
+ // projected and shadow-projected once per frame; the panels just look their corners up.
+ if(!base.vt){const vt=[],seen=new Map();for(const q of base){const g=q.g?1:0;q.ix=q.v.map(v=>{let e=seen.get(v);if(!e){e=[-1,-1];seen.set(v,e)}if(e[g]<0){e[g]=vt.length/4;vt.push(v[0],v[1],v[2],g)}return e[g]})}base.vt=new Float32Array(vt);base.nv=vt.length/4}
+ const L=SUNV,VT=base.vt,nv=base.nv,PX=new Float32Array(nv*3),PC=new Float32Array(nv*3),SS=new Float32Array(nv*2),SV=new Uint8Array(nv),
+  gp=s.gp,cc=Math.cos(cPs),cs=Math.sin(cPs),ch=Math.cos(cTh),sh=Math.sin(cTh),shw=s.alt<600;
+ for(let i=0;i<nv;i++){const x=VT[i*4],y=VT[i*4+1],g=VT[i*4+3];let z=VT[i*4+2];if(g)z=1.3+(z-1.3)*gp;
+  const wx=s.x+R[0]*x+f[0]*y+U[0]*z,wy=s.alt+R[1]*x+f[1]*y+U[1]*z,wz=s.z+R[2]*x+f[2]*y+U[2]*z;PX[i*3]=wx;PX[i*3+1]=wy;PX[i*3+2]=wz;
+  let dx=wx-cX,dy=wy-cY,dz=wz-cZ,zc=dx*cs+dz*cc;PC[i*3]=dx*cc-dz*cs;PC[i*3+1]=dy*ch-zc*sh;PC[i*3+2]=dy*sh+zc*ch;
+  if(shw){const k=wy/L[1];dx=wx-L[0]*k-cX;dy=-cY;dz=wz-L[2]*k-cZ;zc=dx*cs+dz*cc;const qz=dy*sh+zc*ch;if(qz>1){SV[i]=1;SS[i*2]=W/2+F*(dx*cc-dz*cs)/qz;SS[i*2+1]=H/2-F*(dy*ch-zc*sh)/qz}}}
+ const depth=(x,y,z)=>{const dx=x-cX,dz=z-cZ;return(y-cY)*sh+(dx*cs+dz*cc)*ch},items=[];
+ if(shw)X.beginPath();
+ for(const q of base){if(q.g&&gp<=.1)continue;const ix=q.ix,n=ix.length;let mx=0,my=0,mz=0;for(const i of ix){mx+=PX[i*3];my+=PX[i*3+1];mz+=PX[i*3+2]}mx/=n;my/=n;mz/=n;
+  // a body panel knows its outward normal: turn it with the aircraft, and skip it when it faces away from the camera
+  let nw=null,back=0;if(q.n){const a=q.n;nw=[R[0]*a[0]+f[0]*a[1]+U[0]*a[2],R[1]*a[0]+f[1]*a[1]+U[1]*a[2],R[2]*a[0]+f[2]*a[1]+U[2]*a[2]];back=nw[0]*(cX-mx)+nw[1]*(cY-my)+nw[2]*(cZ-mz)<0}
+  // the sun shadow in the aircraft's real shape: panels facing the sun, projected along its rays, filled as one shape
+  if(shw&&(!nw||nw[0]*L[0]+nw[1]*L[1]+nw[2]*L[2]>0)){let ok=1,ar=0;for(let k=0;k<n;k++){const a=ix[k],b=ix[(k+1)%n];if(!SV[a]){ok=0;break}ar+=SS[a*2]*SS[b*2+1]-SS[b*2]*SS[a*2+1]}
+   if(ok){for(let k=0;k<n;k++){const a=ix[ar<0?n-1-k:k];k?X.lineTo(SS[a*2],SS[a*2+1]):X.moveTo(SS[a*2],SS[a*2+1])}X.closePath()}}
+  if(!back)items.push({ix,c:q.c,d:depth(mx,my,mz)-(q.b||0),m:[mx,my,mz],nw})}
+ if(shw){X.fillStyle=`rgba(8,18,8,${.45*(1-s.alt/600)})`;X.fill()}
+ // the moving and optional parts (propellers, flames, missiles, lights) are few, and are turned one by one
+ for(const q of fa.concat(dyn)){if(q.ix)continue;const w=q.v.map(v=>tw(v[0],v[1],v[2],q.g));let mx=0,my=0,mz=0;for(const v of w){mx+=v[0];my+=v[1];mz+=v[2]}const n=w.length;items.push({w,c:q.c,d:depth(mx/n,my/n,mz/n)-(q.b||0),m:[mx/n,my/n,mz/n],nw:null})}
+ items.sort((a,b)=>b.d-a.d);
+ // Lighting: the side of each panel that faces the camera is lit by the sun, plus a little sky light from above,
+ // plus a soft shine where the sun reflects toward the camera. Undersides end up in shade, tops in the light.
+ for(const q of items){let col=q.c;if(typeof col=='string'){q.ix?polyC(q.ix,PC,col):poly(q.w,col);continue}
+  let n=q.nw;const vx=cX-q.m[0],vy=cY-q.m[1],vz=cZ-q.m[2],vl=Math.hypot(vx,vy,vz)||1;
+  if(!n){let a,b,c;if(q.ix){const I=q.ix;a=[PX[I[0]*3],PX[I[0]*3+1],PX[I[0]*3+2]];b=[PX[I[1]*3],PX[I[1]*3+1],PX[I[1]*3+2]];c=[PX[I[2]*3],PX[I[2]*3+1],PX[I[2]*3+2]]}else[a,b,c]=q.w;
+   const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];const l=Math.hypot(...n)||1;n=n.map(x=>x/l);if(n[0]*vx+n[1]*vy+n[2]*vz<0)n=n.map(x=>-x)}
+  const nl=n[0]*L[0]+n[1]*L[1]+n[2]*L[2],dif=Math.max(0,nl),sky=.5+.5*n[1],rd=(2*nl*n[0]-L[0])*vx+(2*nl*n[1]-L[1])*vy+(2*nl*n[2]-L[2])*vz,
+   sp=nl>0&&rd>0?Math.pow(rd/vl,24)*120:0,br=.4+.52*dif+.2*sky;
+  col=`rgb(${Math.min(255,col[0]*br+sp)|0},${Math.min(255,col[1]*br+sp)|0},${Math.min(255,col[2]*br+sp)|0})`;q.ix?polyC(q.ix,PC,col,1):poly(q.w,col,1)}}
+// poly() for a panel whose corners are already in camera space (x, y, depth), with the same near-plane clipping
+function polyC(ix,PC,col,st){const o=[],n=ix.length;for(let k=0;k<n;k++){const a=ix[k]*3,b=ix[(k+1)%n]*3,az=PC[a+2],bz=PC[b+2];if(az>1)o.push(PC[a],PC[a+1],az);if((az>1)!=(bz>1)){const t=(1-az)/(bz-az);o.push(PC[a]+(PC[b]-PC[a])*t,PC[a+1]+(PC[b+1]-PC[a+1])*t,1)}}
+ if(o.length<9)return;X.fillStyle=col;X.beginPath();for(let k=0;k<o.length;k+=3){const x=W/2+F*o[k]/o[k+2],y=H/2-F*o[k+1]/o[k+2];k?X.lineTo(x,y):X.moveTo(x,y)}X.closePath();X.fill();if(st){X.strokeStyle=col;X.lineWidth=.9;X.lineJoin='round';X.stroke()}}
+const FH=FS=>{const pf=secFn(FS),sx=(y,z)=>{const[w,h,zc]=pf(y);return w*Math.sqrt(Math.max(0,1-((z-zc)/h)**2))+.015};return(y0,y1,z0,z1)=>[[sx(y0,z1),y0,z1],[sx(y1,z1),y1,z1],[sx(y1,z0),y1,z0],[sx(y0,z0),y0,z0]]};
 MESH.k=()=>{const FS=[[3.1,.1,.1,1.15],[2.9,.4,.38,1.15],[2.5,.52,.48,1.2],[1.6,.6,.6,1.45],[.4,.62,.68,1.6],[-1.2,.56,.62,1.6],[-3,.3,.35,1.72],[-4.6,.08,.16,1.88]],sw=FH(FS),ST=[160,35,40],WG=[228,231,235];
- const o=[...loft2(FS,i=>i==0||i==5?ST:i>5?[222,225,230]:WH,12),...loft2([[3.3,.02,.02,1.15],[3.1,.1,.1,1.15],[2.9,.4,.38,1.15]],()=>[150,155,162],8),
+ const o=[...loft2(FS,i=>i==0||i==5?ST:i>5?[222,225,230]:WH,12),...loft2([[3.3,.02,.02,1.15],[3.1,.1,.1,1.15],[2.9,.4,.38,1.15]],()=>[150,155,162],8).filter(q=>!(q.v.length>4&&q.n[1]<0)).map(q=>({...q,b:.25})),
  ...mrb(sw(1.3,.45,1.85,2.15),GL2,2),...mrb(sw(-.25,-1.1,1.85,2.1),GL2,2),...mrb(sw(-1.4,-2,1.9,2.05),GL2,2),...mrb([[0,1.45,2],[.5,1.45,1.9],[.56,.6,2.12],[0,.6,2.3]],GL2,3),
  ...wing([[.55,.9,2.3],[.55,-.6,2.3],[5.5,-.45,2.3],[5.5,.55,2.3]],WH,.1),...mrb([[.8,-.2,2.405],[.8,-.58,2.405],[2.9,-.5,2.405],[2.9,-.15,2.405]],WG,3),...mrb([[3,-.15,2.405],[3,-.49,2.405],[5.4,-.45,2.405],[5.4,-.1,2.405]],WG,3),
  ...mrb([[.2,.5,.95],[.3,.5,.95],[2.9,.2,2.3],[2.8,.2,2.3]],GY,0),...wing([[.3,-3.8,1.8],[.3,-4.9,1.8],[1.9,-4.8,1.8],[1.9,-4.2,1.8]],WH,.06),...ext([[-3.5,1.9],[-4.4,3.1],[-4.95,3.1],[-5,1.9]],ST,.04),
- ...bx(0,-.5,2.3,.012,.1,.2,DK),...bx(0,2.1,.7,.04,.04,.4,GY,1),...bx(0,2.1,.3,.07,.28,.28,DK,1)];
- for(const m of[1,-1])o.push(...bx(m*1.05,.4,.55,.04,.04,.3,GY,1),...bx(m*1.1,.4,.3,.09,.3,.3,DK,1),...bx(m*1.14,.4,.42,.06,.46,.4,WH,1));return o};
+ ...bx(0,-.5,2.3,.012,.1,.2,DK),...bx(0,2.1,.7,.04,.04,.4,GY,1),...wheel(0,2.1,.3,.28,.07,DK)];
+ for(const m of[1,-1])o.push(...bx(m*1.05,.4,.55,.04,.04,.3,GY,1),...wheel(m*1.1,.4,.3,.3,.09,DK),...shf(loft2([[.92,.02,.03,.38],[.66,.11,.2,.35],[.3,.13,.24,.34],[-.08,.03,.07,.4]],()=>WH,8),m*1.1).map(q=>({...q,g:1})));return o};
 MESH.m=()=>{const FS=[[7.8,.04,.04,1.8],[7,.2,.18,1.78],[6,.42,.36,1.72],[4.5,.6,.55,1.7],[2.5,.78,.66,1.7],[0,.84,.7,1.7],[-3,.8,.66,1.68],[-5.5,.66,.56,1.62],[-7.4,.55,.5,1.58]],DS=[105,112,124],JG=[128,136,148];
- return[...loft2(FS,i=>i>5?[100,108,120]:JG,12),...loft2([[7.9,.02,.02,1.8],[7.3,.12,.11,1.79],[6.4,.34,.3,1.74]],()=>[58,62,70],8),...loft2([[5.2,.04,.04,2.05],[4.6,.3,.22,2.2],[3.4,.4,.3,2.32],[1.9,.34,.26,2.3],[.6,.12,.1,2.15]],()=>[40,66,92],10),
- ...loft2([[-7.4,.55,.5,1.58],[-7.8,.5,.46,1.58],[-8.3,.42,.4,1.58]],()=>[62,58,54],10),...bx(0,3.6,.98,.55,1,.34,DK),...bx(0,8.3,1.8,.012,.45,.012,DK),
+ return[...loft2(FS,i=>i>5?[100,108,120]:JG,12),...loft2([[7.9,.02,.02,1.8],[7.3,.12,.11,1.79],[6.4,.34,.3,1.74]],()=>[58,62,70],8).filter(q=>!(q.v.length>4&&q.n[1]<0)).map(q=>({...q,b:.25})),...loft2([[5.2,.04,.04,2.05],[4.6,.3,.22,2.2],[3.4,.4,.3,2.32],[1.9,.34,.26,2.3],[.6,.12,.1,2.15]],()=>[40,66,92],10,1).map(q=>({...q,b:.6})),
+ ...loft2([[-7.4,.55,.5,1.58],[-7.8,.5,.46,1.58],[-8.3,.42,.4,1.58]],()=>[62,58,54],10),...loft2([[4.62,.5,.3,.98],[4.4,.56,.35,.98],[3.2,.55,.34,1.02],[2.3,.38,.24,1.2]],()=>[78,84,94],10),...bx(0,8.3,1.8,.012,.45,.012,DK),
  ...wing([[.8,1.2,1.55],[.8,-4.5,1.55],[4.7,-4.3,1.55],[4.7,-2.8,1.55]],JG,.1),...wing([[.5,4.2,1.7],[.82,1.2,1.7],[.82,-.2,1.7]],JG,.06),...mrb([[1.2,-3.6,1.655],[1.2,-4.48,1.655],[4.2,-4.3,1.655],[4.2,-3.5,1.655]],DS,3),
  ...wing([[.85,-5.3,1.55],[.85,-7.4,1.55],[3.1,-7.2,1.55],[3.1,-6.1,1.55]],[100,108,120],.08),...ext([[-3.4,2.2],[-5.6,4.9],[-6.9,4.9],[-7.1,2.1]],JG,.04),...mrb([[.045,-6,4.85],[.045,-6.9,4.85],[.045,-7.1,2.2],[.045,-6.3,2.3]],DS,3),
  ...bx(4.75,-3.2,1.55,.07,1.5,.07,WH),...bx(-4.75,-3.2,1.55,.07,1.5,.07,WH),...gearA(4.6,-1,1.3)]};
@@ -354,26 +413,26 @@ function cockpit(){const p=s.p,r=Math.min(W*.07,H*.08),cx=W/2,ph=H-2*r-34,y=H-r-
  const kt=s.v*KT,ft=s.alt*3.281,hd=((s.psi/D)%360+360)%360;
  dial(cx-r*5.5,y,r,kt/p.vmax,'KT',Math.round(kt));adi(cx-r*3.3,y,r);dial(cx-r*1.1,y,r,(ft%1000)/1000,'ALT',Math.round(ft));dial(cx+r*1.1,y,r,hd/360,'HDG',String(Math.round(hd)).padStart(3,'0'));dial(cx+r*3.3,y,r,.5+s.vy*196.85/4000,'V/S',Math.round(s.vy*196.85));dial(cx+r*5.5,y,r,s.thr,p.ty=='elec'?'PWR':'THR',Math.round(s.thr*100)+'%')}
 MESH.b=()=>{const FS=[[17.6,.1,.1,2.6],[16.6,.9,.9,2.8],[15,1.6,1.6,3],[12,1.9,1.9,3.1],[-8,1.9,1.9,3.1],[-13,1.75,1.75,3.2],[-16,1.2,1.2,3.4],[-18.5,.5,.5,3.6],[-19.8,.15,.15,3.7]],sw=FH(FS),BL=[20,70,140],CS=[200,205,212];
- const o=[...loft2(FS,i=>i==0||i==5?BL:i>5?[190,195,200]:WH,12),...loft2([[17.6,.1,.1,2.6],[17.2,.5,.5,2.7],[16.4,.9,.9,2.8]],()=>[205,205,210],8),
+ const o=[...loft2(FS,i=>i==0||i==5?BL:i>5?[190,195,200]:WH,12),...loft2([[17.6,.1,.1,2.6],[17.2,.5,.5,2.7],[16.4,.9,.9,2.8]],()=>[205,205,210],8).filter(q=>!(q.v.length>4&&q.n[1]<0)).map(q=>({...q,b:.25})),
  ...mrb(sw(16.3,15.5,3.15,3.65),GL2,2),...mrb(sw(15.4,14.4,3.15,3.65),GL2,2),...mrb([[0,16.7,3.5],[.5,16.7,3.35],[.85,16.1,3.55],[0,16.1,3.75]],GL2,3)];
  for(let y=12;y>-12;y-=1.1)o.push(...mrb(sw(y+.3,y-.3,3.3,3.7),GL2,2));
  o.push(...wing([[1.9,3,1.6],[1.9,-3.5,1.6],[17.9,-6.2,2.4],[17.9,-4.6,2.4]],WH,.25),...mrb([[3,-2.19,1.91],[3,-3.69,1.91],[10,-4.89,2.26],[10,-3.39,2.26]],CS,3),...mrb([[12,-4.23,2.36],[12,-5.23,2.36],[16.5,-5.99,2.585],[16.5,-4.99,2.585]],CS,3),
  ...shf(ext([[-4.6,2.4],[-6.2,2.4],[-7.2,4.2],[-6.5,4.25]],WH,.05),17.9),...shf(ext([[-4.6,2.4],[-6.2,2.4],[-7.2,4.2],[-6.5,4.25]],WH,.05),-17.9),
  ...ext([[-8.5,4.7],[-14.3,12.4],[-16,12.4],[-17.8,4.2]],BL,.1),...mrb([[.11,-14.9,12.3],[.11,-16,12.3],[.11,-17.7,4.5],[.11,-15.6,4.8]],CS,3),...wing([[.5,-14.8,3.9],[.5,-17.8,3.9],[6.9,-19.2,4.1],[6.9,-17.6,4.1]],WH,.1),
- ...bx(0,14,.9,.06,.06,.5,GY,1),...bx(.22,14,.45,.1,.45,.45,DK,1),...bx(-.22,14,.45,.1,.45,.45,DK,1));
- for(const m of[1,-1])o.push(...shf(loft2([[4.2,.75,.75,1.1],[4,.95,.95,1.1],[2,1,1,1.1],[-1,.95,.95,1.1],[-2.2,.7,.7,1.1],[-2.4,.4,.4,1.1]],i=>i>5?[170,175,182]:WH,12),m*5.8),...shf(loft2([[4.25,.55,.55,1.1],[4.12,.92,.92,1.1]],()=>DK,10),m*5.8),...bx(m*5.8,1.2,1.85,.14,2.6,.25,WH),...bx(m*2.8,-1,1.05,.1,.1,.6,GY,1),...bx(m*2.5,-1,.55,.12,.55,.55,DK,1),...bx(m*3.1,-1,.55,.12,.55,.55,DK,1));return o};
-MESH.u=()=>{const Y=[255,205,40],FS=[[2.5,.1,.1,1],[2.3,.4,.4,1.05],[1.4,.5,.55,1.3],[-.2,.45,.62,1.45],[-2.2,.3,.4,1.45],[-3.8,.1,.2,1.5],[-4.4,.05,.1,1.55]],sw=FH(FS),o=[...loft2(FS,i=>i>5?[220,170,30]:Y,10),...loft2([[2.55,.02,.02,1],[2.35,.4,.4,1.02],[1.7,.52,.5,1.1]],()=>[40,42,46],8),
+ ...bx(0,14,.9,.06,.06,.5,GY,1),...wheel(.22,14,.45,.45,.1,DK),...wheel(-.22,14,.45,.45,.1,DK));
+ for(const m of[1,-1])o.push(...shf(loft2([[4.2,.75,.75,1.1],[4,.95,.95,1.1],[2,1,1,1.1],[-1,.95,.95,1.1],[-2.2,.7,.7,1.1],[-2.4,.4,.4,1.1]],i=>i>5?[170,175,182]:WH,12),m*5.8),...shf(loft2([[4.25,.55,.55,1.1],[4.12,.92,.92,1.1]],()=>DK,10).filter(q=>!(q.v.length>4&&q.n[1]<0)).map(q=>({...q,b:.25})),m*5.8),...bx(m*5.8,1.2,1.85,.14,2.6,.25,WH),...bx(m*2.8,-1,1.05,.1,.1,.6,GY,1),...wheel(m*2.5,-1,.55,.55,.12,DK),...wheel(m*3.1,-1,.55,.55,.12,DK));return o};
+MESH.u=()=>{const Y=[255,205,40],FS=[[2.5,.1,.1,1],[2.3,.4,.4,1.05],[1.4,.5,.55,1.3],[-.2,.45,.62,1.45],[-2.2,.3,.4,1.45],[-3.8,.1,.2,1.5],[-4.4,.05,.1,1.55]],sw=FH(FS),o=[...loft2(FS,i=>i>5?[220,170,30]:Y,10),...loft2([[2.55,.02,.02,1],[2.35,.4,.4,1.02],[1.7,.52,.5,1.1]],()=>[40,42,46],8).filter(q=>!(q.v.length>4&&q.n[1]<0)).map(q=>({...q,b:.25})),
  ...mrb(sw(1.1,.2,1.55,1.95),GL2,2),...mrb(sw(-.3,-1.1,1.6,1.9),GL2,2),...wing([[.35,.7,2.2],[.35,-.5,2.2],[4.4,-.5,2.2],[4.4,.7,2.2]],Y,.08),
  ...mrb([[.4,.4,1.2],[.5,.4,1.2],[2.3,.1,2.2],[2.2,.1,2.2]],GY,0),...mrb([[.4,-.4,1.2],[.5,-.4,1.2],[2.3,-.3,2.2],[2.2,-.3,2.2]],GY,0),
- ...wing([[.2,-3.7,1.5],[.2,-4.5,1.5],[1.6,-4.4,1.5],[1.6,-3.9,1.5]],Y,.05),...ext([[-3.6,1.5],[-4.4,2.5],[-4.7,2.5],[-4.6,1.5]],Y,.04),...bx(0,-4.1,.2,.04,.1,.15,DK,1),...mrb([[.2,.9,1.1],[.3,.9,1.1],[.8,.9,.4],[.7,.9,.4]],GY,0,1)];
- for(const m of[1,-1])o.push(...bx(m*.75,.9,.32,.06,.32,.32,DK,1));return o};
+ ...wing([[.2,-3.7,1.5],[.2,-4.5,1.5],[1.6,-4.4,1.5],[1.6,-3.9,1.5]],Y,.05),...ext([[-3.6,1.5],[-4.4,2.5],[-4.7,2.5],[-4.6,1.5]],Y,.04),...wheel(0,-4.1,.2,.15,.04,DK),...mrb([[.2,.9,1.1],[.3,.9,1.1],[.8,.9,.4],[.7,.9,.4]],GY,0,1)];
+ for(const m of[1,-1])o.push(...wheel(m*.75,.9,.32,.32,.06,DK));return o};
 MESH.z=()=>{const FS=[[8,.05,.05,1.9],[7.2,.4,.4,1.95],[6,.75,.75,2],[3.5,.9,.95,2.05],[-3,.9,.95,2.05],[-6,.7,.75,2.1],[-8,.35,.4,2.2],[-8.9,.12,.15,2.3]],sw=FH(FS),BL=[20,50,100],o=[...loft2(FS,i=>i==0||i==5?BL:i>5?[200,205,210]:WH,12),...mrb(sw(6.4,5.6,2.3,2.7),GL2,2),...mrb([[0,7,2.25],[.4,7,2.2],[.6,6.4,2.4],[0,6.4,2.62]],GL2,3)];
  for(let y=4;y>-3.5;y-=1)o.push(...mrb(sw(y+.25,y-.25,2.05,2.45),GL2,2));
  o.push(...wing([[.9,1.6,1.15],[.9,-1.4,1.15],[7.6,-3.6,1.5],[7.6,-2.3,1.5]],WH,.12),...mrb([[1.2,-.1,1.295],[1.2,-1.5,1.295],[4,-2.42,1.435],[4,-1,1.435]],[205,210,215],3),...mrb([[4.4,-1.7,1.46],[4.4,-2.55,1.46],[7.3,-3.5,1.61],[7.3,-2.5,1.61]],[205,210,215],3),
  ...shf(ext([[-2.3,1.5],[-3.6,1.5],[-4.1,2.6],[-3.4,2.65]],WH,.04),7.6),...shf(ext([[-2.3,1.5],[-3.6,1.5],[-4.1,2.6],[-3.4,2.65]],WH,.04),-7.6),
  ...ext([[-5.6,2.8],[-7.6,5],[-8.4,5],[-8.6,2.7]],BL,.05),...wing([[.1,-7.6,4.98],[.1,-8.5,4.98],[2.3,-9.1,4.98],[2.3,-8.4,4.98]],WH,.05),
- ...bx(0,5.8,.7,.05,.05,.5,GY,1),...bx(0,5.8,.3,.07,.28,.28,DK,1));
- for(const m of[1,-1])o.push(...shf(loft2([[-2.8,.28,.28,2.3],[-3,.42,.42,2.3],[-5.5,.45,.45,2.3],[-7.3,.35,.35,2.3],[-7.6,.22,.22,2.3]],i=>i>5?[170,175,182]:WH,10),m*1.4),...shf(loft2([[-2.75,.2,.2,2.3],[-2.85,.4,.4,2.3]],()=>DK,8),m*1.4),...bx(m*1,-5,2.2,.4,1.4,.1,WH),...bx(m*1.3,-.5,.7,.06,.06,.5,GY,1),...bx(m*1.3,-.5,.3,.1,.3,.3,DK,1));return o};
+ ...bx(0,5.8,.7,.05,.05,.5,GY,1),...wheel(0,5.8,.3,.28,.07,DK));
+ for(const m of[1,-1])o.push(...shf(loft2([[-2.8,.28,.28,2.3],[-3,.42,.42,2.3],[-5.5,.45,.45,2.3],[-7.3,.35,.35,2.3],[-7.6,.22,.22,2.3]],i=>i>5?[170,175,182]:WH,10),m*1.4),...shf(loft2([[-2.75,.2,.2,2.3],[-2.85,.4,.4,2.3]],()=>DK,8),m*1.4),...bx(m*1,-5,2.2,.4,1.4,.1,WH),...bx(m*1.3,-.5,.7,.06,.06,.5,GY,1),...wheel(m*1.3,-.5,.3,.3,.1,DK));return o};
 function startLand(){if(s.ground){say('Autoland works in flight - take off first');return}let b=null,bd=1e12;
  for(const a of AP)for(const sg of[1,-1]){const u=[a.u[0]*sg,a.u[1]*sg],A=[a.x-u[0]*(a.L-350),a.z-u[1]*(a.L-350)],d=Math.hypot(A[0]-u[0]*7000-s.x,A[1]-u[1]*7000-s.z);if(d<bd){bd=d;b={a,u,A,h:Math.atan2(u[0],u[1]),ph:'app'}}}
  ap=b;say('Autoland engaged - '+b.a.n)}
