@@ -11,5 +11,25 @@
 <body>
 <canvas id="game"></canvas>
 <div id="ui"></div>
+<!-- Touch controls for phones and tablets (touch.js). Floodlight already reads a controller,
+     so these show up to it as one: left stick moves, right stick aims, and the buttons are
+     the controller's own (7 fire, 0 jump, 2 kick, 10 sprint, 9 menu). This file is the build
+     output of Floodlight's own project; if that is rebuilt, add these two script tags back. -->
+<script src="../touch.js?v=1"></script>
+<script>window.TouchKeys && TouchKeys.start({
+  pad: true,
+  // Off whenever one of Floodlight's screens is up (title, pause, results, a conversation, the
+  // locker), so its buttons stay tappable; on in play.
+  visible: () => !document.querySelector('#ui .screen.on'),
+  stick: {},
+  look: { stick: true },
+  buttons: [
+    { label: 'FIRE', pad: 7, big: true, at: { right: 196, bottom: 34 } },
+    { label: 'JUMP', pad: 0, at: { right: 206, bottom: 136 } },
+    { label: 'KICK', pad: 2, at: { right: 136, bottom: 192 } },
+    { label: 'SPRINT', pad: 10, at: { right: 56, bottom: 196 } },
+    { label: 'MENU', pad: 9, small: true, at: { right: 16, top: 16 } },
+  ],
+});</script>
 </body>
 </html>

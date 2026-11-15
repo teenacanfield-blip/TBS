@@ -42,7 +42,7 @@ A game is not on the site until it is listed in `games.js` at the top of the
 project — that file is the shelf, and the hub builds every page from it. Add an
 entry with the folder's path as `url` and it appears.
 
-Two things every game here should have, because everything else on the site
+Three things every game here should have, because everything else on the site
 does:
 
 - **A viewport tag**, or a phone renders it at about 980px and scales it down.
@@ -57,6 +57,24 @@ does:
   If the game's menus are buttons you click rather than keys you press, name
   them so the d-pad can walk them: `Pad.start(keys, { menu: '.btn' })`. See
   `gamepad.js` for the full set of controls.
+- **Touch controls** — a game with its own on-screen controls is fine as it is.
+  One without them gets the touch layer, which puts a stick and buttons on a
+  phone or tablet (never on a desktop) that press the same keys:
+
+  ```html
+  <script src="../../touch.js?v=1"></script>
+  <script>window.TouchKeys && TouchKeys.start({
+    visible: () => !menuIsOpen,   // hide them while the game's own menu is up
+    stick: { keys: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' } },
+    buttons: [{ label: 'JUMP', key: 'Space', big: true, at: { right: 28, bottom: 40 } }],
+  });</script>
+  ```
+
+  A mouse-aimed game adds `look: { drag: true }` and accepts mouse movement
+  while `TouchKeys.active` is true (a phone cannot capture the pointer); a game
+  that reads a controller itself can take the controls as one with `pad: true`.
+  Laser’s Tag, Flight Deck and Floodlight show all three. Add `?touch` to the
+  address to see them with a mouse. See `touch.js` for the rest.
 
 ## The dinorungames.co tab
 

@@ -12,6 +12,8 @@ button{display:block;width:100%;text-align:left;margin:0 0 10px;padding:13px 16p
 button:hover,button:focus-visible{border-color:#ffbf47;outline:none;background:rgba(28,42,62,.86);transform:translateX(4px)}
 button small{display:block;font-weight:500;font-size:14px;color:#9fb0c2;margin-top:3px}
 .k{font-size:14px;color:#9fb0c2;line-height:1.6;margin-top:14px}
+#snd{position:fixed;right:12px;top:282px;width:44px;height:44px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;border-radius:50%;background:rgba(5,12,20,.6);border:1px solid rgba(141,255,208,.3);-webkit-backdrop-filter:none;backdrop-filter:none;z-index:5}
+#snd:hover,#snd:focus-visible{transform:none;border-color:#ffbf47}
 </style></head><body><canvas id="g"></canvas><canvas id="c"></canvas>
 <div id="menu"><div class="card"><h1>Flight Deck</h1><p>Cold and dark at Lakeview (KLKV), runway 36. Pick an aircraft, or press 1 to 6.</p>
 <button data-k="cessna">1 &nbsp;Cessna 172 Skyhawk<small>Piston prop, avgas. Forgiving, slow, 48 kt stall.</small></button>
@@ -20,10 +22,11 @@ button small{display:block;font-weight:500;font-size:14px;color:#9fb0c2;margin-t
 <button data-k="b737">4 &nbsp;Boeing 737-800 airliner<small>58 tonnes, twin turbofans, rotates near 150 kt. Needs the long runways.</small></button>
 <button data-k="cub">5 &nbsp;Piper J-3 Cub<small>Tiny 65 hp taildragger-style bush plane. Lifts off at about 40 kt.</small></button>
 <button data-k="biz">6 &nbsp;Citation-class business jet<small>Fast, rear-engined, T-tail light jet. No afterburner, no weapons.</small></button>
-<div class="k">E engine start/stop &middot; [ throttle up &middot; ] throttle down &middot; W/S pitch &middot; A/D roll (steer on ground)<br>T auto-takeoff &middot; Up/Down arrow autoland &middot; 0 landing gear &middot; F flaps &middot; B brakes &middot; V reverse thrust (airliner, business jet) &middot; M missile (military) &middot; C camera view &middot; R aircraft menu &middot; H hide help</div></div></div>
+<div class="k">E engine start/stop &middot; [ throttle up &middot; ] throttle down &middot; W/S pitch &middot; A/D roll (steer on ground)<br>T auto-takeoff &middot; Up/Down arrow autoland &middot; 0 landing gear &middot; F flaps &middot; B brakes &middot; V reverse thrust (airliner, business jet) &middot; M missile (military) &middot; C camera view &middot; R aircraft menu &middot; H hide help &middot; N sound on/off</div></div></div>
+<button id="snd" type="button" aria-label="Sound on or off">&#128263;</button>
 <script>
 const $=id=>document.getElementById(id),C=$('c'),X=C.getContext('2d'),GV=$('g');let W,H,F,DPR=1,QL=3,VG=null;
-const rs=()=>{W=innerWidth;H=innerHeight;const dp=Math.min(2,devicePixelRatio||1),gq=[.5,.62,.8,1][QL];DPR=QL>1?dp:1;C.width=W*DPR|0;C.height=H*DPR|0;GV.width=Math.max(1,W*dp*gq|0);GV.height=Math.max(1,H*dp*gq|0);F=Math.min(W*.9,H*1.5);VG=null};addEventListener('resize',rs);rs();
+const rs=()=>{W=innerWidth;H=innerHeight;const dp=Math.min(2,devicePixelRatio||1),gq=[.5,.62,.8,1][QL];DPR=QL>1?dp:1;C.width=W*DPR|0;C.height=H*DPR|0;GV.width=Math.max(1,W*dp*gq|0);GV.height=Math.max(1,H*dp*gq|0);F=Math.min(W*.9,H*1.5);VG=null;const sb=$('snd');if(sb)sb.style.top=Math.round(258*Math.min(1,H/640,W/900))+'px'};addEventListener('resize',rs);rs();
 const D=Math.PI/180,KT=1.94384,G=9.81,cl=(v,a,b)=>Math.max(a,Math.min(b,v)),wr=a=>{while(a>Math.PI)a-=6.2832;while(a<-Math.PI)a+=6.2832;return a};
 const P={
 cessna:{n:'Cessna 172',m:1100,S:16.2,CLm:1.6,CLa:5,CL0:.3,CD0:.03,k:.07,aS:16*D,Ts:2600,Pw:96000,ty:'prop',rr:.9,pr:.6,cap:2700,eye:1.8,sink:3.5,sT:3,lab:'FUEL',u:'gal',amt:53},
@@ -123,7 +126,7 @@ function upd(dt){
  for(const q of pa){q.vy-=(q.g||0)*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.z+=q.vz*dt;if(q.y<0&&q.g>0){q.y=0;q.vy*=-.35;q.vx*=.5;q.vz*=.5}q.l-=dt*(q.d||.9)}pa=pa.filter(q=>q.l>0);if(pa.length>1200)pa.splice(0,pa.length-1200);
  s.jolt=Math.max(0,s.jolt-dt*2.5);const gn=s.crash?1:s.n;s.gx=cl(s.gx+(gn>7?(gn-7)*.15:-.5)*dt,0,1);s.rx=cl(s.rx+(gn<-2?(-2-gn)*.3:-.6)*dt,0,1);
  if(s.ground&&!s.crash&&s.v>6&&!onR(s.x,s.z)&&Math.random()<dt*s.v*.2)dust(.5);
- if(au&&au.o){const t=s.thr,ty=s.p.ty;au.o.frequency.value=ty=='elec'?180+t*500:ty=='jet'?60+t*140:38+t*55;au.f.frequency.value=ty=='jet'?500+t*2500:ty=='elec'?2000:700+t*600;au.g.gain.value=s.eng==2&&!s.crash?.04+.06*t:s.eng==1?.02:0}}
+ if(au&&au.o){const t=s.thr,ty=s.p.ty;au.o.frequency.value=ty=='elec'?180+t*500:ty=='jet'?60+t*140:38+t*55;au.f.frequency.value=ty=='jet'?500+t*2500:ty=='elec'?2000:700+t*600;au.g.gain.value=snd&&s.eng==2&&!s.crash?.02+.035*t:snd&&s.eng==1?.012:0}}
 let cam=0,cTh=0,cPh=0,cX=0,cY=0,cZ=0,cPs=0;const CY=[0,0,-Math.PI/2,Math.PI/2,Math.PI];
 function pj(x,y,z){const dx=x-cX,dz=z-cZ,dy=y-cY,c=Math.cos(cPs),sn=Math.sin(cPs),zc=dx*sn+dz*c,ct=Math.cos(cTh),st=Math.sin(cTh);return[dx*c-dz*sn,dy*ct-zc*st,dy*st+zc*ct]}
 function poly(a,col){const q=a.map(v=>pj(...v)),o=[];for(let i=0;i<q.length;i++){const A=q[i],B=q[(i+1)%q.length];if(A[2]>1)o.push(A);if((A[2]>1)!=(B[2]>1)){const t=(1-A[2])/(B[2]-A[2]);o.push([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,1])}}if(o.length<3)return;X.fillStyle=col;X.beginPath();o.forEach((v,i)=>{const x=W/2+F*v[0]/v[2],y=H/2-F*v[1]/v[2];i?X.lineTo(x,y):X.moveTo(x,y)});X.fill()}
@@ -174,6 +177,9 @@ function draw(){
  X.restore();
  let wo=0;for(const c of CLD){const dx=(cX-c[0])/(c[3]*1.6),dy=(cY-c[1])/(c[3]*.42),dz=(cZ-c[2])/(c[3]*1.6),e=dx*dx+dy*dy+dz*dz;if(e<1)wo=Math.max(wo,1-e)}if(wo>0){X.fillStyle=`rgba(236,241,246,${Math.min(.93,wo*1.8)})`;X.fillRect(0,0,W,H)}
  X.drawImage(vig(),0,0,W,H);if(mo)return;
+ // The HUD was laid out for a desktop. On a small screen (a phone on its side) draw it smaller,
+ // so the instruments and the touch controls both fit: shrink the canvas and pretend it is bigger.
+ const uk=Math.min(1,H/640,W/900),W0=W,H0=H;if(uk<1){X.save();X.scale(uk,uk);W/=uk;H/=uk}
  const dh=H*.12;if(cam==0){g=X.createLinearGradient(0,H-dh,0,H);g.addColorStop(0,'#1a1d22');g.addColorStop(1,'#0c0d10');X.fillStyle=g;X.beginPath();X.moveTo(0,H);X.lineTo(0,H-dh*.7);X.quadraticCurveTo(W/2,H-dh*1.5,W,H-dh*.7);X.lineTo(W,H);X.fill();
  X.strokeStyle='rgba(10,11,14,.9)';X.lineWidth=14;X.beginPath();X.moveTo(-5,H*.2);X.lineTo(W*.06,H);X.moveTo(W+5,H*.2);X.lineTo(W*.94,H);X.stroke();cockpit()}
  // top-left
@@ -211,10 +217,11 @@ function draw(){
  tx('WIND '+String(Math.round(((Math.atan2(s.w[0],s.w[1])/D+180)%360+360)%360)||360).padStart(3,'0')+'\u00b0 / '+Math.round(Math.hypot(s.w[0],s.w[1])*KT)+' kt',W/2,26,15,'#cfe','center');
  if(s.ground&&s.v>s.p.vr&&s.eng==2&&s.thr>.5&&!ap&&!s.crash)tx('ROTATE - pull back (S)',W/2,H*.3,28,WC,'center');
  if(s.crash){X.fillStyle='rgba(120,0,0,.45)';X.fillRect(0,0,W,H);tx('CRASHED: '+s.crash,W/2,H/2,44,'#fff','center');tx('Press R to choose an aircraft',W/2,H/2+34,20,'#fff','center')}
- if(help){X.save();X.translate(0,cam?0:-H*.2);box(pad,H-122,700,112);tx('E engine \u00b7 [ ] throttle up/down \u00b7 W/S pitch \u00b7 A/D roll/steer \u00b7 B brake \u00b7 V reverse (jets)',pad+12,H-98,15,'#cfe');tx('T auto-takeoff \u00b7 Up/Down arrow autoland \u00b7 0 gear \u00b7 F flaps \u00b7 M missile (fighter) \u00b7 C camera \u00b7 R aircraft \u00b7 H hide',pad+12,H-76,15,'#cfe');tx('Rotate at '+Math.round(p.vr*KT)+' kt \u00b7 stall '+Math.round(p.vs*KT)+' kt \u00b7 approach '+Math.round(p.vs*1.35*KT)+' kt',pad+12,H-54,15,'#9fb0c2');tx('Refuel/recharge: stop at an airport with the matching station, engine off.',pad+12,H-32,15,'#9fb0c2');X.restore()}
+ if(help){X.save();X.translate(0,cam?0:-H*.2);box(pad,H-122,700,112);tx('E engine \u00b7 [ ] throttle up/down \u00b7 W/S pitch \u00b7 A/D roll/steer \u00b7 B brake \u00b7 V reverse (jets)',pad+12,H-98,15,'#cfe');tx('T auto-takeoff \u00b7 Up/Down arrow autoland \u00b7 0 gear \u00b7 F flaps \u00b7 M missile (fighter) \u00b7 C camera \u00b7 R aircraft \u00b7 H hide \u00b7 N sound',pad+12,H-76,15,'#cfe');tx('Rotate at '+Math.round(p.vr*KT)+' kt \u00b7 stall '+Math.round(p.vs*KT)+' kt \u00b7 approach '+Math.round(p.vs*1.35*KT)+' kt',pad+12,H-54,15,'#9fb0c2');tx('Refuel/recharge: stop at an airport with the matching station, engine off.',pad+12,H-32,15,'#9fb0c2');X.restore()}
  // G-force: grey-out above 7 G, red-out under -2 G
  if(s.gx>.01){g=X.createRadialGradient(W/2,H/2,Math.min(W,H)*(.6-.5*s.gx),W/2,H/2,Math.hypot(W,H)*.55);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(0,0,0,${Math.min(1,s.gx*1.4)})`);X.fillStyle=g;X.fillRect(0,0,W,H);if(s.gx>.65){X.fillStyle=`rgba(0,0,0,${(s.gx-.65)*2.2})`;X.fillRect(0,0,W,H)}}
- if(s.rx>.01){X.fillStyle=`rgba(160,0,0,${s.rx*.45})`;X.fillRect(0,0,W,H)}}
+ if(s.rx>.01){X.fillStyle=`rgba(160,0,0,${s.rx*.45})`;X.fillRect(0,0,W,H)}
+ if(uk<1){X.restore();W=W0;H=H0}}
 const WH=[240,243,247],NV=[28,62,108],GY=[132,140,150],DG=[88,95,105],DK=[30,34,42],GL=[30,48,66];
 const bx=(cx,cy,cz,hx,hy,hz,c,g)=>{const p=(a,b,d)=>[cx+a*hx,cy+b*hy,cz+d*hz];return[[p(-1,-1,-1),p(1,-1,-1),p(1,-1,1),p(-1,-1,1)],[p(-1,1,-1),p(1,1,-1),p(1,1,1),p(-1,1,1)],[p(-1,-1,-1),p(-1,1,-1),p(-1,1,1),p(-1,-1,1)],[p(1,-1,-1),p(1,1,-1),p(1,1,1),p(1,-1,1)],[p(-1,-1,1),p(1,-1,1),p(1,1,1),p(-1,1,1)],[p(-1,-1,-1),p(1,-1,-1),p(1,1,-1),p(-1,1,-1)]].map(v=>({v,c,g}))};
 const loft=(S,c0,c1)=>{const R=S.map(([y,w,h,z])=>{const r=[];for(let i=0;i<8;i++){const a=i*.7854;r.push([w*Math.cos(a),y,z+h*Math.sin(a)])}return r}),f=[];for(let k=0;k<R.length-1;k++)for(let i=0;i<8;i++){const j=(i+1)%8;f.push({v:[R[k][i],R[k][j],R[k+1][j],R[k+1][i]],c:i<4?c0:c1})}return f};
@@ -370,10 +377,15 @@ MESH.z=()=>{const FS=[[8,.05,.05,1.9],[7.2,.4,.4,1.95],[6,.75,.75,2],[3.5,.9,.95
 function startLand(){if(s.ground){say('Autoland works in flight - take off first');return}let b=null,bd=1e12;
  for(const a of AP)for(const sg of[1,-1]){const u=[a.u[0]*sg,a.u[1]*sg],A=[a.x-u[0]*(a.L-350),a.z-u[1]*(a.L-350)],d=Math.hypot(A[0]-u[0]*7000-s.x,A[1]-u[1]*7000-s.z);if(d<bd){bd=d;b={a,u,A,h:Math.atan2(u[0],u[1]),ph:'app'}}}
  ap=b;say('Autoland engaged - '+b.a.n)}
-function initAud(){if(au)return;try{au=new(window.AudioContext||webkitAudioContext)();const o=au.createOscillator(),f=au.createBiquadFilter(),g=au.createGain();f.type='lowpass';g.gain.value=0;o.connect(f);f.connect(g);g.connect(au.destination);o.start();au.o=o;au.g=g;au.f=f;o.type=s&&s.p.ty=='elec'?'sine':'sawtooth'}catch(e){au=null}}
+function initAud(){if(au){if(au.state=='suspended'&&snd)au.resume();return}try{au=new(window.AudioContext||webkitAudioContext)();const o=au.createOscillator(),f=au.createBiquadFilter(),g=au.createGain();f.type='lowpass';g.gain.value=0;o.connect(f);f.connect(g);g.connect(au.destination);o.start();au.o=o;au.g=g;au.f=f;o.type=s&&s.p.ty=='elec'?'sine':'sawtooth'}catch(e){au=null}}
+// Sound starts off. N or the speaker button turns it on, and the choice is remembered in this browser.
+let snd=0;try{snd=localStorage.getItem('flightdeck-sound')=='on'?1:0}catch(e){}
+function setSnd(v,user=1){snd=v?1:0;if(user)try{localStorage.setItem('flightdeck-sound',snd?'on':'off')}catch(e){}const b=$('snd');b.textContent=snd?'\u{1F50A}':'\u{1F507}';b.title=snd?'Sound on (N)':'Sound off (N)';if(snd&&user)initAud()}
+setSnd(snd,0);$('snd').onclick=()=>{setSnd(!snd);$('snd').blur()};
 function pick(k){initAud();reset(k);mo=0;$('menu').style.display='none'}
-document.querySelectorAll('#menu button').forEach(b=>b.onclick=()=>pick(b.dataset.k));
+document.querySelectorAll('#menu button[data-k]').forEach(b=>b.onclick=()=>pick(b.dataset.k));
 addEventListener('keydown',e=>{const c=e.code;if(c.startsWith('Arrow')||c=='Space'||c=='BracketLeft'||c=='BracketRight')e.preventDefault();
+ if(c=='KeyN'&&!e.repeat){setSnd(!snd);say(snd?'Sound on':'Sound off');return}
  if(mo){if(c=='Digit1')pick('cessna');if(c=='Digit2')pick('jet');if(c=='Digit3')pick('alia');if(c=='Digit4')pick('b737');if(c=='Digit5')pick('cub');if(c=='Digit6')pick('biz');return}
  keys[c]=1;initAud();
  if(c=='KeyR'){mo=1;$('menu').style.display='flex';return}
@@ -506,4 +518,24 @@ let last=performance.now(),ft=1/60,qt=-3,qd=0;
 <script>window.Pad && Pad.start(
   { up:'KeyW', down:'KeyS', left:'KeyA', right:'KeyD', rt:'BracketLeft', lt:'BracketRight', a:'KeyE', b:'KeyB', x:'KeyF', y:'KeyC', lb:'Digit0', rb:'KeyM', ls:'KeyT', rs:'KeyH', back:'ArrowUp', start:'KeyR' },
   { menu: '#menu button' });</script>
+<!-- On a phone or tablet: a stick for pitch and roll on the left, a throttle bar and the engine
+     and brake on the right, the rest along the top. Hidden on the aircraft menu. See touch.js. -->
+<script src="../../touch.js?v=1"></script>
+<script>window.TouchKeys && (() => {
+  const uk = Math.min(1, innerHeight / 640, innerWidth / 900), up = Math.round(182 * uk + 14);
+  const top = (i, label, key) => ({ label, key, small: true, at: { left: `calc(50% - 232px + ${i * 58}px)`, top: 64 } });
+  TouchKeys.start({
+    visible: () => !mo,
+    // The speaker button would sit on the throttle bar, so sound moves into the top row instead.
+    onShow: () => { help = 0; $('snd').style.display = 'none'; },
+    stick: { keys: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' } },
+    slider: { label: 'THR', get: () => (s ? s.thr : 0), set: (v) => { if (s && !s.crash) s.thr = v; }, at: { right: 18, bottom: up, height: 160 } },
+    buttons: [
+      { label: 'ENGINE', key: 'KeyE', big: true, at: { right: 84, bottom: up } },
+      { label: 'BRAKE', key: 'KeyB', at: { right: 96, bottom: up + 96 } },
+      top(0, 'T/O', 'KeyT'), top(1, 'LAND', 'ArrowUp'), top(2, 'GEAR', 'Digit0'), top(3, 'FLAPS', 'KeyF'),
+      top(4, 'CAM', 'KeyC'), top(5, 'MSL', 'KeyM'), top(6, 'SOUND', 'KeyN'), top(7, 'MENU', 'KeyR'),
+    ],
+  });
+})();</script>
 </body></html>

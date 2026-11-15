@@ -1007,7 +1007,8 @@ function requestLock(){
 const SENS=.0024;
 document.addEventListener('mousemove',e=>{
   if(state!=='play'||!ps[0]||!ps[0].alive) return;
-  if(!locked&&!noLock) return;
+  // A phone cannot capture the pointer, so a drag on the touch controls (touch.js) aims instead.
+  if(!locked&&!noLock&&!(window.TouchKeys&&TouchKeys.active)) return;
   ps[0].ang+=e.movementX*SENS; pitch=clamp(pitch-e.movementY*SENS,-.6,.75);
 });
 canvas.addEventListener('mousedown',e=>{
@@ -1079,5 +1080,19 @@ window.__lt={tick,get ps(){return ps;},get state(){return state;},cfg,save,scene
 </script>
 <script src="../../gamepad.js?v=2"></script>
 <script>window.Pad && Pad.start({ a: 'Space', b: 'Escape', start: 'Enter', rb: 'ShiftLeft', x: 'KeyE' }, { menu: '#ov button' });</script>
+<!-- On a phone or tablet: the stick on the left moves, a drag across the right aims, and the
+     buttons sit above the minimap. Hidden while a menu is up. See touch.js. -->
+<script src="../../touch.js?v=1"></script>
+<script>window.TouchKeys && TouchKeys.start({
+  visible: () => document.getElementById('ov').classList.contains('hide'),
+  stick: { keys: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' } },
+  look: { drag: true, sens: 1.8 },
+  buttons: [
+    { label: 'FIRE', key: 'Space', big: true, at: { right: 28, bottom: 172 } },
+    { label: 'SPRINT', key: 'ShiftLeft', at: { right: 128, bottom: 176 } },
+    { label: 'GECKO', key: 'KeyE', at: { right: 40, bottom: 270 } },
+    { label: 'PAUSE', key: 'Escape', small: true, at: { right: 16, top: 16 } },
+  ],
+});</script>
 </body>
 </html>
