@@ -261,6 +261,9 @@ function starRow(n, interactive) {
   return `<span class="stars${interactive ? ' pick' : ''}">${out}</span>`;
 }
 
+// What each star count means, said next to the stars as you pick them.
+const STAR_WORDS = ['', 'Bad', 'Poor', 'Fine', 'Good', 'Great'];
+
 function reviewSummary(key) {
   const list = reviewsFor(key);
   if (!list.length) return `<span class="rv-none">No reviews yet</span>`;
@@ -320,7 +323,7 @@ function authBox() {
 // The star-and-words form, for someone who is allowed to post.
 function postForm(key, what) {
   return `
-  <form class="rv-form" data-review="${esc(key)}">
+  <form class="rv-form" data-review="${esc(key)}" data-what="${esc(what)}">
     <div class="rv-stars" role="group" aria-label="Your rating">
       ${starRow(0, true)}
       <input type="hidden" name="rating" value="0" />
@@ -1413,7 +1416,7 @@ document.addEventListener('click', (e) => {
       b.classList.toggle('on', +b.dataset.star <= n));
     const form = star.closest('form');
     form.elements.rating.value = n;
-    form.querySelector('.rv-hint').textContent = ['', 'Bad', 'Poor', 'Fine', 'Good', 'Great'][n];
+    form.querySelector('.rv-hint').textContent = STAR_WORDS[n];
     form.querySelector('.rv-error').hidden = true;
     return;
   }
@@ -1596,31 +1599,145 @@ document.addEventListener('submit', (e) => {
 
   // A star is the one thing a review cannot do without — the words are optional.
   if (!stars) {
-    form.querySelector('.rv-error').hidden = false;
+    const slot = form.querySelector('.rv-error');
+    slot.textContent = 'Pick a star rating first.'; // may still hold a server error
+    slot.hidden = false;
     return;
   }
 
-  if (LIVE) {
-    const btn = form.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.textContent = 'Posting…';
-    Accounts.postReview(key, stars, text)
-      .then(() => { invalidateReviews(key); render(); })
-      .catch((err) => {
-        btn.disabled = false;
-        btn.textContent = 'Post review';
-        const slot = form.querySelector('.rv-error');
-        slot.textContent = err.message;
-        slot.hidden = false;
-      });
-    return;
-  }
-
-  const who = form.elements.who.value.trim();
-  (state.reviews[key] ||= []).push({ stars, text, who, ts: Date.now() });
-  save();
-  render();
+  // Nothing goes up until they have seen it and said yes.
+  askToPost({
+    key,
+    stars,
+    text,
+    who: LIVE ? Accounts.username : form.elements.who.value.trim(),
+    what: form.dataset.what || 'this game',
+  });
 });
+
+/* ------------------------------------------- "are you sure?" before posting */
+
+/* Once accounts are on, a review goes out to everyone and cannot be edited —
+ * only deleted. So nothing is posted until the person has seen exactly what
+ * will appear and pressed Post. Cancel just closes the box: the form under it
+ * is never touched, so the half-written review is still sitting there.
+ *
+ * A native <dialog> opened with showModal() does the fiddly parts: the page
+ * behind goes inert (no clicking or tabbing into it), focus moves in and comes
+ * back out, and it sits above everything else on the page. */
+const confirmBox = document.getElementById('confirm-post');
+let pendingPost = null;
+
+function askToPost(draft) {
+  pendingPost = draft;
+  document.getElementById('cp-what').textContent = draft.what;
+  document.getElementById('cp-preview').innerHTML = `
+    <div class="rv-meta">
+      ${starRow(draft.stars)}
+      <b>${esc(draft.who || 'Player')}</b>
+      <span>${STAR_WORDS[draft.stars]}</span>
+    </div>
+    ${draft.text
+      ? `<p>${esc(draft.text)}</p>`
+      : `<p class="cp-empty">No words, just the stars.</p>`}`;
+  document.getElementById('cp-where').textContent = LIVE
+    ? 'Everyone who visits will see this, under your username. You can delete it later, but not edit it.'
+    : 'For now this is saved in this browser only. Other visitors will not see it yet.';
+  confirmBox.showModal();
+  document.getElementById('cp-post').focus();
+}
+
+function answerPost(yes) {
+  const draft = pendingPost;
+  pendingPost = null;
+  if (confirmBox.open) confirmBox.close();
+  if (!draft) return; // a second press on the way out
+
+  if (yes) { sendReview(draft); return; }
+
+  // Cancel. The form is normally exactly as they left it — but if something
+  // re-rendered the page while the box was up (reviews arriving, the demo
+  // list filling in), put the draft back so it is not lost.
+  const form = reviewForm(draft.key);
+  if (form) {
+    fillForm(form, draft);
+    form.elements.text.focus();
+  }
+}
+
+document.getElementById('cp-post').addEventListener('click', () => answerPost(true));
+document.getElementById('cp-cancel').addEventListener('click', () => answerPost(false));
+
+// Esc. The browser would close the box on its own; handling it here means the
+// draft-keeping in answerPost runs too.
+confirmBox.addEventListener('cancel', (e) => { e.preventDefault(); answerPost(false); });
+
+// Enter posts from anywhere in the box, except when Cancel is the button you
+// are on — there, Enter pressing that button is what anyone would expect.
+// A held-down Enter (the one that submitted the form) must not post by itself.
+confirmBox.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.repeat || e.target.id === 'cp-cancel') return;
+  e.preventDefault();
+  answerPost(true);
+});
+
+// A click on the dimmed page around the box counts as Cancel. Both ends of the
+// click have to land there, so dragging to select text in the preview and
+// letting go outside does not throw the box away.
+let downOnBackdrop = false;
+confirmBox.addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === confirmBox; });
+confirmBox.addEventListener('click', (e) => {
+  if (downOnBackdrop && e.target === confirmBox) answerPost(false);
+});
+
+// The review form for a game, looked up fresh: a render replaces it.
+function reviewForm(key) {
+  return [...document.querySelectorAll('form[data-review]')]
+    .find((f) => f.dataset.review === key) || null;
+}
+
+// Puts a draft back into a review form, leaving alone anything that already
+// matches so the person's own line breaks and spacing survive.
+function fillForm(form, d) {
+  form.elements.rating.value = d.stars;
+  form.querySelectorAll('[data-star]').forEach((b) =>
+    b.classList.toggle('on', +b.dataset.star <= d.stars));
+  form.querySelector('.rv-hint').textContent = STAR_WORDS[d.stars];
+  if (form.elements.text.value.trim() !== d.text) form.elements.text.value = d.text;
+  if (form.elements.who && form.elements.who.value.trim() !== d.who) form.elements.who.value = d.who;
+}
+
+// Actually posts it, once the box has been answered with Post.
+function sendReview(draft) {
+  const { key, stars, text, who } = draft;
+
+  if (!LIVE) {
+    (state.reviews[key] ||= []).push({ stars, text, who, ts: Date.now() });
+    save();
+    render();
+    return;
+  }
+
+  const form = reviewForm(key);
+  const btn = form && form.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+
+  Accounts.postReview(key, stars, text)
+    .then(() => { invalidateReviews(key); render(); })
+    .catch((err) => {
+      // Looked up again: the page may have re-rendered while this was in
+      // flight, and a failed post must not cost them what they wrote.
+      const f = reviewForm(key);
+      if (!f) { alert(err.message); return; }
+      fillForm(f, draft);
+      const b = f.querySelector('button[type="submit"]');
+      b.disabled = false;
+      b.textContent = 'Post review';
+      const slot = f.querySelector('.rv-error');
+      slot.textContent = err.message;
+      slot.hidden = false;
+    });
+}
 
 function handleAuth(form) {
   const signingUp = form.dataset.auth === 'signup';
