@@ -764,6 +764,76 @@ const GAMES = [
     ],
   },
   {
+    id: 'octant-vanguard',
+    rating: 'e10',
+    ratingNotes: ['Space battles against cartoon alien bugs — ships and aliens burst into pixels, no blood', 'A character gives their life to save everyone at the end of the story'],
+    title: 'Octant Vanguard',
+    suffix: '',
+    tagline: 'Fly the octagon. Save the worlds.',
+    url: './octant-vanguard/index.html',
+    developer: 'Thirsty Bear Studios',
+    released: '2026',
+    accent: '#ffc65c',
+    accentDark: '#2a1a06',
+    genres: ['Shooter', 'RPG', 'Space', 'Pixel art'],
+    short:
+      'Fly an octagon-shaped ship across eight worlds, blast alien swarms, ' +
+      'watch your rocket fuel, and build a team to save the Octant.',
+    about: [
+      'A top-down pixel-art space shooter with a story. The Vorr have poured out of a ' +
+      'rift and are tearing at the eight worlds of the Octant. You fly the Vanguard — ' +
+      'an octagonal ship built around an ancient core — from world to world, holding ' +
+      'back the swarm while the planet behind you keeps taking hits.',
+      'Every boost burns rocket fuel. Run dry and your thrusters sputter to a crawl, so ' +
+      'you orbit close to the planet to refuel or scoop up the fuel cans aliens drop. ' +
+      'Credits buy upgrades for the hull, shields, guns, fuel tank, engines and the Nova Charge.',
+      'Save a world and someone joins your team: an ace pilot, a fuel engineer, a ' +
+      'xenobiologist, a turret drone with opinions, and an alien who still hears. ' +
+      'Three of them fly on your wing, and you train them all in the Hangar. Every ' +
+      'scene is voiced, and the crew talks over the radio mid-fight.',
+      'Off the main road sits Papyra, a tiny world of folded paper where the friendly, ' +
+      'rabbit-eared Hopplings are holding off the Inkwraith, a spirit made of living ink. ' +
+      'Help them and Pip, the bravest Hoppling, joins the crew.',
+    ],
+    features: [
+      'Eight-chapter voiced story',
+      'Papyra side story',
+      'Rocket fuel to manage',
+      'Ship upgrades and a team of six',
+      'Four bosses',
+      '2-player co-op on one keyboard',
+      'Controller support',
+      'Touch controls',
+      'Autosave',
+    ],
+    controls: [
+      ['W A S D', 'Fly'],
+      ['Mouse', 'Aim; hold the button to fire'],
+      ['Shift', 'Boost — burns rocket fuel'],
+      ['Space / Right click', 'Nova Charge'],
+      ['Esc', 'Pause'],
+      ['Arrow keys', 'Player 2 flies; aims and fires on their own'],
+      ['Right Shift / Enter', 'Player 2 boost / Nova Charge'],
+      ['Phone / tablet', 'Left side steers, right side aims and fires; BOOST and NOVA buttons'],
+    ],
+    stagesTitle: 'The eight worlds',
+    stages: [
+      ['I', 'Verdance', 'First Light — the farm world, and Kira Sol'],
+      ['II', 'Cindral', 'Fuel of the Fire — the refinery that makes rocket fuel'],
+      ['III', 'Thalassa', 'Deep Water — Leeches draining an ocean world'],
+      ['IV', 'Ferros', 'Iron Choir — the Hive Mother'],
+      ['V', 'Glacia', 'The Speaker — an alien who comes in peace'],
+      ['VI', 'Umbra', 'Lantern — a world with the lights out, and the Maw'],
+      ['VII', 'Aurora', 'Return the Light — hold on for two minutes'],
+      ['VIII', 'Octavia Prime', 'The Eighth Seal — Nullheart'],
+    ],
+    notes: [
+      'Online co-op and the Claude character voices only work in the Claude-hosted version. Here, characters speak with your browser’s own voices, and co-op is two players on one keyboard, or a keyboard and a controller.',
+      'Characters talk out loud. Turn voices off in Settings if you would rather read.',
+      'Progress, credits and upgrades are saved in your own browser on this device.',
+    ],
+  },
+  {
     id: 'laser-tag',
     collection: 'dinorun',
     rating: 'e10',

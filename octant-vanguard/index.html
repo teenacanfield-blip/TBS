@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="A pixel-art top-down space RPG: fly an octagonal ship, fight the Vorr, save eight worlds, upgrade your team and play co-op.">
+<title>Octant Vanguard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&display=swap">
+<style>
+/* Layout: a full-bleed pixel-art battlefield (low-res canvas, hard-edged upscale); stepped pixel-octagon panels float at its edges. Single dark look by design. */
+:root {
+  color-scheme: dark;
+  --void: #04050c;
+  --panel: rgba(9, 12, 28, 0.86);
+  --panel-hi: #151b38;
+  --edge: rgba(255, 198, 92, 0.42);
+  --edge-dim: rgba(150, 165, 230, 0.22);
+  --ink: #eef1ff;
+  --muted: #9aa3c8;
+  --gold: #ffc65c;
+  --gold-hi: #ffe2a0;
+  --gold-deep: #2a1a06;
+  --cyan: #6fe6ff;
+  --vorr: #b25cff;
+  --danger: #ff4d6a;
+  --fuel: #ff9a3c;
+  --ok: #7dffc9;
+  --shield: #8fd0ff;
+  --f-display: 'Silkscreen', 'Courier New', monospace;
+  --f-body: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
+  --f-mono: 'Silkscreen', 'Courier New', monospace;
+  --pix: polygon(calc(var(--s)*3) 0, calc(100% - var(--s)*3) 0, calc(100% - var(--s)*3) var(--s), calc(100% - var(--s)*2) var(--s), calc(100% - var(--s)*2) calc(var(--s)*2), calc(100% - var(--s)) calc(var(--s)*2), calc(100% - var(--s)) calc(var(--s)*3), 100% calc(var(--s)*3), 100% calc(100% - var(--s)*3), calc(100% - var(--s)) calc(100% - var(--s)*3), calc(100% - var(--s)) calc(100% - var(--s)*2), calc(100% - var(--s)*2) calc(100% - var(--s)*2), calc(100% - var(--s)*2) calc(100% - var(--s)), calc(100% - var(--s)*3) calc(100% - var(--s)), calc(100% - var(--s)*3) 100%, calc(var(--s)*3) 100%, calc(var(--s)*3) calc(100% - var(--s)), calc(var(--s)*2) calc(100% - var(--s)), calc(var(--s)*2) calc(100% - var(--s)*2), var(--s) calc(100% - var(--s)*2), var(--s) calc(100% - var(--s)*3), 0 calc(100% - var(--s)*3), 0 calc(var(--s)*3), var(--s) calc(var(--s)*3), var(--s) calc(var(--s)*2), calc(var(--s)*2) calc(var(--s)*2), calc(var(--s)*2) var(--s), calc(var(--s)*3) var(--s));
+}
+html, body { height: 100%; margin: 0; }
+[hidden] { display: none !important; }
+body { background: var(--void); color: var(--ink); font-family: var(--f-body); font-size: 15px; font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; overflow: hidden; -webkit-user-select: none; user-select: none; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; image-rendering: pixelated; }
+#overlay { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+canvas.pix, .card-head canvas { image-rendering: pixelated; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+button, input, select { font: inherit; color: inherit; }
+.screen {
+  position: absolute; inset: 0;
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.screen, .dialog, .oct, .toast { isolation: isolate; }
+.screen > * { pointer-events: auto; }
+.hud > * { pointer-events: none; }
+.hud .interactive { pointer-events: auto; }
+
+/* Octagon chamfer — the faction's shape, used for every panel */
+.oct {
+  --s: 4px;
+  position: relative; clip-path: var(--pix); background: var(--edge);
+}
+.oct::before { content: ""; position: absolute; inset: 3px; clip-path: var(--pix); background: var(--panel); z-index: 0; }
+.oct > * { position: relative; z-index: 1; }
+.oct.dim { background: var(--edge-dim); }
+
+.eyebrow { font: 400 10px/1.3 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); margin: 0; }
+.fine { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.45; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+h2 { font-size: 26px; font-weight: 800; letter-spacing: 0.02em; }
+kbd { font: 600 11px var(--f-mono); padding: 2px 6px; border: 1px solid var(--edge-dim); border-radius: 3px; background: rgba(255,255,255,0.04); color: var(--gold-hi); white-space: nowrap; }
+
+.btn {
+  --s: 3px;
+  clip-path: var(--pix);
+  border: 0; cursor: pointer; padding: 11px 18px; min-height: 42px;
+  font: 700 13px var(--f-display); letter-spacing: 0.02em; text-transform: uppercase;
+  background: rgba(255, 198, 92, 0.1); color: var(--gold-hi); box-shadow: inset 0 0 0 3px var(--edge);
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.btn:hover { background: rgba(255, 198, 92, 0.2); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--cyan); }
+.btn.primary { background: var(--gold); color: var(--gold-deep); box-shadow: inset 0 -4px 0 #c8892a, inset 0 3px 0 var(--gold-hi); }
+.btn.primary:hover { background: #ffd27a; }
+.btn.primary:focus-visible { box-shadow: inset 0 0 0 3px var(--gold-deep); }
+.btn.ghost { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 3px var(--edge-dim); }
+.btn.ghost:hover { color: var(--ink); background: rgba(255,255,255,0.05); }
+.btn.small { padding: 7px 12px; min-height: 34px; font-size: 11.5px; }
+.btn.big { padding: 15px 22px; font-size: 15px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-row > .btn { flex: 1 1 140px; }
+
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat .k { font: 600 10px var(--f-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.stat .v { font: 700 20px var(--f-display); color: var(--gold-hi); font-variant-numeric: tabular-nums; }
+
+/* ---------- Title ---------- */
+#scr-title { display: grid; place-items: center; overflow-y: auto; }
+.title-wrap { width: min(560px, 100%); display: flex; flex-direction: column; gap: 18px; align-items: stretch; padding-block: 20px; }
+.logo { font-weight: 700; line-height: 0.95; letter-spacing: 0; display: flex; flex-direction: column; font-size: clamp(40px, 11vw, 84px); }
+.logo span { background: linear-gradient(180deg, #fff6dc 0 30%, var(--gold) 30% 65%, #d98a2a 65% 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(5px 5px 0 #4a1e08); }
+.logo span + span { font-size: 0.56em; letter-spacing: 0.08em; }
+.tag { margin: -6px 0 0; font: 600 15px var(--f-display); letter-spacing: 0.4em; text-transform: uppercase; color: var(--cyan); }
+.title-panel { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font: 600 11px var(--f-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.field input, .field select {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--edge-dim); padding: 10px 12px; font: 600 18px var(--f-display);
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-hi); outline: none; border-radius: 2px; min-width: 0;
+}
+.field input:focus, .field select:focus { border-color: var(--cyan); }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 22px; padding: 16px 20px; }
+.controls h3 { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+.controls ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13px; color: var(--muted); }
+.controls li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+
+/* ---------- Map ---------- */
+.topbar { position: absolute; top: max(16px, env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.brand { font: 800 18px var(--f-display); letter-spacing: 0.2em; color: var(--gold-hi); margin-right: auto; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.side { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: 86px; width: 340px; max-height: calc(100% - 110px); overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+.side h2 { font-size: 32px; }
+.side .sub { margin: -6px 0 0; font: 600 13px var(--f-display); color: var(--cyan); letter-spacing: 0.2em; text-transform: uppercase; }
+.side p { margin: 0; line-height: 1.5; color: #cdd3f0; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 4px 0; }
+.facts div { display: flex; flex-direction: column; gap: 2px; }
+.facts dt { font: 600 10px var(--f-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; font: 600 14px var(--f-display); color: var(--ink); }
+.threat { display: inline-flex; gap: 3px; }
+.threat i { width: 9px; height: 9px; background: rgba(255,255,255,0.12); clip-path: polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%); }
+.threat i.on { background: var(--danger); }
+.status { font: 600 12px var(--f-mono); letter-spacing: 0.14em; text-transform: uppercase; padding: 8px 10px; border-left: 3px solid var(--gold); background: rgba(255,198,92,0.07); }
+.status.attack { border-color: var(--danger); background: rgba(255,77,106,0.08); color: #ffb0bf; }
+.status.locked { border-color: var(--edge-dim); color: var(--muted); background: rgba(255,255,255,0.03); }
+.toggle { display: flex; gap: 10px; align-items: center; font-size: 13.5px; color: #cdd3f0; cursor: pointer; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--gold); }
+
+/* ---------- Modals ---------- */
+.modal { display: grid; place-items: center; background: rgba(2, 3, 10, 0.82); overflow-y: auto; overflow-x: hidden; pointer-events: auto; }
+.modal > .oct::before { background: #0a0d20; }
+.modal > .oct { width: min(980px, 100%); max-height: 100%; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.modal.narrow > .oct { width: min(520px, 100%); }
+.modal-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.modal-head h2 { margin-right: auto; }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--edge-dim); }
+.tab { background: none; border: 0; padding: 10px 16px; cursor: pointer; font: 600 13px var(--f-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab.active { color: var(--gold-hi); border-color: var(--gold); }
+.tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.hangar-body { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
+#hg-preview { width: 240px; height: 240px; max-width: 100%; }
+.preview-col { display: flex; flex-direction: column; gap: 10px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.card { --s: 3px; padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card.oct::before { background: var(--panel-hi); }
+.card-head { display: flex; gap: 10px; align-items: center; }
+.card-head canvas { width: 64px; height: 64px; flex: none; }
+.card h3 { font-size: 16px; }
+.card .role { font: 600 10px var(--f-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); }
+.card p { margin: 0; font-size: 13px; line-height: 1.45; color: #c4cbea; }
+.card .now { font: 600 12.5px var(--f-mono); color: var(--gold-hi); }
+.card .next { font: 500 12px var(--f-mono); color: var(--muted); }
+.pips { display: flex; gap: 4px; }
+.pips i { width: 14px; height: 6px; background: rgba(255,255,255,0.1); }
+.pips i.on { background: var(--gold); box-shadow: 0 0 6px rgba(255,198,92,0.6); }
+.card .btn { margin-top: auto; }
+.locked-note { font: 600 11px var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.settings-grid { display: grid; gap: 16px; }
+.range { display: grid; grid-template-columns: 120px minmax(0, 1fr) 40px; gap: 12px; align-items: center; font-size: 14px; }
+.range input { accent-color: var(--gold); width: 100%; }
+.range output { font: 600 12px var(--f-mono); color: var(--gold-hi); text-align: right; }
+.coop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.coop-col { --s: 3px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.coop-col.oct::before { background: var(--panel-hi); }
+.coop-col h3 { font-size: 16px; letter-spacing: 0.06em; }
+.code { font: 800 30px var(--f-display); letter-spacing: 0.18em; color: var(--cyan); }
+.host-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+.host-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(255,255,255,0.04); }
+.host-item b { font-family: var(--f-display); letter-spacing: 0.1em; margin-right: auto; overflow-wrap: anywhere; }
+.netstatus { font: 600 12px var(--f-mono); color: var(--muted); letter-spacing: 0.06em; }
+.netstatus.ok { color: var(--ok); }
+.netstatus.bad { color: #ffb0bf; }
+.results-list { display: grid; gap: 8px; margin: 0; }
+.results-list div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--edge-dim); padding-bottom: 6px; }
+.results-list dt { color: var(--muted); }
+.results-list dd { margin: 0; font: 600 15px var(--f-display); color: var(--gold-hi); font-variant-numeric: tabular-nums; }
+.result-title.win { color: var(--gold-hi); }
+.result-title.lose { color: #ff8da0; }
+
+/* ---------- HUD ---------- */
+.hud-players { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); left: max(14px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 8px; width: 270px; }
+.pcard { --s: 3px; padding: 10px 12px; display: grid; gap: 5px; }
+.pc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pc-head b { font: 600 12.5px var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-head span { font: 600 10px var(--f-mono); color: var(--muted); }
+.meter { display: grid; grid-template-columns: 86px minmax(0, 1fr) 38px; gap: 8px; align-items: center; }
+.meter > span { font: 400 8px var(--f-mono); letter-spacing: 0; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.meter > em { font: 400 8px var(--f-mono); font-style: normal; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bar { height: 8px; background: rgba(255,255,255,0.1); position: relative; overflow: hidden; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.35); }
+.bar > i { position: absolute; inset: 0; transform-origin: left; background: var(--gold); transition: transform 0.12s steps(4); }
+.meter.hull .bar > i { background: linear-gradient(90deg, #ff9a6a, #ffd27a); }
+.meter.shield .bar > i { background: linear-gradient(90deg, #4aa6ff, var(--shield)); }
+.meter.fuel .bar > i { background: repeating-linear-gradient(90deg, var(--fuel) 0 9px, #ffb366 9px 11px); }
+.meter.fuel.low > span, .meter.fuel.low > em { color: var(--fuel); animation: blink 0.6s steps(2) infinite; }
+.meter.fuel.refuel > span::after { content: " +"; color: var(--ok); }
+.meter.nova .bar > i { background: linear-gradient(90deg, #b25cff, #ffd36b); }
+.meter.nova.ready > em { color: var(--ok); }
+.pcard.dead { opacity: 0.55; }
+@keyframes blink { 50% { opacity: 0.35; } }
+.hud-top { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 560px)); min-width: 220px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; text-align: center; }
+.hud-mission { font: 600 12px var(--f-display); letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-hi); }
+.hud-mission small { display: block; font: 500 10.5px var(--f-mono); letter-spacing: 0.12em; color: var(--muted); margin-top: 2px; }
+.bar.planet { height: 9px; }
+.bar.planet > i { background: linear-gradient(90deg, #4af0c8, #8fffe0); }
+.bar.planet.crit > i { background: linear-gradient(90deg, #ff4d6a, #ff9a6a); }
+.boss { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.boss span { font: 800 13px var(--f-display); letter-spacing: 0.3em; text-transform: uppercase; color: #ff8da0; }
+.boss .bar { height: 10px; }
+.boss .bar > i { background: linear-gradient(90deg, #ff3d71, #b25cff); }
+.hud-right { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); display: flex; gap: 16px; align-items: center; }
+.hud-right .stat { text-align: right; }
+.bark { position: absolute; left: max(14px, env(safe-area-inset-left, 0px)); bottom: max(14px, env(safe-area-inset-bottom, 0px)); --s: 3px; display: flex; gap: 10px; align-items: center; padding: 8px 14px 8px 8px; width: min(440px, calc(100% - 200px)); animation: slidein 0.25s ease-out; }
+.bark canvas { width: 80px; height: 80px; flex: none; }
+.bark b { font: 600 11px var(--f-display); letter-spacing: 0.14em; text-transform: uppercase; }
+.bark p { margin: 2px 0 0; font-size: 14px; line-height: 1.35; }
+@keyframes slidein { from { transform: translateY(12px); opacity: 0; } }
+.banner { position: absolute; left: 0; right: 0; top: 30%; text-align: center; opacity: 0; transition: opacity 0.4s; padding-inline: 16px; }
+.banner.show { opacity: 1; }
+.banner h3 { font-size: clamp(26px, 6vw, 52px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-hi); text-shadow: 4px 4px 0 #4a1e08; }
+.banner p { margin: 6px 0 0; font: 600 13px var(--f-mono); letter-spacing: 0.3em; text-transform: uppercase; color: var(--cyan); }
+.touch-btns { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 150px); display: flex; flex-direction: column; gap: 12px; }
+.touch-btns button { pointer-events: auto; width: 70px; height: 70px; border: 0; font: 600 12px var(--f-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-hi); background: rgba(255,198,92,0.15); clip-path: polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%); touch-action: none; }
+.touch-btns button:active { background: rgba(255,198,92,0.4); }
+
+/* ---------- Dialogue ---------- */
+.dialog { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding-bottom: max(18px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); pointer-events: none; }
+.dlg { pointer-events: auto; --s: 5px; width: min(820px, 100%); display: flex; gap: 18px; padding: 18px 22px 16px 16px; cursor: pointer; animation: slidein 0.3s ease-out; }
+.dlg::before { background: rgba(8, 10, 24, 0.95); }
+.dlg canvas { width: 132px; height: 132px; flex: none; }
+.dlg-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.dlg-body b { font: 600 13px var(--f-display); letter-spacing: 0.18em; text-transform: uppercase; }
+.dlg-body p { margin: 0; font-size: 18px; line-height: 1.5; min-height: 3em; max-width: 62ch; }
+.dlg-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dlg-foot .voice { font: 600 10.5px var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); }
+.toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); padding: 10px 16px; font: 600 13px var(--f-display); letter-spacing: 0.08em; background: var(--panel); border: 1px solid var(--edge); color: var(--gold-hi); max-width: calc(100% - 32px); }
+
+@media (max-width: 900px) {
+  .side { left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: auto; top: auto; bottom: max(16px, env(safe-area-inset-bottom, 0px)); max-height: 52%; }
+  .side h2 { font-size: 24px; }
+  .hangar-body { grid-template-columns: 1fr; }
+  .preview-col { flex-direction: row; align-items: center; }
+  #hg-preview { width: 120px; height: 120px; }
+  .hud-top { top: auto; bottom: max(14px, env(safe-area-inset-bottom, 0px)); width: min(360px, calc(100% - 200px)); }
+}
+@media (max-width: 640px) {
+  body { font-size: 14px; }
+  .brand { font-size: 14px; }
+  .topbar { gap: 12px; }
+  .hud-players { width: 190px; }
+  .meter { grid-template-columns: 56px minmax(0, 1fr) 30px; gap: 5px; }
+  .meter > span { font-size: 6.5px; }
+  .pcard { padding: 7px 9px; }
+  .hud-right { gap: 10px; }
+  .hud-right .stat .v { font-size: 15px; }
+  .hud-top { left: max(14px, env(safe-area-inset-left, 0px)); transform: none; width: calc(100% - 180px); min-width: 0; }
+  .bark { width: calc(100% - 32px); bottom: auto; top: 150px; }
+  .bark canvas { width: 44px; height: 44px; }
+  .dlg { gap: 12px; padding: 12px 14px 12px 10px; }
+  .dlg canvas { width: 72px; height: 72px; }
+  .dlg-body p { font-size: 15px; }
+  .range { grid-template-columns: 90px minmax(0, 1fr) 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bark, .dlg { animation: none; }
+  .meter.fuel.low > span, .meter.fuel.low > em { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="game" aria-label="Octant Vanguard game view"></canvas>
+<canvas id="overlay" aria-hidden="true"></canvas>
+
+<div id="ui">
+  <!-- TITLE -->
+  <section id="scr-title" class="screen">
+    <div class="title-wrap">
+      <p class="eyebrow">Eight worlds · One octagon · Day one of the Breach</p>
+      <h1 class="logo"><span>OCTANT</span><span>VANGUARD</span></h1>
+      <p class="tag">The Eighth Seal</p>
+      <div class="oct title-panel">
+        <div class="field">
+          <label for="callsign">Your callsign</label>
+          <input id="callsign" maxlength="12" autocomplete="off" spellcheck="false" value="NOVA">
+        </div>
+        <div class="btn-row">
+          <button id="btn-continue" class="btn primary">Continue campaign</button>
+          <button id="btn-new" class="btn">New campaign</button>
+        </div>
+        <div class="btn-row">
+          <button id="btn-coop-title" class="btn ghost">Online co-op</button>
+          <button id="btn-settings-title" class="btn ghost">Settings</button>
+        </div>
+        <p class="fine" id="title-note">Sound, music and character voices start when you press a button.</p>
+      </div>
+      <div class="oct dim controls">
+        <div>
+          <h3>Player 1</h3>
+          <ul>
+            <li><kbd>W A S D</kbd> fly</li>
+            <li><kbd>Mouse</kbd> aim, hold to fire</li>
+            <li><kbd>Shift</kbd> boost (burns rocket fuel)</li>
+            <li><kbd>Space</kbd> or <kbd>Right click</kbd> Nova Charge</li>
+            <li><kbd>Esc</kbd> pause</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Player 2, same keyboard</h3>
+          <ul>
+            <li><kbd>Arrow keys</kbd> fly, auto-aims and fires</li>
+            <li><kbd>Right Shift</kbd> boost</li>
+            <li><kbd>Enter</kbd> Nova Charge</li>
+            <li>A gamepad also works for Player 2</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALAXY MAP -->
+  <section id="scr-map" class="screen" hidden>
+    <header class="topbar">
+      <div class="brand">OCTANT VANGUARD</div>
+      <div class="stat"><span class="k">Credits</span><span id="map-credits" class="v">0</span></div>
+      <div class="stat"><span class="k">Worlds saved</span><span id="map-saved" class="v">0 / 8</span></div>
+      <nav class="top-actions">
+        <button id="btn-hangar" class="btn small">Hangar</button>
+        <button id="btn-coop" class="btn small">Online co-op</button>
+        <button id="btn-settings" class="btn small ghost">Settings</button>
+        <button id="btn-title" class="btn small ghost">Title</button>
+      </nav>
+    </header>
+    <aside id="planet-panel" class="oct side">
+      <p class="eyebrow" id="pp-chapter">Chapter I</p>
+      <h2 id="pp-name">Verdance</h2>
+      <p class="sub" id="pp-title">First Light</p>
+      <p id="pp-desc"></p>
+      <dl class="facts">
+        <div><dt>World</dt><dd id="pp-kind"></dd></div>
+        <div><dt>Mission</dt><dd id="pp-mission"></dd></div>
+        <div><dt>Threat</dt><dd id="pp-threat" class="threat"></dd></div>
+        <div><dt>Reward</dt><dd id="pp-reward"></dd></div>
+      </dl>
+      <div id="pp-status" class="status"></div>
+      <label class="toggle" for="chk-p2"><input type="checkbox" id="chk-p2"> <span>Player 2 on this keyboard or gamepad</span></label>
+      <button id="btn-launch" class="btn primary big">Launch mission</button>
+      <p class="fine" id="pp-hint"></p>
+    </aside>
+  </section>
+
+  <!-- HANGAR -->
+  <section id="scr-hangar" class="screen modal" hidden>
+    <div class="oct">
+      <header class="modal-head">
+        <h2>Hangar</h2>
+        <div class="stat"><span class="k">Credits</span><span id="hg-credits" class="v">0</span></div>
+        <button class="btn small ghost" data-close>Close</button>
+      </header>
+      <div class="tabs" role="tablist">
+        <button role="tab" class="tab active" data-tab="ship" aria-selected="true">The Vanguard</button>
+        <button role="tab" class="tab" data-tab="crew" aria-selected="false">Your team</button>
+      </div>
+      <div class="hangar-body">
+        <div class="preview-col">
+          <canvas id="hg-preview" class="pix" width="120" height="120"></canvas>
+          <p class="fine" id="hg-blurb">An octagonal hull built around the first Octacore ever found. Upgrades carry between missions.</p>
+        </div>
+        <div id="hg-list" class="cards"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ONLINE CO-OP -->
+  <section id="scr-coop" class="screen modal" hidden>
+    <div class="oct">
+      <header class="modal-head">
+        <h2>Online co-op</h2>
+        <span id="net-status" class="netstatus">Connecting…</span>
+        <button class="btn small ghost" data-close>Close</button>
+      </header>
+      <p class="fine">Fly the campaign with friends who have this page open. The host picks the planet; everyone keeps the credits they earn. Up to four ships.</p>
+      <div class="coop-grid">
+        <div class="oct coop-col">
+          <h3>Host a game</h3>
+          <p class="fine">Open your game, then launch any mission from the galaxy map. Friends who join appear on your wing.</p>
+          <div id="host-info" hidden><p class="eyebrow">Your game code</p><div id="host-code" class="code">—</div><p class="fine" id="host-peers">Waiting for wingmates…</p></div>
+          <div class="btn-row"><button id="btn-host" class="btn primary">Open my game</button><button id="btn-unhost" class="btn ghost" hidden>Close game</button></div>
+        </div>
+        <div class="oct coop-col">
+          <h3>Join a game</h3>
+          <div id="host-list" class="host-list"><p class="fine">No open games yet.</p></div>
+          <div class="field"><label for="join-code">Game code</label><input id="join-code" maxlength="12" autocomplete="off" spellcheck="false" placeholder="OCT-0000"></div>
+          <button id="btn-join" class="btn">Join by code</button>
+        </div>
+        <div class="oct coop-col">
+          <h3>Same screen</h3>
+          <p class="fine">Tick “Player 2” on the galaxy map. Player 2 flies with the arrow keys and fires automatically, or uses a gamepad.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="scr-settings" class="screen modal narrow" hidden>
+    <div class="oct">
+      <header class="modal-head"><h2>Settings</h2><button class="btn small ghost" data-close>Close</button></header>
+      <div class="settings-grid">
+        <div class="field">
+          <label for="set-voice">Character voices</label>
+          <select id="set-voice"><option value="auto">On</option><option value="off">Off</option></select>
+          <p class="fine" id="voice-engine"></p>
+        </div>
+        <div class="range"><label for="set-mus">Music</label><input type="range" id="set-mus" min="0" max="1" step="0.05"><output id="out-mus"></output></div>
+        <div class="range"><label for="set-sfx">Effects</label><input type="range" id="set-sfx" min="0" max="1" step="0.05"><output id="out-sfx"></output></div>
+        <label class="toggle" for="set-shake"><input type="checkbox" id="set-shake"> <span>Screen shake</span></label>
+        <button id="btn-reset" class="btn ghost">Erase campaign progress</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAUSE -->
+  <section id="scr-pause" class="screen modal narrow" hidden>
+    <div class="oct">
+      <h2>Paused</h2>
+      <p class="fine" id="pause-note">The Vorr wait for no one, but they will wait for you.</p>
+      <div class="btn-row"><button id="btn-resume" class="btn primary">Resume</button><button id="btn-pause-settings" class="btn ghost">Settings</button></div>
+      <button id="btn-abandon" class="btn ghost">Abandon mission</button>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="scr-results" class="screen modal narrow" hidden>
+    <div class="oct">
+      <p class="eyebrow" id="res-eyebrow">Mission report</p>
+      <h2 id="res-title" class="result-title">Victory</h2>
+      <p class="fine" id="res-sub"></p>
+      <dl id="res-list" class="results-list"></dl>
+      <div class="btn-row"><button id="btn-res-continue" class="btn primary">Galaxy map</button><button id="btn-res-retry" class="btn ghost">Fly again</button></div>
+    </div>
+  </section>
+
+  <!-- GUEST LOBBY -->
+  <section id="scr-guest" class="screen modal narrow" hidden>
+    <div class="oct">
+      <p class="eyebrow">Online co-op</p>
+      <h2 id="guest-title">On the wing</h2>
+      <p class="fine" id="guest-status">Waiting for the host to launch a mission…</p>
+      <div class="btn-row"><button id="btn-guest-hangar" class="btn">Hangar</button><button id="btn-guest-leave" class="btn ghost">Leave game</button></div>
+    </div>
+  </section>
+
+  <!-- HUD -->
+  <section id="hud" class="screen hud" hidden>
+    <div id="hud-players" class="hud-players"></div>
+    <div class="hud-top">
+      <div id="hud-mission" class="hud-mission"></div>
+      <div id="hud-planet-wrap" class="bar planet"><i id="hud-planet"></i></div>
+      <div id="hud-boss" class="boss" hidden><span id="hud-boss-name"></span><div class="bar"><i id="hud-boss-bar"></i></div></div>
+    </div>
+    <div class="hud-right">
+      <div class="stat"><span class="k">Credits</span><span class="v" id="hud-credits">0</span></div>
+      <div class="stat"><span class="k">Pods</span><span class="v" id="hud-pods">2</span></div>
+      <button id="btn-pause" class="btn small ghost interactive" aria-label="Pause">Pause</button>
+    </div>
+    <div id="bark" class="oct bark" hidden><canvas id="bark-portrait" class="pix" width="40" height="40"></canvas><div><b id="bark-name"></b><p id="bark-text"></p></div></div>
+    <div id="banner" class="banner"><h3 id="banner-text"></h3><p id="banner-sub"></p></div>
+    <div id="touch-btns" class="touch-btns interactive" hidden><button id="tb-boost">Boost</button><button id="tb-nova">Nova</button></div>
+  </section>
+
+  <!-- DIALOGUE -->
+  <section id="dialog" class="dialog" hidden>
+    <div class="oct dlg" id="dlg-box" role="dialog" aria-label="Transmission">
+      <canvas id="dlg-portrait" class="pix" width="66" height="66"></canvas>
+      <div class="dlg-body">
+        <b id="dlg-name"></b>
+        <p id="dlg-text" aria-live="polite"></p>
+        <div class="dlg-foot"><span class="fine">Space, Enter or click to continue · <span class="voice" id="dlg-voice"></span></span><button id="dlg-skip" class="btn small ghost">Skip scene</button></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" hidden></div>
+</div>
+
+<script src="js/data.js?v=2"></script>
+<script src="js/audio.js?v=2"></script>
+<script src="js/gfx.js?v=2"></script>
+<script src="js/game.js?v=2"></script>
+<script src="js/net.js?v=2"></script>
+<script src="js/ui.js?v=2"></script>
+
+</body>
+</html>

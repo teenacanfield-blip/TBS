@@ -1046,7 +1046,92 @@ const Art = (() => {
     return s;
   };
 
+  /* ---- scene: Octant Vanguard -------------------------------------- */
+  /* Deep space over a green world: the octagonal Vanguard climbs out of orbit
+     with its guns hot, a swarm of alien bugs coming the other way, and the
+     purple rift they poured out of still open in the corner. */
+
+  const octPts = (cx, cy, r) => Array.from({ length: 8 }, (_, i) => {
+    const a = Math.PI / 8 + i * Math.PI / 4;
+    return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`;
+  }).join(' ');
+
+  const octantScene = (w, h, focal, ns) => {
+    const rand = rng(8808);
+    const tall = h > w;
+    const u = Math.min(w, h) / 40;          // one chunky pixel
+    let s = `<defs>
+      <linearGradient id="${ns}-ov-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#04050c"/>
+        <stop offset="60%" stop-color="#0d0a24"/>
+        <stop offset="100%" stop-color="#1c0e34"/>
+      </linearGradient>
+      <radialGradient id="${ns}-ov-rift">
+        <stop offset="0%" stop-color="#c77dff" stop-opacity="0.7"/>
+        <stop offset="45%" stop-color="#8a2dff" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#8a2dff" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="${ns}-ov-world" cx="35%" cy="25%" r="80%">
+        <stop offset="0%" stop-color="#b8f08a"/>
+        <stop offset="35%" stop-color="#3fa860"/>
+        <stop offset="70%" stop-color="#1f5e8a"/>
+        <stop offset="100%" stop-color="#081428"/>
+      </radialGradient>
+      <radialGradient id="${ns}-ov-glow">
+        <stop offset="0%" stop-color="#ffe2a0" stop-opacity="0.65"/>
+        <stop offset="100%" stop-color="#ffe2a0" stop-opacity="0"/>
+      </radialGradient>
+    </defs>`;
+    s += R(0, 0, w, h, `url(#${ns}-ov-sky)`);
+    for (let i = 0; i < 110; i++) {
+      const z = rand() < 0.15 ? 2 : 1;
+      s += R(Math.round(rand() * w), Math.round(rand() * h), z * u * 0.35, z * u * 0.35, rand() < 0.2 ? '#ffd9a8' : '#ffffff',
+        ` opacity="${(0.3 + rand() * 0.7).toFixed(2)}"${rand() < 0.25 ? ' class="tw"' : ''}`);
+    }
+    // The rift, top left.
+    const rx = w * (tall ? 0.22 : 0.16), ry = h * 0.22, rr = Math.min(w, h) * 0.2;
+    s += `<ellipse cx="${rx}" cy="${ry}" rx="${rr * 1.6}" ry="${rr * 1.1}" fill="url(#${ns}-ov-rift)" class="pulse-slow"/>`;
+    for (let i = 0; i < 3; i++) s += `<ellipse cx="${rx}" cy="${ry}" rx="${rr * (0.5 + i * 0.25)}" ry="${rr * (0.2 + i * 0.1)}" fill="none" stroke="#d9a8ff" stroke-width="${u * 0.4}" opacity="${0.55 - i * 0.12}" transform="rotate(${-18 + i * 9} ${rx} ${ry})"/>`;
+    s += `<ellipse cx="${rx}" cy="${ry}" rx="${rr * 0.28}" ry="${rr * 0.1}" fill="#000" transform="rotate(-18 ${rx} ${ry})"/>`;
+    // The world being defended, rising from the bottom.
+    const pr = tall ? w * 0.75 : h * 0.62, px = tall ? w * 0.5 : w * (focal > 0.6 ? 0.36 : 0.5), py = h + pr * 0.45;
+    s += `<circle cx="${px}" cy="${py}" r="${pr * 1.08}" fill="#8fffc0" opacity="0.12"/>`;
+    s += `<circle cx="${px}" cy="${py}" r="${pr}" fill="url(#${ns}-ov-world)"/>`;
+    for (let i = 0; i < 18; i++) {
+      const a = Math.PI * (1.15 + rand() * 0.7), d = pr * (0.55 + rand() * 0.4);
+      s += R(px + Math.cos(a) * d, py + Math.sin(a) * d, u * (1 + rand() * 3), u * (0.6 + rand()), '#ffffff', ' opacity="0.35"');
+    }
+    // A dashed fuel orbit around it.
+    s += `<circle cx="${px}" cy="${py}" r="${pr + u * 4}" fill="none" stroke="#ff9a3c" stroke-width="${u * 0.35}" stroke-dasharray="${u} ${u * 1.4}" opacity="0.5"/>`;
+    // Alien bugs coming in from the top right.
+    const bugs = tall ? [[0.72, 0.16], [0.86, 0.26], [0.6, 0.08], [0.9, 0.08]] : [[0.84, 0.18], [0.93, 0.32], [0.76, 0.08], [0.95, 0.1], [0.66, 0.2]];
+    bugs.forEach(([bx, by], i) => {
+      const x = w * bx, y = h * by, c = i % 3 === 1 ? '#c07bff' : '#6dff9a', d = i % 3 === 1 ? '#3a1466' : '#145a2c';
+      s += `<circle cx="${x}" cy="${y}" r="${u * 2.6}" fill="${c}" opacity="0.18"/>`;
+      s += R(x - u * 1.8, y - u * 0.4, u * 0.6, u * 0.6, d) + R(x + u * 1.2, y - u * 0.4, u * 0.6, u * 0.6, d);
+      s += R(x - u * 1.6, y + u * 0.6, u * 0.6, u * 0.6, d) + R(x + u * 1.0, y + u * 0.6, u * 0.6, u * 0.6, d);
+      s += R(x - u, y - u, u * 2, u * 2, c) + R(x - u * 0.6, y - u * 1.4, u * 1.2, u * 0.6, c);
+      s += R(x - u * 0.7, y + u * 0.2, u * 0.5, u * 0.5, '#eaff7a') + R(x + u * 0.2, y + u * 0.2, u * 0.5, u * 0.5, '#eaff7a');
+    });
+    // The Vanguard, climbing, guns hot.
+    const sx = w * (tall ? 0.5 : focal), sy = h * (tall ? 0.5 : 0.52), sr = u * 3.2;
+    s += `<circle cx="${sx}" cy="${sy}" r="${sr * 3}" fill="url(#${ns}-ov-glow)"/>`;
+    for (const o of [-1, 1]) s += `<polygon class="flick" points="${sx + o * sr * 0.4 - u * 0.5},${sy + sr * 0.9} ${sx + o * sr * 0.4 + u * 0.5},${sy + sr * 0.9} ${sx + o * sr * 0.4},${sy + sr * 2.6}" fill="#6fd2ff"/>`;
+    for (const o of [-1, 1]) s += `<polygon points="${sx + o * sr * 0.7},${sy + sr * 0.2} ${sx + o * sr * 1.5},${sy + sr * 0.9} ${sx + o * sr * 1.4},${sy + sr * 1.3} ${sx + o * sr * 0.7},${sy + sr * 0.8}" fill="#a8621a" stroke="#fff3d0" stroke-width="${u * 0.2}"/>`;
+    for (const o of [-1, 1]) s += R(sx + o * sr * 0.42 - u * 0.3, sy - sr * 1.6, u * 0.6, sr * 0.9, '#3c3a40');
+    s += `<polygon points="${octPts(sx, sy, sr)}" fill="#ffd98a" stroke="#fff3d0" stroke-width="${u * 0.3}"/>`;
+    s += `<polygon points="${octPts(sx, sy, sr * 0.58)}" fill="#2b1f14"/>`;
+    s += `<polygon points="${octPts(sx, sy, sr * 0.28)}" fill="#7ff3ff" class="pulse"/>`;
+    // Its bolts, heading for the swarm.
+    for (let i = 0; i < 4; i++) {
+      const t = (i + 1) / 5, bx = sx + (w * (tall ? 0.78 : 0.86) - sx) * t, by = sy - sr * 1.6 + (h * 0.2 - sy + sr * 1.6) * t;
+      s += R(bx - u * 0.35, by - u * 0.9, u * 0.7, u * 1.8, '#fff3cc', ` transform="rotate(${tall ? 35 : 55} ${bx} ${by})"`);
+    }
+    return s;
+  };
+
   const SCENES = {
+    'octant-vanguard': octantScene,
     'eyes': eyesScene,
     'patrol-rush': patrolScene,
     'laser-tag': laserTagScene,
@@ -1424,6 +1509,24 @@ const Art = (() => {
         <rect x="27" y="40" width="10" height="4" fill="#e8e4d0"/>
         <rect x="15" y="46" width="7" height="5" fill="#08090c"/>
         <rect x="42" y="46" width="7" height="5" fill="#08090c"/>
+      </svg>`;
+    }
+    if (id === 'octant-vanguard') {
+      /* The octagonal ship, engines lit, with a bug coming for it. */
+      return `<svg viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="${s}" height="${s}" rx="10" fill="#0d0a24"/>
+        <rect x="8" y="10" width="2" height="2" fill="#ffffff" opacity="0.7"/>
+        <rect x="50" y="44" width="2" height="2" fill="#ffffff" opacity="0.6"/>
+        <rect x="14" y="48" width="2" height="2" fill="#ffd9a8" opacity="0.7"/>
+        <rect x="44" y="8" width="8" height="8" fill="#6dff9a"/>
+        <rect x="46" y="12" width="2" height="2" fill="#eaff7a"/>
+        <rect x="49" y="12" width="2" height="2" fill="#eaff7a"/>
+        <rect x="38" y="20" width="2" height="5" fill="#fff3cc"/>
+        <polygon points="25,44 29,44 27,56" fill="#6fd2ff"/>
+        <polygon points="35,44 39,44 37,56" fill="#6fd2ff"/>
+        <polygon points="${octPts(32, 34, 13)}" fill="#ffd98a" stroke="#fff3d0" stroke-width="2"/>
+        <polygon points="${octPts(32, 34, 7)}" fill="#2b1f14"/>
+        <polygon points="${octPts(32, 34, 3.5)}" fill="#7ff3ff"/>
       </svg>`;
     }
     if (id === 'eyes') {

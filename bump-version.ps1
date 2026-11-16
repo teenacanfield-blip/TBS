@@ -17,6 +17,7 @@ $pages = @(
     "ufo-caveman/game load up!.html",
     "roaminals/index.html",
     "roaminals/art-book.html",
+    "octant-vanguard/index.html",
     "demos/rip-and-go/index.html",
     "demos/rip-and-go/lab.html"
 )
